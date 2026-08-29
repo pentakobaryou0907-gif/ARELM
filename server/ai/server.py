@@ -580,7 +580,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, {'ok': False, '訳': verdict['reason'], 'パターン': []})
 
                 結果 = SNS文章.パターンを作る(
-                    商品情報, data.get('トーン') or 'カジュアル', int(data.get('件数') or 3))
+                    商品情報, data.get('トーン') or 'カジュアル', int(data.get('件数') or 3),
+                    data.get('型') or 'キャプション')
                 return self._send(200, 結果)
 
             if self.path == '/brand-memory':

@@ -1042,12 +1042,24 @@
                         <section class="panel-card">
                             <h3>⚡ AIで投稿文を作る</h3>
                             <p class="hint">
-                                商品を選ぶと、この端末の中のAI（Qwen2.5）が
-                                トーン別に3パターンの投稿文を考えます。
+                                型を選ぶと、この端末の中のAI（Qwen2.5）が投稿文を考えます。
+                                中身は必ず、商品情報・保管庫の覚え書きなど<strong>この端末にある情報の範囲</strong>で作ります（作り話はしません）。
                             </p>
+                            <div class="form-group">
+                                <label for="sns-gen-type">型</label>
+                                <select id="sns-gen-type">
+                                    <option value="キャプション">ふつうのキャプション（3パターン）</option>
+                                    <option value="トーク台本">🎤 トーク台本（顔出し動画用・約30秒）</option>
+                                    <option value="工程公開">📸 工程公開（写真つき投稿用・2パターン）</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label for="sns-gen-product">商品</label>
                                 <select id="sns-gen-product"></select>
+                            </div>
+                            <div class="form-group" id="sns-gen-photo-wrap" hidden>
+                                <label for="sns-gen-photo">保管庫の写真（覚え書きを内容として使います）</label>
+                                <select id="sns-gen-photo"></select>
                             </div>
                             <div class="form-group">
                                 <label for="sns-gen-tone">トーン</label>
@@ -1058,7 +1070,7 @@
                                 </select>
                             </div>
                             <button type="button" id="sns-gen-btn" class="btn btn-primary">
-                                3パターン作る
+                                作る
                             </button>
                             <ul id="sns-gen-results" class="sns-gen-results"></ul>
                         </section>

@@ -7,6 +7,7 @@ function initSns() {
     document.getElementById('sns-trend-analyze-btn')?.addEventListener('click', analyzeTrendsWithAi);
     document.getElementById('refresh-sns-btn')?.addEventListener('click', loadSnsData);
     document.getElementById('sns-gen-btn')?.addEventListener('click', generateSnsCaptions);
+    document.getElementById('sns-gen-type')?.addEventListener('change', 投稿文の型が変わった);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     if (typeof init転換率 === 'function') init転換率();
     populateSnsPlatformSelect();
@@ -58,11 +59,34 @@ async function draftCustomerReply() {
 }
 
 /** AIに投稿文を3パターン作ってもらう */
+/** 「工程公開」を選んだときだけ、保管庫の写真から選べるようにする */
+async function 投稿文の型が変わった() {
+    const 型 = document.getElementById('sns-gen-type')?.value;
+    const 枠 = document.getElementById('sns-gen-photo-wrap');
+    if (!枠) return;
+    枠.hidden = 型 !== '工程公開';
+    if (枠.hidden) return;
+
+    const sel = document.getElementById('sns-gen-photo');
+    if (!sel || typeof 一覧を読む !== 'function') return;
+
+    sel.innerHTML = '<option value="">読み込み中…</option>';
+    const 一覧 = (await 一覧を読む()).filter((x) => x.種類 === '画像' && x.覚え書き);
+    if (!一覧.length) {
+        sel.innerHTML = '<option value="">（覚え書き付きの写真が保管庫にありません）</option>';
+        return;
+    }
+    sel.innerHTML = 一覧
+        .map((x) => `<option value="${x.id}" data-note="${AReGLM_SECURITY.escapeAttr(x.覚え書き)}">${AReGLM_SECURITY.sanitizeHtml(x.名前)}（${AReGLM_SECURITY.sanitizeHtml(x.覚え書き.slice(0, 20))}…）</option>`)
+        .join('');
+}
+
 async function generateSnsCaptions() {
     const btn = document.getElementById('sns-gen-btn');
     const box = document.getElementById('sns-gen-results');
     const sel = document.getElementById('sns-gen-product');
     const toneSel = document.getElementById('sns-gen-tone');
+    const typeSel = document.getElementById('sns-gen-type');
     if (!box || !sel) return;
 
     const products = JSON.parse(localStorage.getItem('products') || '[]');
@@ -72,11 +96,30 @@ async function generateSnsCaptions() {
         return;
     }
 
-    const 商品情報 = [
+    const 型 = typeSel?.value || 'キャプション';
+
+    let 商品情報 = [
         `商品名: ${p.name || ''}`,
         p.price ? `価格: ¥${p.price}` : '',
         p.description ? `特徴: ${p.description}` : '',
     ].filter(Boolean).join('\n');
+
+    if (型 === 'トーク台本') {
+        // 台本には、商品の情報だけでなく「今の状況」も少し添える
+        // （フックに使える数字・事実があると、話しやすい台本になるため）。
+        const 状況 = typeof reportTodayStatus === 'function' ? reportTodayStatus() : '';
+        商品情報 = `${商品情報}${状況 ? `\n\n【今の状況】\n${状況}` : ''}`;
+    }
+
+    if (型 === '工程公開') {
+        const photoSel = document.getElementById('sns-gen-photo');
+        const 覚え書き = photoSel?.selectedOptions?.[0]?.dataset?.note || '';
+        if (!覚え書き) {
+            showNotification('保管庫の写真を選んでください（覚え書きが無いものは選べません）', 'error');
+            return;
+        }
+        商品情報 = `${商品情報}\n\n写真の内容（本人の覚え書き）: ${覚え書き}`;
+    }
 
     box.innerHTML = '<li class="sns-gen-loading" id="sns-gen-loading-line">作っています…（この端末のAIなので少し時間がかかります・0秒）</li>';
     if (btn) btn.disabled = true;
@@ -94,7 +137,7 @@ async function generateSnsCaptions() {
         const r = await fetch('/api/sns/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数: 3 }),
+            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数: 型 === '工程公開' ? 2 : 3, 型 }),
         }).then((y) => y.json());
 
         if (!r.ok) {
