@@ -245,6 +245,50 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
 
+    def _extract_document_text(self):
+        """
+        資料（PDF/Word/PowerPoint/テキスト）の生のバイト列を受け取り、
+        この端末の中だけで本文を取り出す。
+
+        既存の一括取り込み（ingest.py の extract_text）と同じ処理を、
+        チャットへその場で添付したときにも使えるようにする。
+        音声と同じく、一時ファイルへ書き出して渡し、必ず消す。
+        """
+        import os
+        import tempfile
+        import ingest
+
+        拡張子 = (self.headers.get('X-File-Ext') or '').lower()
+        許可 = {'.pdf', '.docx', '.pptx', '.txt', '.md', '.csv'}
+        if 拡張子 not in 許可:
+            return self._send(400, {'ok': False, 'text': '', 'reason': f'対応していない形式です: {拡張子}'})
+
+        length = int(self.headers.get('Content-Length') or 0)
+        if not length:
+            return self._send(400, {'ok': False, 'text': '', 'reason': 'ファイルが届いていません'})
+        if length > 20 * 1024 * 1024:
+            return self._send(400, {'ok': False, 'text': '', 'reason': 'ファイルが大きすぎます（20MBまで）'})
+
+        中身 = self.rfile.read(length)
+
+        仮ファイル = tempfile.NamedTemporaryFile(suffix=拡張子, delete=False)
+        try:
+            仮ファイル.write(中身)
+            仮ファイル.close()
+            本文 = ingest.extract_text(仮ファイル.name)
+            if not 本文.strip():
+                return self._send(200, {'ok': False, 'text': '', 'reason': '本文を読み取れませんでした（画像だけのPDF等の可能性があります）'})
+            上限 = 8000
+            切れたか = len(本文) > 上限
+            return self._send(200, {'ok': True, 'text': 本文[:上限], 'truncated': 切れたか})
+        except Exception as e:
+            return self._send(500, {'ok': False, 'text': '', 'reason': str(e)})
+        finally:
+            try:
+                os.unlink(仮ファイル.name)
+            except OSError:
+                pass
+
     def log_message(self, fmt, *args):
         # アクセスログは出さない（学習内容が漏れないように）
         pass
@@ -409,6 +453,9 @@ class Handler(BaseHTTPRequestHandler):
         # 他の道より先に、ここで別扱いにする。
         if self.path == '/speech-to-text':
             return self._speech_to_text()
+
+        if self.path == '/extract-document-text':
+            return self._extract_document_text()
 
         data = self._body()
 

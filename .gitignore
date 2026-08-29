@@ -19,5 +19,9 @@ server_launchd.log
 # OSのゴミ
 .DS_Store
 
+# Pythonが自動で作るコンパイル済みキャッシュ（コードではない）
+__pycache__/
+*.pyc
+
 # 端末ごとの設定（鍵などは別途暗号化されて保存される）
 .env

@@ -2147,6 +2147,25 @@ app.post('/api/voice/transcribe', express.raw({ type: '*/*', limit: '25mb' }), a
     }
 });
 
+/** AIチャットに添付した資料（PDF/Word/PowerPoint/テキスト）の本文を取り出す */
+app.post('/api/extract-document-text', express.raw({ type: '*/*', limit: '20mb' }), async (req, res) => {
+    if (!req.body || !req.body.length) {
+        return res.status(400).json({ ok: false, text: '', reason: 'ファイルが届いていません' });
+    }
+    const 拡張子 = String(req.query.ext || '').toLowerCase();
+    try {
+        const r = await aiEngineFetch('/extract-document-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream', 'X-File-Ext': 拡張子 },
+            body: req.body,
+        });
+        const d = await r.json();
+        res.json(d);
+    } catch (e) {
+        res.status(503).json({ ok: false, text: '', reason: '自作AIエンジンに繋がりません: ' + e.message });
+    }
+});
+
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
     res.sendFile(path.join(ROOT, 'index.html'));

@@ -356,27 +356,85 @@ async function 画像添付を作る(dataOrUrl, prompt) {
     return { type: 'image', data: dataOrUrl, prompt };
 }
 
+/** 資料として本文を読み取れる拡張子（サーバー側のingest.pyと対応） */
+const 資料として読める拡張子 = ['.pdf', '.docx', '.pptx', '.txt', '.md', '.csv'];
+
 function handleChatFiles(e) {
     Array.from(e.target.files || []).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-            const 項目 = { type: 'image', name: file.name, data: ev.target.result };
-            chatAttachments.push(項目);
-            renderChatAttachments();
+        if (file.type.startsWith('image/')) {
+            画像として添付する(file);
+            return;
+        }
 
-            // 本体はIndexedDBへ。会話の履歴（localStorage）には
-            // 番号だけを持たせ、あとから容量オーバーで消えないようにする。
-            if (window.AReGLM_IMAGES) {
-                try {
-                    項目.imgId = await AReGLM_IMAGES.画像を保存する(ev.target.result);
-                } catch (err) {
-                    console.warn('画像をIndexedDBへ保存できませんでした:', err);
-                }
-            }
-        };
-        reader.readAsDataURL(file);
+        const 拡張子 = ('.' + (file.name.split('.').pop() || '')).toLowerCase();
+        if (資料として読める拡張子.includes(拡張子)) {
+            資料として添付する(file, 拡張子);
+            return;
+        }
+
+        // 読み方を知らない形式（動画等）は、中身は読まず名前だけ添付する。
+        // 添付ボタン自体は accept="image/*,.pdf,video/*" なので、ここに
+        // 来るのは主に動画。動画の内容理解はまだ実装していない。
+        chatAttachments.push({ type: 'file', name: file.name });
+        renderChatAttachments();
+        showNotification(`「${file.name}」は名前だけ添付しました（この形式の中身はまだ読めません）`, 'info');
     });
     e.target.value = '';
+}
+
+function 画像として添付する(file) {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        const 項目 = { type: 'image', name: file.name, data: ev.target.result };
+        chatAttachments.push(項目);
+        renderChatAttachments();
+
+        // 本体はIndexedDBへ。会話の履歴（localStorage）には
+        // 番号だけを持たせ、あとから容量オーバーで消えないようにする。
+        if (window.AReGLM_IMAGES) {
+            try {
+                項目.imgId = await AReGLM_IMAGES.画像を保存する(ev.target.result);
+            } catch (err) {
+                console.warn('画像をIndexedDBへ保存できませんでした:', err);
+            }
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+/**
+ * PDF・Word・PowerPoint・テキストの本文を、この端末のAIエンジンで取り出す。
+ * 取り出した本文は添付として持たせ、AIへの質問に含める（chat.js側の
+ * AIへの質問 組み立てで、URL添付と同じように使う）。
+ */
+async function 資料として添付する(file, 拡張子) {
+    const 項目 = { type: 'document', name: file.name, 読み込み中: true };
+    chatAttachments.push(項目);
+    renderChatAttachments();
+
+    try {
+        const buf = await file.arrayBuffer();
+        const r = await fetch(`/api/extract-document-text?ext=${encodeURIComponent(拡張子)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: buf,
+        }).then((y) => y.json());
+
+        項目.読み込み中 = false;
+        if (r.ok) {
+            項目.本文 = r.text;
+            項目.truncated = !!r.truncated;
+            showNotification(`「${file.name}」の本文を読み取りました。`, 'success');
+        } else {
+            項目.失敗 = r.reason || '読み取れませんでした';
+            showNotification(`「${file.name}」: ${項目.失敗}`, 'error');
+        }
+    } catch (e) {
+        項目.読み込み中 = false;
+        項目.失敗 = e.message;
+        showNotification(`「${file.name}」の読み取りに失敗しました: ${e.message}`, 'error');
+    }
+    renderChatAttachments();
 }
 
 /**
@@ -387,28 +445,40 @@ function handleChatFiles(e) {
  * （URLを添付したこと自体は伝わる。相手のURLは見えているが、中身は読んでいない）。
  */
 async function URL添付の本文を差し込む(text, attachments) {
+    let 質問 = text;
+
+    // --- URL添付（既定オフの設定が必要。設定 → 「URLの本文を読みに行く」） ---
     const urlたち = (attachments || []).filter((a) => a.type === 'url');
-    if (!urlたち.length) return text;
-    if (localStorage.getItem('areglm_url_fetch_enabled') !== 'true') return text;
+    if (urlたち.length && localStorage.getItem('areglm_url_fetch_enabled') === 'true') {
+        const 結果たち = await Promise.all(urlたち.map(async (a) => {
+            try {
+                const res = await fetch('/api/fetch-url-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: a.data || a.name }),
+                    signal: AbortSignal.timeout(17000),
+                });
+                const d = await res.json();
+                if (!d.ok) return `${a.name}: 読み込めませんでした（${d.reason || '不明な理由'}）`;
+                const 見出し = d.title ? `${d.title}（${a.name}）` : a.name;
+                return `${見出し}\n${d.text}${d.truncated ? '\n…（長いため途中まで）' : ''}`;
+            } catch (e) {
+                return `${a.name}: 読み込めませんでした（${e.message}）`;
+            }
+        }));
+        質問 += `\n\n【添付URLの本文】\n${結果たち.join('\n\n---\n\n')}`;
+    }
 
-    const 結果たち = await Promise.all(urlたち.map(async (a) => {
-        try {
-            const res = await fetch('/api/fetch-url-text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: a.data || a.name }),
-                signal: AbortSignal.timeout(17000),
-            });
-            const d = await res.json();
-            if (!d.ok) return `${a.name}: 読み込めませんでした（${d.reason || '不明な理由'}）`;
-            const 見出し = d.title ? `${d.title}（${a.name}）` : a.name;
-            return `${見出し}\n${d.text}${d.truncated ? '\n…（長いため途中まで）' : ''}`;
-        } catch (e) {
-            return `${a.name}: 読み込めませんでした（${e.message}）`;
-        }
-    }));
+    // --- 資料添付（PDF/Word/PowerPoint/テキスト。添付した時点で既に読み取り済み） ---
+    const 資料たち = (attachments || []).filter((a) => a.type === 'document' && a.本文);
+    if (資料たち.length) {
+        const 資料の文 = 資料たち
+            .map((a) => `${a.name}\n${a.本文}${a.truncated ? '\n…（長いため途中まで）' : ''}`)
+            .join('\n\n---\n\n');
+        質問 += `\n\n【添付資料の本文】\n${資料の文}`;
+    }
 
-    return `${text}\n\n【添付URLの本文】\n${結果たち.join('\n\n---\n\n')}`;
+    return 質問;
 }
 
 /** 「これを中国語に訳して」のような発言から、訳したい言語を拾う */
@@ -482,10 +552,15 @@ function renderChatAttachments() {
     }
     box.hidden = false;
     box.innerHTML = chatAttachments
-        .map(
-            (a, i) =>
-                `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`
-        )
+        .map((a, i) => {
+            let 状態 = '';
+            if (a.type === 'document') {
+                if (a.読み込み中) 状態 = '（読み込み中…）';
+                else if (a.失敗) 状態 = `（読み取れませんでした: ${a.失敗}）`;
+                else if (a.本文) 状態 = '（本文を読み取り済み）';
+            }
+            return `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}${AReGLM_SECURITY.sanitizeHtml(状態)}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`;
+        })
         .join('');
     box.querySelectorAll('button').forEach((btn) => {
         btn.onclick = () => {
@@ -718,6 +793,13 @@ function 保存用に軽くする(msgs) {
             attachments: m.attachments.map((a) => {
                 if (a.type === 'image' && a.data && a.imgId) {
                     const { data, ...軽い } = a;
+                    return 軽い;
+                }
+                // 資料の本文（最大8000字）は、送るときにその場で使うだけのもの。
+                // 毎回の会話保存に残し続けると容量を圧迫するため、
+                // 添付した事実（名前）だけ残し、本文は保存しない。
+                if (a.type === 'document' && a.本文) {
+                    const { 本文, ...軽い } = a;
                     return 軽い;
                 }
                 return a;
