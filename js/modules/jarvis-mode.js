@@ -128,6 +128,7 @@ function JARVISモードを閉じる() {
     const overlay = document.getElementById('jarvis-overlay');
     if (!overlay) return;
     overlay.hidden = true;
+    overlay.classList.remove('jarvis-sleeping'); // 次に開いたときは、必ず起きた状態から
     document.body.classList.remove('jarvis-active');
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
     JARVISの状態(null);

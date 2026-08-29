@@ -649,6 +649,15 @@ function ensureWakeToast() {
 }
 
 function openQuickPanelForVoice() {
+    // 名前を呼ばれたら、フルスクリーンのJARVISモードに切り替わるようにする
+    // （本人の指示）。JARVISモードが使えない場合だけ、
+    // 以前どおりの小さなクイックパネルにする。
+    if (typeof switchPage === 'function' && typeof JARVISモードを開く === 'function'
+        && document.getElementById('jarvis-overlay')) {
+        switchPage('mainai');
+        JARVISモードを開く();
+        return;
+    }
     if (typeof openQuickPanel === 'function') {
         openQuickPanel();
         setTimeout(() => {

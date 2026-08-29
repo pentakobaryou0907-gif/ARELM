@@ -9215,3 +9215,21 @@ html[data-theme] .chat-bubble.user {
     font-size: 0.85rem;
     font-style: italic;
 }
+
+/* 拍手でのスリープ表示。呼吸・回転などの動きを止め、暗く落とす。
+   もう一度拍手すれば元に戻る（jarvis-mode.js 側で解除）。 */
+.jarvis-overlay.jarvis-sleeping .jarvis-ring,
+.jarvis-overlay.jarvis-sleeping .jarvis-core {
+    animation: none !important;
+    opacity: 0.25;
+}
+.jarvis-overlay.jarvis-sleeping .jarvis-nodes {
+    opacity: 0.15;
+}
+.jarvis-overlay.jarvis-sleeping .jarvis-text::after {
+    content: '（スリープ中。拍手で戻ります）';
+    display: block;
+    font-size: 0.75rem;
+    color: #4dabf7;
+    margin-top: 0.4rem;
+}

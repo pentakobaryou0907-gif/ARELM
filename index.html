@@ -713,6 +713,24 @@
                         <h4 class="rule-head">開いていなくても反応する</h4>
                         <div id="always-listen" class="voice-block"></div>
 
+                        <h4 class="rule-head">拍手で起動・スリープ（実験的機能）</h4>
+                        <label class="wake-browser-opt">
+                            <input type="checkbox" id="clap-detect-toggle">
+                            <span>
+                                <b>拍手を検知する</b>
+                                <small>
+                                    有効にすると、マイクの音量の変化だけをこの端末の中で見て、
+                                    拍手らしい鋭い音を検知します（<strong>音声を文字にしたり、外へ送ったりはしません</strong>）。
+                                    1回叩くと、閉じているときは開き、開いているときはスリープ（省エネ表示）に切り替わります。
+                                    もう一度叩くと元に戻ります。<br>
+                                    <strong>実験的な機能です。</strong>物を置く音・咳・ドアの音などを拍手と間違えることがあります。
+                                    誤検知が多い場合は、ここで切ってください（既定は切ってあります）。
+                                    有効にすると、このアプリを開いている間ずっとマイクが入ったままになります。
+                                </small>
+                            </span>
+                        </label>
+                        <p id="clap-status" class="hint"></p>
+
                         <div class="voice-own voice-block" id="voice-push-block">
                             <h4 class="rule-head">押して話す</h4>
                             <p class="hint">
@@ -2536,6 +2554,7 @@
     <script src="js/modules/console.js" defer></script>
     <script src="js/modules/週次レポート.js" defer></script>
     <script src="js/modules/自己修正の安全装置.js" defer></script>
+    <script src="js/modules/拍手検知.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>
