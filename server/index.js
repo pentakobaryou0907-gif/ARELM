@@ -1908,6 +1908,178 @@ app.post('/api/suzuri/products', async (req, res) => {
     }
 });
 
+/**
+ * 自己修正の安全装置（1-2）
+ *
+ * 「ツールが自分で直せる」ようにしたいという要望と、
+ * 「人の確認なしに動いているコードが書き換わるのは危ない」という
+ * 心配の、両方を満たすための土台。
+ *
+ * ここで正直に書いておくこと：
+ *   この端末のローカルAI（Qwen2.5・7Bクラス）は、自然な言葉から
+ *   このアプリ規模のコードを正しく書き換えるだけの力を、
+ *   まだ持っていない。無理に「自動で書かせる」ボタンを作ると、
+ *   壊れたコードがそのまま動いてしまう恐れがある。
+ *   だから今回作るのは「誰が変更したコードであっても、
+ *   安全に記録・検査・元に戻せる」骨組みまで。
+ *
+ * 骨組みの中身：
+ *   1. 変更前に、必ずGitへ記録する（このファイルの下でコミットする）
+ *   2. コミットする前に、自動テストを走らせる（落ちたら記録しない）
+ *   3. いつでも直前の記録点まで戻せる（ロールバック）
+ *   4. 差分が大きい変更は、コミットせずに差分だけを返す
+ *      （呼び出す側が本人に見せてから、別途「このまま記録する」を呼ぶ）
+ */
+const { execFileSync: 実行 } = require('child_process');
+const AREGLM_ROOT = __dirname.replace(/\/server$/, '');
+const 大きな変更の目安 = 50; // これを超える行数の差分は、確認なしでは記録しない
+
+function gitで実行(args) {
+    return 実行('git', args, { cwd: AREGLM_ROOT, encoding: 'utf8' });
+}
+
+/**
+ * Node側から見える python3 は、pyenvのshimが必要なパッケージ
+ * （numpy等）の入っていない別のバージョンを指してしまうことがある
+ * （実際にテストで踏んだ）。自作AIエンジン本体（server.py）と
+ * 同じ実体を、確実に同じもので実行する。
+ */
+const PYTHON_BIN = (() => {
+    try {
+        const 一覧 = 実行('bash', ['-lc', 'ls /Users/ari/.pyenv/versions/*/bin/python3 2>/dev/null'], { encoding: 'utf8' })
+            .split('\n').filter(Boolean);
+        return 一覧[一覧.length - 1] || 'python3';
+    } catch {
+        return 'python3';
+    }
+})();
+
+/** 変更されたコードファイルだけを検査する（学習データ等は対象外） */
+function 変更ファイルを検査する() {
+    const 変更 = gitで実行(['status', '--porcelain']).split('\n').filter(Boolean)
+        .map((l) => l.slice(3).trim())
+        .filter((f) => !f.includes('server/data/') && !f.includes('node_modules/'));
+
+    const 結果 = { ok: true, 見た数: 0, 失敗: [] };
+    for (const f of 変更) {
+        const 絶対path = require('path').join(AREGLM_ROOT, f);
+        if (!require('fs').existsSync(絶対path)) continue;
+        try {
+            if (f.endsWith('.js')) {
+                実行('node', ['--check', 絶対path], { encoding: 'utf8' });
+                結果.見た数 += 1;
+            } else if (f.endsWith('.py')) {
+                実行(PYTHON_BIN, ['-m', 'py_compile', 絶対path], { encoding: 'utf8' });
+                結果.見た数 += 1;
+            }
+        } catch (e) {
+            結果.ok = false;
+            結果.失敗.push({ ファイル: f, 訳: (e.stderr || e.message || '').toString().slice(0, 500) });
+        }
+    }
+    return 結果;
+}
+
+/** 自作AIエンジンの自動テストを走らせる（速いので毎回やる） */
+function AIエンジンのテストを走らせる() {
+    try {
+        const 出 = 実行(PYTHON_BIN, ['test_ai.py'], {
+            cwd: require('path').join(AREGLM_ROOT, 'server/ai'),
+            encoding: 'utf8',
+        });
+        return { ok: true, 出 };
+    } catch (e) {
+        return { ok: false, 出: (e.stdout || e.message || '').toString() };
+    }
+}
+
+app.get('/api/self-heal/status', (req, res) => {
+    try {
+        const 状態 = gitで実行(['status', '--porcelain']);
+        const 変更行数 = (() => {
+            try {
+                const 統計 = gitで実行(['diff', '--shortstat']);
+                const m = 統計.match(/(\d+) insertion|(\d+) deletion/g) || [];
+                return m.reduce((sum, s) => sum + parseInt(s, 10), 0);
+            } catch { return 0; }
+        })();
+        res.json({
+            ok: true,
+            変更ファイル数: 状態.split('\n').filter(Boolean).length,
+            変更行数,
+            大きな変更か: 変更行数 > 大きな変更の目安,
+        });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/self-heal/checkpoint', (req, res) => {
+    try {
+        const message = (req.body?.message || '変更を記録').slice(0, 200);
+        const 強制 = !!req.body?.強制的に記録する;
+
+        const 検査 = 変更ファイルを検査する();
+        if (!検査.ok) {
+            return res.json({ ok: false, 段階: '構文検査', 検査 });
+        }
+
+        const テスト = AIエンジンのテストを走らせる();
+        if (!テスト.ok) {
+            return res.json({ ok: false, 段階: '自動テスト', テスト });
+        }
+
+        const 統計 = gitで実行(['diff', '--shortstat']) || '';
+        const 変更行数 = (統計.match(/(\d+) insertion|(\d+) deletion/g) || [])
+            .reduce((sum, s) => sum + parseInt(s, 10), 0);
+
+        if (変更行数 > 大きな変更の目安 && !強制) {
+            // 大きな変更は、ここでは記録しない。差分を見せるだけにする。
+            const 差分 = gitで実行(['diff', '--stat']);
+            return res.json({
+                ok: true, 記録した: false,
+                訳: `変更が${変更行数}行と大きいため、確認なしでは記録しません。`,
+                差分,
+            });
+        }
+
+        gitで実行(['add', '-A']);
+        gitで実行(['commit', '-m', message]);
+        const 直近 = gitで実行(['log', '-1', '--format=%h %ad', '--date=iso-local']);
+        res.json({ ok: true, 記録した: true, 検査, テスト: { ok: true }, 直近 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.get('/api/self-heal/history', (req, res) => {
+    try {
+        const ログ = gitで実行(['log', '--format=%h|%ad|%s', '--date=iso-local', '-30']);
+        const 一覧 = ログ.split('\n').filter(Boolean).map((行) => {
+            const [hash, 日付, ...文] = 行.split('|');
+            return { hash, 日付, 件名: 文.join('|') };
+        });
+        res.json({ ok: true, 一覧 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/self-heal/rollback', (req, res) => {
+    // 取り返しがつかない操作なので、hashの形をきびしく確かめる
+    // （任意のGitオプション文字列を渡されないようにする）。
+    const hash = String(req.body?.hash || '');
+    if (!/^[0-9a-f]{7,40}$/.test(hash)) {
+        return res.status(400).json({ ok: false, 訳: 'コミットの指定が正しくありません' });
+    }
+    try {
+        gitで実行(['reset', '--hard', hash]);
+        res.json({ ok: true, 訳: `${hash} まで戻しました` });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
 /** 静的ファイル + SPA */
 app.use(express.static(ROOT));
 

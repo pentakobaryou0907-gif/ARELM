@@ -2080,6 +2080,27 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">🛡️</span>自己修正の安全装置</h3>
+                        <p class="hint">
+                            このツールのコードに変更が入るたびに、記録（Git）に残します。
+                            記録の前には必ず自動テストと構文検査を行い、<strong>失敗した変更は記録しません。</strong>
+                            大きな変更（差分50行超）は、確認せずには記録しません。
+                            いつでも直前の記録点まで戻せます。
+                        </p>
+                        <p class="hint">
+                            <strong>正直にお伝えします：</strong>この端末のローカルAI（Qwen2.5・7Bクラス）は、
+                            まだ自分でこの規模のコードを正しく書き換えられるだけの力を持っていません。
+                            ここにあるのは「誰が変更しても安全に記録・検査・復元できる」土台です。
+                        </p>
+                        <div id="self-heal-status" class="hint"></div>
+                        <div class="guard-row">
+                            <button type="button" id="self-heal-checkpoint-btn" class="btn btn-sm btn-secondary">今の状態を記録する</button>
+                            <button type="button" id="self-heal-history-btn" class="btn btn-sm btn-secondary">記録の一覧を見る</button>
+                        </div>
+                        <div id="self-heal-history" class="self-heal-history" hidden></div>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📅</span>外部カレンダー連携（Googleカレンダー）</h3>
                         <p class="hint">
                             「計画」タブで期限付きのタスクを追加したとき、同じ内容をGoogleカレンダーにも
@@ -2514,6 +2535,7 @@
     <script src="js/modules/pricing.js" defer></script>
     <script src="js/modules/console.js" defer></script>
     <script src="js/modules/週次レポート.js" defer></script>
+    <script src="js/modules/自己修正の安全装置.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>
