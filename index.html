@@ -1045,8 +1045,16 @@
                 <div class="container">
                     <h2 class="section-title">SNS連携</h2>
                     <p class="hint">AReGLM 公式アカウント — 投稿文はこのツールの中で作れます。</p>
+                    <div class="empty-cta">
+                        <span>
+                            <strong>各SNSの公式APIとは連携しません（審査・規約対応が要るため、意図的に見送っています）。</strong>
+                            投稿文はここで作り、実際にログイン・投稿・確認する操作は、
+                            画面を映して操作する「遠隔操作」から行ってください。
+                        </span>
+                        <button type="button" id="sns-open-remote-btn" class="btn btn-sm btn-primary">🖥 遠隔操作を開く</button>
+                    </div>
                     <div id="sns-onboarding-banner" class="empty-cta" hidden>
-                        <span>すべてのSNSでAPI未設定ですが、投稿文の下書き作成はAPI設定なしで今すぐ使えます。「投稿を作成」からお試しください。</span>
+                        <span>投稿文の下書き作成はAPI設定なしで今すぐ使えます。「投稿を作成」からお試しください。</span>
                     </div>
                     <div id="sns-platform-grid" class="sns-accounts-grid"></div>
                     <div class="two-col">

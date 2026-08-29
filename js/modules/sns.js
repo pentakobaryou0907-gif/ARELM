@@ -8,6 +8,7 @@ function initSns() {
     document.getElementById('refresh-sns-btn')?.addEventListener('click', loadSnsData);
     document.getElementById('sns-gen-btn')?.addEventListener('click', generateSnsCaptions);
     document.getElementById('sns-gen-type')?.addEventListener('change', 投稿文の型が変わった);
+    document.getElementById('sns-open-remote-btn')?.addEventListener('click', SNSを遠隔操作で開く);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     if (typeof init転換率 === 'function') init転換率();
     populateSnsPlatformSelect();
@@ -59,6 +60,22 @@ async function draftCustomerReply() {
 }
 
 /** AIに投稿文を3パターン作ってもらう */
+/**
+ * SNSの実際の操作（ログイン・投稿・確認）は公式APIを使わず、
+ * 画面を映して操作する「遠隔操作」で行う（本人の方針）。
+ * ここから1回で、遠隔操作の「画面を見る」タブを開き、映し始めるところまで進める。
+ */
+function SNSを遠隔操作で開く() {
+    if (typeof switchPage === 'function') switchPage('remote');
+    setTimeout(() => {
+        document.querySelector('[data-remote-tab="screen"]')?.click();
+        setTimeout(() => {
+            const 映すボタン = document.querySelector('.stop-box button');
+            if (映すボタン && 映すボタン.textContent.includes('映し始める')) 映すボタン.click();
+        }, 100);
+    }, 50);
+}
+
 /** 「工程公開」を選んだときだけ、保管庫の写真から選べるようにする */
 async function 投稿文の型が変わった() {
     const 型 = document.getElementById('sns-gen-type')?.value;
