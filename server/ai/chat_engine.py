@@ -41,6 +41,7 @@ import 覚えた作業
 import 自分のこと
 import ローカルLLM
 import ブランドの記憶
+import エージェント定義
 from tokenizer import tokenize
 
 
@@ -637,6 +638,13 @@ class ChatEngine:
         質問の中身 = '\n\n'.join(p for p in [やり取りの文, f'【今回の発言】\n{text}' if やり取りの文 else text] if p)
         LLMへの質問 = f'{記憶の文}\n\n{質問の中身}' if 記憶の文 else 質問の中身
 
+        # マルチエージェント化: 今の画面（無ければ発言の言葉）から、
+        # 専門の担当を選び、その立場で答えるよう指示を先頭に付ける。
+        担当id = エージェント定義.エージェントを選ぶ(page=context.get('page'), 発言=text)
+        担当指示 = エージェント定義.エージェントの指示文(担当id) if 担当id else ''
+        if 担当指示:
+            LLMへの質問 = f'【担当】\n{担当指示}\n\n{LLMへの質問}'
+
         # 設定ページ「AIの話し方」。書かれていれば、口調の指示として先頭に付ける。
         # 空なら何も変わらない（これまで通りの返事）。
         話し方 = (context.get('persona') or '').strip()
@@ -658,6 +666,7 @@ class ChatEngine:
                 'certainty': 'external',
                 'answer': ローカルの答え,
                 'sources': 出所たち,
+                'agent': エージェント定義.エージェント情報(担当id) if 担当id else None,
             }
         else:
             返事 = self._fallback(text)

@@ -676,6 +676,7 @@ class Handler(BaseHTTPRequestHandler):
                     data.get('操作たち') or [],
                     data.get('直近の会話') or [],
                     persona=data.get('persona') or '',
+                    page=data.get('page') or '',
                 )
                 with _lock:
                     learner.learn(発言, 'agent:user')

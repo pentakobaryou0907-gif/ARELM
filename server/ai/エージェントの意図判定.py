@@ -33,6 +33,7 @@
 import json
 
 import ローカルLLM
+import エージェント定義
 
 
 def _JSONを取り出す(文):
@@ -67,7 +68,7 @@ def _操作の説明(操作たち):
     return '\n'.join(行)
 
 
-def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
+def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None, page=None):
     """
     発言から、実行できる操作のどれに当たるかを選ぶ。
 
@@ -75,6 +76,7 @@ def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
     @param 操作たち    [{'id':…, 'label':…, 'examples':[…], 'needsArg': bool}]
     @param 直近の会話  [{'role': 'user'|'assistant', 'text': …}]（任意、文脈用）
     @param persona    設定ページ「AIの話し方」に書かれた口調の指示（任意）
+    @param page       今見ている画面のページID（任意、担当エージェント選びに使う）
     @return {'ok': True, '操作id': str|None, '材料': str, '会話の返事': str}
             LLMが使えない・形が読めない場合は {'ok': False, '訳': str}
     """
@@ -97,12 +99,21 @@ def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
 
     persona = (persona or '').strip()
 
+    # マルチエージェント化: 今の画面から専門の担当を選ぶ。
+    # 操作idの選び方には影響させず、"会話の返事"の立場づけにだけ使う。
+    担当id = エージェント定義.エージェントを選ぶ(page=page, 発言=発言)
+    担当指示 = エージェント定義.エージェントの指示文(担当id) if 担当id else ''
+
     指示 = (
         'あなたは「アレラム」という名前の、AReGLMというアパレルブランド運営ツールの'
         '中で動くエージェントです。ユーザーの発言を読み、'
         '次の「実行できる操作」の中から最も合うものを一つだけ選ぶか、'
         'どれにも当てはまらなければ、あなた自身が自然に会話で返事をしてください。\n'
         '\n'
+        + ((
+            '【担当（"会話の返事"を書くときだけ、この立場で。'
+            '操作idの選び方には影響させないでください）】\n' + 担当指示 + '\n\n'
+        ) if 担当指示 else '')
         + ((
             '【話し方の指示（本人が設定した口調。"会話の返事"を書くときだけ守り、'
             '操作idの選び方には影響させないでください）】\n' + persona + '\n\n'
@@ -130,11 +141,13 @@ def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
     if not 答え:
         return {'ok': False, '訳': 'ローカルLLMから答えが得られませんでした'}
 
+    担当情報 = エージェント定義.エージェント情報(担当id) if 担当id else None
+
     決めた = _JSONを取り出す(答え)
     if not isinstance(決めた, dict):
         # JSONにならなくても、文章としてはもらえていることが多い。
         # 会話が止まるより、そのまま返事として使うほうがまし。
-        return {'ok': True, '操作id': None, '材料': '', '会話の返事': 答え.strip()}
+        return {'ok': True, '操作id': None, '材料': '', '会話の返事': 答え.strip(), 'agent': 担当情報}
 
     操作id = 決めた.get('操作id')
     if isinstance(操作id, str):
@@ -153,6 +166,7 @@ def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
         return {
             'ok': True, '操作id': None, '材料': '',
             '会話の返事': 会話の返事 or f'「{操作id}」という操作は無いようです。言い方を変えてもらえますか。',
+            'agent': 担当情報,
         }
 
     if 操作id is None and not 会話の返事:
@@ -166,4 +180,5 @@ def 意図を選ぶ(発言, 操作たち, 直近の会話=None, persona=None):
         '操作id': 操作id,
         '材料': (決めた.get('材料') or '').strip(),
         '会話の返事': 会話の返事,
+        'agent': 担当情報,
     }

@@ -1065,6 +1065,8 @@ async function 自作AIに聞く(text, 履歴, モード) {
                 events: JSON.parse(localStorage.getItem('areglm_events') || '[]'),
                 mode: モード,
                 persona: localStorage.getItem('areglm_ai_persona') || '',
+                // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
+                page: document.querySelector('.page.active')?.id?.replace('-page', '') || '',
             },
         }),
     });
@@ -1075,6 +1077,9 @@ async function 自作AIに聞く(text, 履歴, モード) {
 
     const d = await res.json();
     let 返事 = d.answer || '（答えが空でした）';
+
+    // マルチエージェント化: 担当が答えたときは、誰が答えたか分かるようにする。
+    if (d.agent?.名) 返事 = `【${d.agent.絵 || ''} ${d.agent.名}】\n${返事}`;
 
     if (d.sources?.length) 返事 += `\n\n（根拠: ${d.sources.join('、')}）`;
 

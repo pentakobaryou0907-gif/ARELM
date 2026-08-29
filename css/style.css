@@ -9362,3 +9362,12 @@ html[data-theme] .chat-bubble.user {
     color: var(--tone-ink-dim, var(--areglm-muted, #888));
     text-transform: uppercase;
 }
+
+/* マルチエージェント化: どの担当が答えたかの小さな見出し */
+.agent-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--areglm-accent, #6366f1);
+    margin-bottom: 0.2rem;
+}

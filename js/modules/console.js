@@ -474,7 +474,7 @@ async function runConsoleCommand(text, target) {
                     return;
                 }
             } else if (判定.会話の返事) {
-                appendConsoleLine('assistant', 判定.会話の返事, target);
+                appendConsoleLine('assistant', 判定.会話の返事, target, 判定.agent);
                 会話の記憶に足す(target, 'assistant', 判定.会話の返事);
                 if (声で聞かれた && typeof speakBack === 'function') {
                     speakBack(判定.会話の返事.split('\n')[0]);
@@ -565,6 +565,8 @@ async function AIで意図を判定する(text, target) {
                 操作たち,
                 直近の会話: 会話の記憶[CONSOLE_TARGET_IDS[target] ? target : 'console'],
                 persona: localStorage.getItem('areglm_ai_persona') || '',
+                // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
+                page: document.querySelector('.page.active')?.id?.replace('-page', '') || '',
             }),
         });
         if (!r.ok) return null;
@@ -828,14 +830,20 @@ const CONSOLE_TARGET_IDS = {
     console: { log: 'console-log', mic: 'console-mic-btn' },
 };
 
-function appendConsoleLine(role, text, target) {
+function appendConsoleLine(role, text, target, agent) {
     // target を渡すと、その場所のログに出す。省略時はホームのコンソール。
     const ids = CONSOLE_TARGET_IDS[target] || CONSOLE_TARGET_IDS.console;
     const box = document.getElementById(ids.log);
     if (!box) return;
     const div = document.createElement('div');
     div.className = `console-line console-${role}`;
-    div.innerHTML = AReGLM_SECURITY.sanitizeHtml(text).replace(/\n/g, '<br>');
+    let html = '';
+    // マルチエージェント化: どの担当が答えたか分かるよう、小さく表示する。
+    if (agent?.名) {
+        html += `<div class="agent-tag">${AReGLM_SECURITY.sanitizeHtml(agent.絵 || '')} ${AReGLM_SECURITY.sanitizeHtml(agent.名)}</div>`;
+    }
+    html += AReGLM_SECURITY.sanitizeHtml(text).replace(/\n/g, '<br>');
+    div.innerHTML = html;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
