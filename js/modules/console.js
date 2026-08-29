@@ -902,6 +902,7 @@ function 録音を終えて後始末する(target, btn, text) {
     }
     if (text) {
         声で聞かれた = true;
+        if (typeof 音声のやり取りを記録する === 'function') 音声のやり取りを記録する(text, target);
         runConsoleCommand(text, target);
     }
 }

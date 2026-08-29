@@ -529,6 +529,7 @@ async function runWakeCommand(command) {
     if (typeof runConsoleCommand === 'function') {
         // 呼びかけに応じた実行なので、声で返してよい
         if (typeof 声で聞かれた !== 'undefined') 声で聞かれた = true;
+        if (typeof 音声のやり取りを記録する === 'function') 音声のやり取りを記録する(command, 'mainai');
         await runConsoleCommand(command, 'mainai');
         if (window.logActivity) {
             logActivity(`呼びかけで実行: ${command}`, { category: 'voice', text: command });

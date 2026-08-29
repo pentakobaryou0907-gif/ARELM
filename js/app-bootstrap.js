@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init週次レポート === 'function') init週次レポート();
     if (typeof init自己修正の安全装置 === 'function') init自己修正の安全装置();
     if (typeof init拍手検知 === 'function') init拍手検知();
+    if (typeof init音声のやり取り記録 === 'function') init音声のやり取り記録();
     if (typeof initVoiceUI === 'function') initVoiceUI();
     if (typeof init常駐の待ち受け === 'function') init常駐の待ち受け();
     if (typeof init声の診断 === 'function') init声の診断();

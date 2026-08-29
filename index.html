@@ -713,6 +713,17 @@
                         <h4 class="rule-head">開いていなくても反応する</h4>
                         <div id="always-listen" class="voice-block"></div>
 
+                        <h4 class="rule-head">話しかけた内容の記録</h4>
+                        <p class="hint">
+                            マイクで話しかけて文字になった内容を、日時つきで残します。
+                            録音した<strong>音声そのものは保存しません</strong>（文字にした直後に音声ファイルは消えます）。
+                            話しかけた内容は、聞き取りの精度や言い回しの学習にそのつど使われます。
+                        </p>
+                        <div class="guard-row">
+                            <button type="button" id="voice-log-clear-btn" class="btn btn-sm btn-secondary">記録を消す</button>
+                        </div>
+                        <ul id="voice-log-list" class="rule-log"></ul>
+
                         <h4 class="rule-head">拍手で起動・スリープ（実験的機能）</h4>
                         <label class="wake-browser-opt">
                             <input type="checkbox" id="clap-detect-toggle">
@@ -2567,6 +2578,7 @@
     <script src="js/modules/週次レポート.js" defer></script>
     <script src="js/modules/自己修正の安全装置.js" defer></script>
     <script src="js/modules/拍手検知.js" defer></script>
+    <script src="js/modules/音声のやり取り記録.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>
