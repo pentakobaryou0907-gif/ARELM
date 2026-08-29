@@ -95,18 +95,34 @@ const AReGLM_SUZURI = {
         throw new Error('server を起動してください: cd server && npm start');
     },
 
+    /**
+     * 下書きを、実際にSUZURI上の商品として登録する。
+     *
+     * 正直に書いておくこと：
+     *   SUZURIのv1 APIで商品を作るには、アップロードした素材（デザイン画像）の
+     *   idを、どの向き・大きさで乗せるかという情報（texture_layout）と
+     *   一緒に渡す必要があるとされている。ここでは素材のidを
+     *   sample_illustration_id として渡す組み立てにしているが、
+     *   本物のAPIトークンでまだ試せていないため、必須項目が
+     *   これで足りているかは確認できていない。
+     *   最初に本番トークンで試したときにエラーが返ってきたら、
+     *   このリクエストの組み立てを見直してほしい。
+     */
     async publishProductDraft(draft) {
         const token = await this.getToken();
         if (!token) throw new Error('SUZURIトークン未設定');
         if (!(await AReGLM_API_CLIENT.health())) throw new Error('API Gateway未起動');
 
-        return AReGLM_API_CLIENT.suzuriPost(token, 'products', {
-            product: {
-                name: draft.name,
-                item_type_id: draft.itemType,
-                description: draft.description
-            }
-        });
+        const product = {
+            name: draft.name,
+            item_type_id: draft.itemType,
+            description: draft.description,
+        };
+        if (draft.materialId) {
+            product.texture_layout = { sample_illustration_id: draft.materialId };
+        }
+
+        return AReGLM_API_CLIENT.suzuriPost(token, 'products', { product });
     }
 };
 
