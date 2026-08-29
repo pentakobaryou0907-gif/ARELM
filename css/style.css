@@ -9317,3 +9317,26 @@ html[data-theme] .chat-bubble.user {
     color: var(--areglm-text-muted, #666);
     text-align: center;
 }
+
+/* 数値入力の単位表示（4-2対応）
+   placeholder だけで単位（円・個・日など）を示していると、
+   文字を入力した瞬間に単位が消えて分からなくなる。
+   入力欄の右側に、常に見える単位を重ねて表示する。 */
+.input-unit-wrap {
+    position: relative;
+    display: flex;
+    min-width: 0;
+}
+.input-unit-wrap input {
+    padding-right: 2.3rem;
+    width: 100%;
+}
+.input-unit-wrap .input-unit {
+    position: absolute;
+    right: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.76rem;
+    color: var(--tone-ink-dim, var(--areglm-muted, #888));
+    pointer-events: none;
+}

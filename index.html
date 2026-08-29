@@ -1284,8 +1284,8 @@
                                         <label for="sale-product">商品</label>
                                         <select id="sale-product" name="product_id" required><option value="">選択</option></select>
                                     </div>
-                                    <div class="form-group"><label for="sale-quantity">数量</label><input type="number" id="sale-quantity" name="quantity" required min="1"></div>
-                                    <div class="form-group"><label for="sale-price">単価</label><input type="number" id="sale-price" name="price" required min="0"></div>
+                                    <div class="form-group"><label for="sale-quantity">数量</label><span class="input-unit-wrap"><input type="number" id="sale-quantity" name="quantity" required min="1"><span class="input-unit">個</span></span></div>
+                                    <div class="form-group"><label for="sale-price">単価</label><span class="input-unit-wrap"><input type="number" id="sale-price" name="price" required min="0"><span class="input-unit">円</span></span></div>
                                 </div>
                                 <button type="submit" class="btn btn-primary">売上登録</button>
                             </form>
@@ -1658,16 +1658,16 @@
                         <div class="cost-editor">
                             <div class="cost-fields">
                                 <label>品名 <input type="text" id="cost-product" placeholder="デニムジャケット" autocomplete="off"></label>
-                                <label>材料費 <input type="number" id="cost-material" min="0" placeholder="1800"></label>
-                                <label>加工賃 <input type="number" id="cost-work" min="0" placeholder="2200"></label>
-                                <label>付属品費 <input type="number" id="cost-parts" min="0" placeholder="400"></label>
-                                <label>その他 <input type="number" id="cost-other" min="0" placeholder="200"></label>
-                                <label>型代 <input type="number" id="cost-mold" min="0" placeholder="30000"></label>
-                                <label>枚数 <input type="number" id="cost-qty" min="1" value="50"></label>
-                                <label>掛率 <input type="number" id="cost-rate" min="1" step="0.1" value="3"></label>
-                                <label>サンプル日数 <input type="number" id="lead-sample" min="0" placeholder="14"></label>
-                                <label>量産日数 <input type="number" id="lead-mass" min="0" placeholder="45"></label>
-                                <label>輸送日数 <input type="number" id="lead-ship" min="0" placeholder="21"></label>
+                                <label>材料費 <span class="input-unit-wrap"><input type="number" id="cost-material" min="0" placeholder="1800"><span class="input-unit">円</span></span></label>
+                                <label>加工賃 <span class="input-unit-wrap"><input type="number" id="cost-work" min="0" placeholder="2200"><span class="input-unit">円</span></span></label>
+                                <label>付属品費 <span class="input-unit-wrap"><input type="number" id="cost-parts" min="0" placeholder="400"><span class="input-unit">円</span></span></label>
+                                <label>その他 <span class="input-unit-wrap"><input type="number" id="cost-other" min="0" placeholder="200"><span class="input-unit">円</span></span></label>
+                                <label>型代 <span class="input-unit-wrap"><input type="number" id="cost-mold" min="0" placeholder="30000"><span class="input-unit">円</span></span></label>
+                                <label>枚数 <span class="input-unit-wrap"><input type="number" id="cost-qty" min="1" value="50"><span class="input-unit">枚</span></span></label>
+                                <label>掛率 <span class="input-unit-wrap"><input type="number" id="cost-rate" min="1" step="0.1" value="3"><span class="input-unit">倍</span></span></label>
+                                <label>サンプル日数 <span class="input-unit-wrap"><input type="number" id="lead-sample" min="0" placeholder="14"><span class="input-unit">日</span></span></label>
+                                <label>量産日数 <span class="input-unit-wrap"><input type="number" id="lead-mass" min="0" placeholder="45"><span class="input-unit">日</span></span></label>
+                                <label>輸送日数 <span class="input-unit-wrap"><input type="number" id="lead-ship" min="0" placeholder="21"><span class="input-unit">日</span></span></label>
                             </div>
                             <div class="cost-out">
                                 <div id="cost-result" class="cost-result"></div>
@@ -1716,7 +1716,7 @@
                                 <label>形 <select id="tag-shape"></select></label>
                                 <label>ブランド <input type="text" id="tag-brand" value="AReGLM" autocomplete="off"></label>
                                 <label>シリーズ <input type="text" id="tag-series" placeholder="TUDURI など" autocomplete="off"></label>
-                                <label>値段 <input type="number" id="tag-price" min="0" placeholder="12800"></label>
+                                <label>値段 <span class="input-unit-wrap"><input type="number" id="tag-price" min="0" placeholder="12800"><span class="input-unit">円</span></span></label>
                                 <label>素材 <input type="text" id="tag-material" placeholder="COTTON 100%" autocomplete="off"></label>
                                 <label>原産国 <input type="text" id="tag-origin" placeholder="MADE IN JAPAN" autocomplete="off"></label>
                                 <label>品番 <input type="text" id="tag-code" placeholder="TDR-021" autocomplete="off"></label>
@@ -1852,9 +1852,9 @@
                             </div>
                             <p class="hint">自社分析資料の基準「仕入価格は売価の50%以下・粗利50%超」に沿っているかを判定します。</p>
                             <div class="pricing-calc">
-                                <label>原価（仕入）<input type="number" id="pricing-cost" min="0" step="10" placeholder="1500"></label>
-                                <label>販売価格<input type="number" id="pricing-price" min="0" step="10" placeholder="3500"></label>
-                                <label>想定販売数<input type="number" id="pricing-qty" min="1" step="1" value="1"></label>
+                                <label>原価（仕入）<span class="input-unit-wrap"><input type="number" id="pricing-cost" min="0" step="10" placeholder="1500"><span class="input-unit">円</span></span></label>
+                                <label>販売価格<span class="input-unit-wrap"><input type="number" id="pricing-price" min="0" step="10" placeholder="3500"><span class="input-unit">円</span></span></label>
+                                <label>想定販売数<span class="input-unit-wrap"><input type="number" id="pricing-qty" min="1" step="1" value="1"><span class="input-unit">個</span></span></label>
                             </div>
                             <div id="pricing-result" class="pricing-result"></div>
                         </section>
@@ -2463,8 +2463,8 @@
                         <div class="form-group"><label for="modal-madeby">生産地</label><input type="text" id="modal-madeby" name="madeBy" placeholder="SUZURI"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label for="modal-price">価格</label><input type="number" id="modal-price" name="price" required min="0"></div>
-                        <div class="form-group"><label for="modal-quantity">数量</label><input type="number" id="modal-quantity" name="quantity" required min="0"></div>
+                        <div class="form-group"><label for="modal-price">価格</label><span class="input-unit-wrap"><input type="number" id="modal-price" name="price" required min="0"><span class="input-unit">円</span></span></div>
+                        <div class="form-group"><label for="modal-quantity">数量</label><span class="input-unit-wrap"><input type="number" id="modal-quantity" name="quantity" required min="0"><span class="input-unit">個</span></span></div>
                     </div>
                     <div class="form-group">
                         <label for="modal-datalink">商品データの保存先</label>
@@ -2507,7 +2507,7 @@
                         <label for="inventory-product">商品</label>
                         <select id="inventory-product" name="product_id" required><option value="">選択</option></select>
                     </div>
-                    <div class="form-group"><label for="inventory-quantity">数量</label><input type="number" id="inventory-quantity" name="quantity" required min="1"></div>
+                    <div class="form-group"><label for="inventory-quantity">数量</label><span class="input-unit-wrap"><input type="number" id="inventory-quantity" name="quantity" required min="1"><span class="input-unit">個</span></span></div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">実行</button>
                         <button type="button" class="btn btn-secondary" id="cancel-inventory">キャンセル</button>
