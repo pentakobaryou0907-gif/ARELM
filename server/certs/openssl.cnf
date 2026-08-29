@@ -1,0 +1,23 @@
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+
+[dn]
+CN = arinoMacBook-Pro.local
+O = AReGLM
+C = JP
+
+[ext]
+subjectAltName = @alt
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[alt]
+DNS.1 = arinoMacBook-Pro.local
+DNS.2 = localhost
+DNS.3 = arinoMacBook-Pro
+IP.1 = 127.0.0.1
+IP.2 = 192.168.1.7
+IP.3 = ::1

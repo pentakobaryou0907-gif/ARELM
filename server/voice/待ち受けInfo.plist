@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>jp.areglm.listener</string>
+  <key>CFBundleName</key><string>AReGLM 待ち受け</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>「アレン」と呼びかけたときだけ反応するために、マイクを使います。音声はこの端末の外へ一切出ず、録音も残しません。</string>
+</dict></plist>

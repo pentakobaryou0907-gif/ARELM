@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>AReGLM音声認識</string>
+    <key>CFBundleDisplayName</key><string>AReGLM 音声認識</string>
+    <key>CFBundleExecutable</key><string>音声認識</string>
+    <key>CFBundleIdentifier</key><string>com.ari.areglm.voice</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSMinimumSystemVersion</key><string>11.0</string>
+    <key>LSUIElement</key><true/>
+
+    <!-- macOS はここに理由が書かれていないと、許可を求めることすらできない -->
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>あなたの声を、この端末の中だけで文字にするために使います。音声は外部へ一切送りません。</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>声で指示を受け取るために使います。押したときだけ入り、録音は保存しません。</string>
+</dict>
+</plist>

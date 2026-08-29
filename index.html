@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self';">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <title>AReGLM — 社内専用作業ツール</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- iOS（iPhone・iPad）でホーム画面に追加したときの設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AReGLM">
+    <link rel="apple-touch-icon" href="images/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512x512.png">
+</head>
+<body>
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1 class="brand-logo">AReGLM</h1>
+                <p>社内専用 · ファッション制作・運営ハブ<br><small>呼び名: <span data-tool-name>アレラム</span></small></p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="username">ユーザー名</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">ログイン</button>
+            </form>
+            <div class="login-footer">
+                <p>デフォルト: admin / Admin@2024!</p>
+                <button type="button" id="init-db-btn" class="btn btn-secondary">データ初期化</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="main-app" style="display: none;">
+        <header class="header header-minimal">
+            <div class="container header-inner">
+                <h1 class="brand-logo">AReGLM<small class="tool-nick" data-tool-name>アレラム</small></h1>
+                <div class="header-actions">
+                    <button type="button" class="btn-mainai nav-link" data-page="mainai" title="エージェント" aria-label="エージェント">
+                        <span class="mainai-icon">◈</span>
+                    </button>
+                    <button type="button" id="global-refresh-btn" class="btn-icon" title="全データ更新" aria-label="更新" data-label="更新">↻</button>
+                    <button type="button" id="open-in-chrome-btn" class="btn-icon" title="Chromeで開く" aria-label="Chromeで開く" data-label="Chrome">⇱</button>
+                    <button type="button" class="btn-icon nav-link" data-page="settings" title="設定" aria-label="設定" data-label="設定">⚙</button>
+                    <button type="button" id="logout-btn" class="btn-icon" title="ログアウト" aria-label="ログアウト" data-label="ログアウト">⎋</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="bottom-nav" id="bottom-nav" aria-label="メインメニュー">
+            <a href="#dashboard" class="bottom-nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span>ホーム</span></a>
+            <a href="#chat" class="bottom-nav-item" data-page="chat"><span class="nav-icon">✦</span><span>AIチャット</span></a>
+            <a href="#remote" class="bottom-nav-item" data-page="remote"><span class="nav-icon">🖥</span><span>遠隔操作</span></a>
+            <a href="#brands" class="bottom-nav-item" data-page="brands"><span class="nav-icon">◆</span><span>ブランド</span></a>
+            <a href="#sns" class="bottom-nav-item" data-page="sns"><span class="nav-icon">◎</span><span>SNS</span></a>
+            <a href="#inventory" class="bottom-nav-item" data-page="inventory"><span class="nav-icon">▣</span><span>在庫</span></a>
+            <a href="#studio" class="bottom-nav-item" data-page="studio"><span class="nav-icon">✎</span><span>開発</span></a>
+        </nav>
+
+        <!-- クイックパネル: どのページからでも主要な操作ができる -->
+        <button type="button" id="quick-fab" class="quick-fab" title="クイック操作（⌘K）" aria-label="クイック操作">＋</button>
+        <div id="quick-overlay" class="quick-overlay"></div>
+        <div id="quick-panel" class="quick-panel" role="dialog" aria-label="クイック操作">
+            <div class="quick-head">
+                <div class="quick-grip"></div>
+                <span id="quick-status" class="quick-status"></span>
+                <button type="button" id="quick-close" class="quick-close" aria-label="閉じる">×</button>
+            </div>
+
+            <div class="quick-tabs">
+                <button type="button" class="quick-tab active" data-qtab="search">探す</button>
+                <button type="button" class="quick-tab" data-qtab="add">追加</button>
+                <button type="button" class="quick-tab" data-qtab="ai">きく</button>
+                <button type="button" class="quick-tab" data-qtab="jump">移動</button>
+            </div>
+
+            <div id="quick-pane-search" class="quick-pane active">
+                <input type="text" id="quick-search-input" placeholder="商品・タスク・メモ・ブランドを探す" autocomplete="off">
+                <div id="quick-search-results" class="quick-results">
+                    <p class="hint">商品名・SKU・メモの内容などで探せます。</p>
+                </div>
+            </div>
+
+            <div id="quick-pane-add" class="quick-pane">
+                <form id="quick-task-form" class="quick-form">
+                    <label>タスクを追加</label>
+                    <div class="quick-row">
+                        <input type="text" id="quick-task-title" placeholder="やること" required>
+                        <input type="date" id="quick-task-due">
+                        <button type="submit" class="btn btn-primary btn-sm">追加</button>
+                    </div>
+                </form>
+                <form id="quick-memo-form" class="quick-form">
+                    <label>メモを追加</label>
+                    <div class="quick-row">
+                        <input type="text" id="quick-memo-body" placeholder="思いついたこと" required>
+                        <button type="submit" class="btn btn-primary btn-sm">追加</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="quick-pane-ai" class="quick-pane">
+                <form id="quick-ai-form" class="quick-form">
+                    <div class="quick-row">
+                        <input type="text" id="quick-ai-input" placeholder="例: デニムジャケットの在庫は？" autocomplete="off">
+                        <button type="submit" class="btn btn-primary btn-sm">きく</button>
+                    </div>
+                </form>
+                <div id="quick-ai-answer" class="quick-results">
+                    <p class="hint">商品・在庫・価格・タスク・記録した知識について答えます。知らないことは正直に言います。</p>
+                </div>
+            </div>
+
+            <div id="quick-pane-jump" class="quick-pane">
+                <div id="quick-jump" class="quick-jump"></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- ホーム -->
+            <div id="dashboard-page" class="page active">
+                <div class="container">
+                    <div class="page-header-row">
+                        <h2 class="section-title">AReGLM ホーム</h2>
+                        <span id="live-clock" class="live-clock" aria-live="off"></span>
+                        <span class="auto-badge" data-automation-status>自動で動いています</span>
+                    </div>
+                    <p class="page-lead">過去のファッション制作・ブランド・販売情報をまとめ、搭載AIと連携する社内ハブです。</p>
+                    <div class="home-tabs" id="home-tabs">
+                        <button type="button" class="home-tab active" data-home-tab="today"><span>▦</span>今日</button>
+                        <button type="button" class="home-tab" data-home-tab="ai"><span>◈</span>AI</button>
+                        <button type="button" class="home-tab" data-home-tab="note"><span>✎</span>記録</button>
+                        <button type="button" class="home-tab" data-home-tab="plan"><span>◎</span>計画</button>
+                        <button type="button" class="home-tab" data-home-tab="config"><span>⚙</span>設定</button>
+                    </div>
+                    <div id="gateway-status" class="status-banner warn"></div>
+
+                    <div class="stats-grid stats-compact">
+                        <div class="stat-card"><span>ブランド</span><p id="total-brands">0</p></div>
+                        <div class="stat-card"><span>商品</span><p id="total-products">0</p></div>
+                        <div class="stat-card"><span>在庫</span><p id="total-stock">0</p></div>
+                        <div class="stat-card"><span>売上</span><p id="total-sales">¥0</p></div>
+                    </div>
+                    <p class="stat-sub">要補充 <strong id="low-stock-count">0</strong> · SNS <strong id="sns-queue-count">0</strong> · SUZURI <strong id="ec-sync-count">0</strong></p>
+                    <div id="products-empty-cta" class="empty-cta" hidden>
+                        <span>まだ商品が登録されていません。数字はここから動き始めます。</span>
+                        <button type="button" class="btn btn-primary btn-sm" data-goto="inventory">商品を登録する →</button>
+                    </div>
+
+                    <section data-home-group="today" class="panel-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">⏱</span>タイマー</h3>
+                            <span id="timer-display" class="timer-display"></span>
+                        </div>
+                        <form id="timer-form" class="timer-form">
+                            <input type="text" id="timer-name" placeholder="何のための時間か" autocomplete="off">
+                            <input type="number" id="timer-min" min="1" max="600" placeholder="分" value="25">
+                            <button type="submit" class="btn btn-primary btn-sm">はかる</button>
+                            <button type="button" id="timer-stop" class="btn btn-secondary btn-sm" hidden>止める</button>
+                        </form>
+                        <div class="timer-quick">
+                            <button type="button" class="btn btn-secondary btn-sm" data-timer-min="5" data-timer-name="小休憩">5分</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-timer-min="15" data-timer-name="作業">15分</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-timer-min="25" data-timer-name="集中">25分</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-timer-min="60" data-timer-name="作業">60分</button>
+                        </div>
+                    </section>
+
+                    <section data-home-group="plan" class="panel-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◇</span>ほしいものリスト</h3>
+                            <span id="wish-total" class="hint"></span>
+                        </div>
+                        <form id="wish-form" class="wish-form">
+                            <input type="text" id="wish-name" placeholder="ほしいもの" required autocomplete="off">
+                            <input type="number" id="wish-price" min="0" placeholder="値段">
+                            <select id="wish-priority">
+                                <option value="normal">通常</option>
+                                <option value="high">要るもの</option>
+                                <option value="low">あとで</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">足す</button>
+                        </form>
+                        <ul id="wish-list" class="wish-list"></ul>
+                    </section>
+
+                    <section data-home-group="today" class="panel-card">
+                        <h3><span class="sec-icon">▦</span>機能をひらく</h3>
+                        <div class="feature-grid">
+                            <button type="button" class="feature-card" data-goto="chat"><span>AI</span>チャット</button>
+                            <button type="button" class="feature-card" data-goto="brands"><span>◇</span>ブランド</button>
+                            <button type="button" class="feature-card" data-goto="sns"><span>◎</span>SNS</button>
+                            <button type="button" class="feature-card" data-goto="inventory"><span>▣</span>在庫・売上</button>
+                            <button type="button" class="feature-card" data-goto="studio"><span>✎</span>開発</button>
+                        </div>
+                    </section>
+                    <section data-home-group="today" class="panel-card full-width">
+                        <h3><span class="sec-icon">🖥</span>遠隔操作とタスク</h3>
+                        <p class="hint">
+                            画面やアプリを実際に操作できる場所を、専用のページに移しました。
+                        </p>
+                        <button type="button" class="btn btn-primary" data-goto="remote">
+                            🖥 遠隔操作を開く
+                        </button>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">↻</span>まとめて更新</h3>
+                        <p class="hint">
+                            控え・点検・自動の決まり・見直し・分析・画面の描き直しを、<strong>押すだけで順に行います</strong>。
+                            一つずつ押して回る必要はありません。
+                        </p>
+                        <div id="update-all"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">⏰</span>毎日の自動チェック</h3>
+                        <p class="hint">
+                            決めた時刻に、在庫が少ない商品をこの端末のAIが確かめ、通知します。
+                            <strong>このツールの画面（Chrome窓）が開いている間だけ効きます。</strong>
+                            閉じているときは鳴りません。
+                        </p>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="auto-check-enabled"> 有効にする
+                        </label>
+                        <div class="form-group">
+                            <label for="auto-check-time">実行する時刻</label>
+                            <input type="time" id="auto-check-time">
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            onclick="在庫チェックを行う()">今すぐ試す</button>
+                    </section>
+
+                    <section data-home-group="config" class="panel-card">
+                        <h3><span class="sec-icon">↻</span>全自動モードの実行間隔</h3>
+                        <p class="hint">
+                            SUZURI在庫同期・SNS自動宣伝などをバックグラウンドで自動実行する間隔です。
+                            短くしすぎると、同じ処理が短時間に何度も走ります。
+                        </p>
+                        <div class="form-group">
+                            <label for="automation-interval-min">実行間隔</label>
+                            <select id="automation-interval-min">
+                                <option value="15">15分ごと</option>
+                                <option value="30">30分ごと</option>
+                                <option value="60">1時間ごと</option>
+                                <option value="180">3時間ごと</option>
+                                <option value="360">6時間ごと</option>
+                            </select>
+                        </div>
+                        <small class="hint" id="automation-interval-last"></small>
+                    </section>
+
+                    <section data-home-group="today" class="panel-card home-actions">
+                        <h3><span class="sec-icon">⚡</span>クイック操作</h3>
+                        <button type="button" class="btn btn-primary" onclick="syncSuzuriInventory()">SUZURI同期</button>
+                        <a href="https://suzuri.jp/areglm" target="_blank" rel="noopener" class="btn btn-accent">SUZURI</a>
+                        <a href="https://AReGLM.base.shop" target="_blank" rel="noopener" class="btn btn-accent">BASE</a>
+                    </section>
+                    <section data-home-group="config" class="panel-card full-width">
+                        <h3><span class="sec-icon">🌐</span>Chromeで開く</h3>
+                        <div id="home-chrome"></div>
+                    </section>
+                    <section data-home-group="config" class="panel-card">
+                        <h3><span class="sec-icon">◷</span>最近の活動</h3>
+                        <ul id="home-activity-list" class="activity-list"></ul>
+                    </section>
+                    <section data-home-group="ai" class="panel-card">
+                        <h3><span class="sec-icon">◈</span>学習状況<small class="hint">（外部送信なし）</small></h3>
+                        <div id="learning-status"></div>
+                    </section>
+                    <section data-home-group="ai" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◈</span>エージェントに指示<small class="hint">（音声・文字）</small></h3>
+                            <button type="button" id="console-mic-btn" class="btn btn-sm btn-secondary">🎤 話す</button>
+                        </div>
+                        <div id="console-log" class="console-log"></div>
+                        <form id="console-form" class="console-form">
+                            <input type="text" id="console-input" placeholder="例: 今日の状況 / タスク サンプル発注 / 在庫 / 更新" autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm">実行</button>
+                        </form>
+                        <details class="console-rules-box">
+                            <summary>このツールが必ず守るルール</summary>
+                            <ul id="console-rules"></ul>
+                        </details>
+                    </section>
+                    <section data-home-group="config" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◐</span>ツールの馴染み<small class="hint">（使うほど変わります）</small></h3>
+                            <div class="personalize-actions">
+                                <button type="button" id="personalize-adapt" class="btn btn-sm btn-primary">今の使い方に馴染ませる</button>
+                                <button type="button" id="personalize-revert" class="btn btn-sm btn-secondary">前の姿に戻す</button>
+                                <button type="button" id="personalize-pin" class="btn btn-sm btn-secondary">この並びで固定</button>
+                                <button type="button" id="personalize-unpin" class="btn btn-sm btn-secondary" style="display:none">固定を解除</button>
+                                <button type="button" id="personalize-reset" class="btn btn-sm btn-secondary">最初に戻す</button>
+                            </div>
+                        </div>
+                        <p class="hint">よく使う機能ほど上に来るように、ホームの並びが少しずつ変わります。変化の前の姿は必ず保存されるので、<strong>いつでも何度でも戻せます</strong>。「この並びで固定」を押すと、以後は勝手に変わりません。</p>
+                        <div id="personalize-status"></div>
+                    </section>
+
+                    <section data-home-group="config" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◐</span>画面の見た目</h3>
+                        <div id="page-layout"></div>
+                        </div>
+                        <p class="hint">長く使っても目が疲れないよう、時間帯に合わせて明るさが変わります。</p>
+                        <div class="theme-row">
+                            <label>時間帯
+                                <select id="theme-mode">
+                                    <option value="auto">時間に合わせる</option>
+                                    <option value="morning">朝</option>
+                                    <option value="day">昼</option>
+                                    <option value="evening">夕方</option>
+                                    <option value="night">夜</option>
+                                    <option value="midnight">深夜</option>
+                                </select>
+                            </label>
+                            <label class="theme-flip">
+                                <input type="checkbox" id="theme-flip">
+                                <span>背景の明暗を逆にする</span>
+                            </label>
+                            <span id="theme-status" class="hint"></span>
+                        </div>
+                    </section>
+
+                    <section data-home-group="config" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🗑</span>不要ボックス <small id="trash-count" class="hint"></small></h3>
+                            <button type="button" id="trash-empty" class="btn btn-sm btn-secondary">空にする</button>
+                        </div>
+                        <p class="hint">このツールの中で「消す」と押したものは、まずここへ入ります。<strong>まだ消えていません。</strong>元の場所へ戻せます。本当に消えるのは、ここで「完全に消す」を押したときだけです。</p>
+                        <ul id="trash-list" class="trash-list"></ul>
+                    </section>
+
+                    <section data-home-group="config" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🩺</span>自己点検と修復</h3>
+                            <div class="header-actions">
+                                <button type="button" id="self-check-run" class="btn btn-sm btn-primary">点検する</button>
+                                <button type="button" id="self-check-fix" class="btn btn-sm btn-secondary">まとめて直す</button>
+                                <button type="button" id="self-check-copy" class="btn btn-sm btn-secondary">結果を写す</button>
+                            </div>
+                        </div>
+                        <p class="hint">不具合が起きたとき、ここで調べて、その場で直せます。すべてこの端末の中だけで調べ、外部へは一切問い合わせません。</p>
+                        <div id="self-check-summary" class="status-banner"></div>
+                        <div id="self-check-list" class="check-list"></div>
+                    </section>
+
+                    <section data-home-group="config" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">☑</span>やりたいこと一覧</h3>
+                            <button type="button" id="req-verify-all" class="btn btn-sm btn-primary">まとめて確かめる</button>
+                        </div>
+                        <p class="hint">指示された内容が、いまどこまでできているかの一覧です。<strong>「確かめる」は説明を読むのではなく、実際にその機能を動かして判定します。</strong></p>
+                        <div id="req-summary" class="req-summary"></div>
+                        <div class="req-filters">
+                            <button type="button" class="req-filter active" data-req-filter="all">全て</button>
+                            <button type="button" class="req-filter" data-req-filter="done">完了</button>
+                            <button type="button" class="req-filter" data-req-filter="partial">一部</button>
+                            <button type="button" class="req-filter" data-req-filter="todo">未着手</button>
+                            <button type="button" class="req-filter" data-req-filter="blocked">できない・条件つき</button>
+                        </div>
+                        <div id="req-list" class="req-list"></div>
+                    </section>
+                    <section data-home-group="today" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">!</span>お知らせ</h3>
+                            <button type="button" id="notify-enable" class="btn btn-sm btn-secondary">通知を有効にする</button>
+                        </div>
+                        <div id="alert-panel" class="alert-panel"></div>
+                        <p id="notify-status" class="hint"></p>
+                    </section>
+                    <section data-home-group="today" class="panel-card full-width">
+                        <h3><span class="sec-icon">✦</span>今日の提案<small class="hint">（外部送信なし）</small></h3>
+                        <ul id="assistant-suggestions" class="assistant-list"></ul>
+                    </section>
+                    <section data-home-group="note" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">✎</span>メモ<small class="hint">（書くとAIも覚えます）</small></h3>
+                        </div>
+                        <p class="hint">思いついたこと・分かったことを書きます。書いた内容は自作AIが覚えて、あとで質問したときに答えられるようになります。すべてこの端末の中だけで保存されます。</p>
+                        <form id="memo-form" class="memo-form">
+                            <input type="text" id="memo-title" placeholder="タイトル（任意）">
+                            <textarea id="memo-body" rows="2" placeholder="思いついたことをメモ…" required></textarea>
+                            <div class="memo-form-row">
+                                <select id="memo-source" title="どこから知った内容か">
+                                    <option value="manual">ふつうのメモ</option>
+                                    <option value="experience">自分の経験</option>
+                                    <option value="document">資料から</option>
+                                    <option value="external">人・AIから聞いた（未確認）</option>
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm">追加</button>
+                            </div>
+                        </form>
+                        <div class="memo-search-row">
+                            <input type="text" id="memo-search" placeholder="メモを探す" autocomplete="off">
+                        </div>
+                        <div id="memo-list" class="memo-list"></div>
+                    </section>
+                    <section data-home-group="note" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">📋</span>週次レポート</h3>
+                            <button type="button" id="weekly-report-make-btn" class="btn btn-sm btn-primary">今週のレポートを作る</button>
+                        </div>
+                        <p class="hint">
+                            在庫・売上・タスク・SNSの、この端末に実際にあるデータだけをまとめます。
+                            <strong>無いデータは「不明」ではなく、そもそも項目に出しません。</strong>
+                            過去のレポートは番号付きで残り、あとから見返せます。
+                        </p>
+                        <div id="weekly-report-list" class="weekly-report-list"></div>
+                    </section>
+                    <section data-home-group="note" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">♡</span>体調<small class="hint">（端末内のみ）</small></h3>
+                        </div>
+                        <form id="health-form" class="health-form">
+                            <label>睡眠 <input type="number" id="health-sleep" min="0" max="24" step="0.5" placeholder="7"><small>時間</small></label>
+                            <label>気分
+                                <select id="health-mood">
+                                    <option value="5">とても良い</option>
+                                    <option value="4">良い</option>
+                                    <option value="3" selected>普通</option>
+                                    <option value="2">良くない</option>
+                                    <option value="1">とても悪い</option>
+                                </select>
+                            </label>
+                            <label>体の調子
+                                <select id="health-body">
+                                    <option value="5">とても良い</option>
+                                    <option value="4">良い</option>
+                                    <option value="3" selected>普通</option>
+                                    <option value="2">良くない</option>
+                                    <option value="1">とても悪い</option>
+                                </select>
+                            </label>
+                            <input type="text" id="health-note" placeholder="ひとこと（任意）">
+                            <button type="submit" class="btn btn-primary btn-sm">記録</button>
+                        </form>
+                        <div id="health-status"></div>
+                    </section>
+                    
+                    <section data-home-group="plan" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◎</span>目標を分ける</h3>
+                            <button type="button" id="mandala-to-task-btn" class="btn btn-sm btn-secondary">アクションをタスクに追加</button>
+                        </div>
+                        <p class="hint">中央に目標、周囲8マスにそこへ至るアクションを書きます。「何から動けばいいか分からない」を分解するための表です。</p>
+                        <div id="mandala-grid" class="mandala-grid"></div>
+                    </section>
+                    <section data-home-group="plan" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◆</span>ブランドマニュアル</h3>
+                            <button type="button" id="manual-export-btn" class="btn btn-sm btn-secondary">書き出し</button>
+                        </div>
+                        <p class="hint">ブランドのルール・決めごとを1か所にまとめます。仲間に共有するときはここを見せるだけで済みます。</p>
+                        <div id="manual-sections" class="manual-sections"></div>
+                    </section>
+                    <section data-home-group="today" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">▤</span>カレンダー</h3>
+                            <div class="cal-nav">
+                                <button type="button" id="cal-prev" class="btn btn-sm btn-secondary">◀</button>
+                                <span id="calendar-label" class="cal-label"></span>
+                                <button type="button" id="cal-next" class="btn btn-sm btn-secondary">▶</button>
+                                <button type="button" id="cal-today" class="btn btn-sm btn-secondary">今日</button>
+                            </div>
+                        </div>
+                        <form id="event-form" class="event-form">
+                            <input type="date" id="event-date" required>
+                            <input type="text" id="event-title" placeholder="予定（例: 生地屋と打ち合わせ）" required>
+                            <button type="submit" class="btn btn-primary btn-sm">予定を追加</button>
+                        </form>
+                        <div id="calendar-grid" class="calendar-grid"></div>
+                        <h4 class="media-sub">これからの予定</h4>
+                        <ul id="calendar-upcoming" class="upcoming-list"></ul>
+                    </section>
+                    <section data-home-group="today" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">☑</span>タスク</h3>
+                        </div>
+                        <form id="task-form" class="task-form">
+                            <input type="text" id="task-title" placeholder="やること" required>
+                            <input type="date" id="task-due" title="期限の日">
+                            <input type="time" id="task-time" title="期限の時刻（空でもよい）">
+                            <select id="task-repeat" title="繰り返し">
+                                <option value="">繰り返さない</option>
+                                <option value="daily">毎日</option>
+                                <option value="weekday">平日のみ</option>
+                                <option value="weekly">毎週</option>
+                                <option value="monthly">毎月</option>
+                            </select>
+                            <select id="task-priority">
+                                <option value="normal">通常</option>
+                                <option value="high">重要</option>
+                                <option value="low">低</option>
+                            </select>
+                            <label class="task-remind" title="期限が来たら知らせる">
+                                <input type="checkbox" id="task-remind" checked>
+                                <span>知らせる</span>
+                            </label>
+                            <button type="submit" class="btn btn-primary btn-sm">追加</button>
+                        </form>
+                        <ul id="task-list" class="task-list"></ul>
+                    </section>
+                </div>
+            </div>
+
+            <!-- 遠隔操作（画面やアプリを実際に操る作業スペース） -->
+            <div id="remote-page" class="page">
+                <div class="container">
+                    <h2 class="section-title">🖥 遠隔操作</h2>
+                    <p class="page-lead">
+                        この画面から、実際のパソコン・Chromeを操作できます。
+                        <strong>映った場所を押すと、実際のその場所が押されます。</strong>
+                        作業ごとにタブが分かれています。
+                        <strong>タブを切り替えても、自動操作やライブ画面はそのまま裏側で動き続けます。</strong>
+                    </p>
+
+                    <div class="home-tabs" id="remote-tabs">
+                        <button type="button" class="home-tab active" data-remote-tab="auto"><span>⚡</span>自動操作</button>
+                        <button type="button" class="home-tab" data-remote-tab="screen"><span>▦</span>画面を見る</button>
+                        <button type="button" class="home-tab" data-remote-tab="type"><span>⌨</span>文字入力・操作</button>
+                    </div>
+
+                    <div data-remote-group="auto" class="remote-tab-panel active">
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">⚡</span>自動で作業する</h3>
+                            <p class="hint">
+                                目的を伝えると、AIが安全な操作（アプリを開く・ページを開く・
+                                タブを切り替える、など）だけを選び、一手ずつ自動で進めます。
+                                <strong>座標を当てずっぽうに押す・文字を打つことはしません。</strong>
+                                それは「文字入力・操作」タブから、上の画面を見ながら人が押してください。
+                            </p>
+                            <form id="remote-auto-form" class="remote-auto-form">
+                                <input type="text" id="remote-auto-goal"
+                                    placeholder="例: 在庫ページを開いて" maxlength="200">
+                                <button type="submit" class="btn btn-primary">▶ 自動で行う</button>
+                                <button type="button" id="remote-auto-stop"
+                                    class="btn btn-secondary" hidden>■ 止める</button>
+                            </form>
+                            <ol id="remote-auto-log" class="remote-auto-log"></ol>
+                        </section>
+                    </div>
+
+                    <div data-remote-group="screen" class="remote-tab-panel" hidden>
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">▦</span>作業とタブ</h3>
+                            <p class="hint">
+                                上に、いま動いている作業と開いている画面が並びます。
+                                <strong>確認が要るものには印が付きます。</strong>
+                                真ん中に画面が映り、押すと実際のその場所が押されます。
+                            </p>
+                            <div id="remote-work"></div>
+                        </section>
+
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">▶</span>ライブ画面（自動で映し直す）</h3>
+                            <p class="hint">
+                                上の画面は押したときだけ更新されます。
+                                <strong>こちらは自動で映し直され続けます。</strong>
+                                動きを見ながら操作したいときに使ってください。
+                                文字を打つ・貼り付ける等の操作は「文字入力・操作」タブにあります。
+                            </p>
+                            <div id="remote-screen"></div>
+                        </section>
+                    </div>
+
+                    <div data-remote-group="type" class="remote-tab-panel" hidden>
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">⌨</span>文字入力・操作</h3>
+                            <p class="hint">
+                                「画面を見る」タブで映している画面に対して、文字を打つ・改行する・
+                                コピー＆ペースト等のキー操作を送ります。まず「画面を見る」タブで
+                                映し始めてから使ってください。
+                            </p>
+                            <div id="remote-type-tools"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI（ChatGPT風 統一画面） -->
+            <!-- エージェント（ツールを操作する相棒・完全ローカル） -->
+            <div id="mainai-page" class="page">
+                <div class="container">
+                    <h2 class="section-title">エージェント</h2>
+                    <p class="page-lead">このツールを操作する相棒です。<strong>考える部分はすべてこの端末の中だけで動き、外部へは一切送信しません。</strong>知らないことは知らないと答え、覚えたことは忘れてと言えば忘れます。<br><small class="hint">※ 音声を文字にする処理だけは例外です。下の「声で指示する」に、実際どうなっているかを正確に書いています。</small></p>
+                    <div id="mainai-health" class="status-banner warn"></div>
+                    <label class="checkbox-label" style="font-size:0.85rem;">
+                        <input type="checkbox" id="jarvis-default-toggle" checked>
+                        このページを開いたら、既定でJARVISモードにする
+                    </label>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3>指示する</h3>
+                            <div class="header-actions">
+                                <button type="button" id="jarvis-mode-btn" class="btn btn-sm btn-secondary">🛰 JARVISモード</button>
+                                <button type="button" id="mainai-mic-btn" class="btn btn-sm btn-secondary">🎤 話しかける</button>
+                            </div>
+                        </div>
+                        <div id="mainai-log" class="console-log"></div>
+                        <form id="mainai-form" class="console-form">
+                            <input type="text" id="mainai-input" placeholder="例: 今日の状況 / タスク サンプル発注 / 判定 デニムの新作 / 忘れて ○○" autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm">実行</button>
+                        </form>
+                        <div id="mainai-suggest" class="mainai-suggest"></div>
+                    </section>
+
+                    <div id="jarvis-overlay" class="jarvis-overlay" hidden>
+                        <button type="button" id="jarvis-exit-btn" class="jarvis-exit" aria-label="JARVISモードを終わる">✕ 通常画面に戻る</button>
+                        <div class="jarvis-topbar">
+                            <span id="jarvis-clock" class="jarvis-clock">--:--</span>
+                            <span id="jarvis-mic-status" class="jarvis-mic-status">● 待機中</span>
+                        </div>
+                        <div class="jarvis-hud" id="jarvis-hud">
+                            <div class="jarvis-ring jarvis-ring-1"></div>
+                            <div class="jarvis-ring jarvis-ring-2"></div>
+                            <div class="jarvis-ring jarvis-ring-3"></div>
+                            <div class="jarvis-core"></div>
+                            <div id="jarvis-nodes" class="jarvis-nodes"></div>
+                        </div>
+                        <div id="jarvis-text" class="jarvis-text">お呼びください。</div>
+                        <div class="jarvis-controls">
+                            <button type="button" id="jarvis-mic-btn" class="jarvis-mic-btn" aria-label="話しかける">🎤</button>
+                            <form id="jarvis-form" class="jarvis-form">
+                                <input type="text" id="jarvis-input" placeholder="話しかける・指示する…" autocomplete="off">
+                            </form>
+                        </div>
+                        <div id="jarvis-brief" class="jarvis-brief"></div>
+                    </div>
+
+                    <div class="mainai-grid">
+                        <details class="panel-card full-width voice-fold">
+                        <summary class="voice-fold-head">
+                            <span class="sec-icon">🎤</span>声で指示する
+                            <small>（設定はここを開いてください）</small>
+                        </summary>
+                        <div class="wake-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🎤</span>声で指示する</h3>
+                        </div>
+
+                        <p class="hint">どう使うかを選んでください。選ぶと、それに要るものだけを出します。</p>
+                        <div id="voice-mode"></div>
+
+                        <div class="wake-mode">
+                            <label class="wake-mode-item">
+                                <input type="radio" name="wake-mode" value="push" checked>
+                                <span class="wake-mode-title">押したときだけ聞く</span>
+                                <span class="hint">ボタンを押した瞬間だけマイクが入ります。押していない間は完全に切れています。</span>
+                            </label>
+                            <label class="wake-mode-item">
+                                <input type="radio" name="wake-mode" value="always">
+                                <span class="wake-mode-title">名前で呼ぶと反応する</span>
+                                <span class="hint">「<span data-tool-name>アレラム</span>」と呼ぶだけで反応します。手が塞がっていても使えますが、<strong>その間マイクは入ったままです。</strong><br>
+                                聞き取りは<strong>自作の仕組み</strong>で行い、<strong>音声は外へ一切出ません。</strong>先に下の「言葉を教える」で呼び名を録っておいてください。</span>
+                            </label>
+                        </div>
+
+                        <label class="wake-browser-opt">
+                            <input type="checkbox" id="wake-use-browser">
+                            <span>
+                                <b>ブラウザの音声認識を使う</b>
+                                <small>自作ではなく、ブラウザ内蔵の認識を使います。教えていない言葉も聞き取れますが、
+                                <strong>Chromeの場合、音声はGoogleへ送られます。</strong>
+                                外部送信を望まない場合は、これを切ったままにしてください（初期は切ってあります）。</small>
+                            </span>
+                        </label>
+
+                        <div id="wake-state" class="wake-state"></div>
+
+                        <div class="wake-push-row">
+                            <button type="button" id="wake-push" class="btn btn-primary btn-lg">
+                                🎤 押して話す
+                            </button>
+                            <span id="wake-status" class="hint"></span>
+                        </div>
+
+                        <div id="wake-switch-https"></div>
+
+                        <div class="wake-row">
+                            <label>呼び名 <input type="text" id="wake-name" placeholder="アレラム" maxlength="12"></label>
+                        </div>
+
+                        <p class="hint">例:「今日の状況」「タスク サンプル発注」「Tシャツの在庫は？」<br>
+                        名前で呼ぶ場合は「アレラム、今日の状況」のように呼び名を先に付けます。</p>
+
+                        <h4 class="rule-head">声を録り直す（いちばん効きます）</h4>
+                        <div id="voice-rerecord" class="voice-block"></div>
+
+                        <h4 class="rule-head">いまどこまで育っているか</h4>
+                        <div id="voice-growth" class="voice-block"></div>
+
+                        <h4 class="rule-head">いま声が使えるか</h4>
+                        <div id="voice-check" class="voice-block"></div>
+
+                        <h4 class="rule-head">声を覚えさせる（ブラウザのマイクは使いません）</h4>
+                        <div id="voice-teach2" class="voice-block"></div>
+
+                        <h4 class="rule-head">開いていなくても反応する</h4>
+                        <div id="always-listen" class="voice-block"></div>
+
+                        <div class="voice-own voice-block" id="voice-push-block">
+                            <h4 class="rule-head">押して話す</h4>
+                            <p class="hint">
+                                このツールが一から作った聞き取りです。<strong>音声は外へ出ません。</strong><br>
+                                覚えた言葉だけを聞き分けます。分からないときは聞き返すので、教えてください。次から通るようになります。
+                            </p>
+
+                            <div class="voice-row">
+                                <button type="button" id="voice-push" class="btn btn-primary btn-lg">🎤 押して話す</button>
+                            </div>
+                            <div id="voice-result" class="voice-result"></div>
+
+                            <h4 class="rule-head">言葉を教える</h4>
+                            <div class="voice-row">
+                                <input type="text" id="voice-teach-word" placeholder="例: 今日の状況" autocomplete="off">
+                                <button type="button" id="voice-teach-btn" class="btn btn-secondary btn-sm">🎤 この言葉を録る</button>
+                            </div>
+
+                            <h4 class="rule-head">覚えた言葉</h4>
+                            <ul id="voice-words" class="voice-words"></ul>
+                        </div>
+
+                        <div class="notice-strict">
+                            <strong>音声の扱いについて（正確にお伝えします）</strong>
+                            <ul>
+                                <li>音声も、文字にしたものも、<strong>一切保存しません。</strong></li>
+                                <li>マイクが入っている間は、画面に必ず印が出ます。</li>
+                                <li><strong>端末内だけで文字にする仕組みを用意しました。</strong>
+                                    macOS 標準の機能で、Apple 公式・追加費用なし・ライセンス表示不要です。
+                                    使える場合、音声は外へ一切出ません。</li>
+                                <li>使えない場合は、ブラウザ標準の音声認識になります。
+                                    そのときは音声がGoogleのサーバーへ送られます。
+                                    <strong>黙って外へ出すことはせず、必ずお伝えします。</strong></li>
+                            </ul>
+                            <div id="voice-status" class="voice-status"></div>
+                        </div>
+                    </div>
+                    </details>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">📈</span>分析（商品・SNS・売上）</h3>
+                        <p class="hint">
+                            数を並べるだけにしません。<strong>その数が何を意味し、次に何をすればよいか</strong>まで出します。
+                        </p>
+                        <div id="analysis"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🛟</span>引き継ぎと暴走の歯止め</h3>
+                        <p class="hint">
+                            作った人がいなくなっても続けられるように、いまの中身から引き継ぎ書を作ります。
+                            <strong>越えてはいけない線が守られているか</strong>も、その場で確かめます。
+                        </p>
+                        <div id="handover"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🔬</span>自分を見て、良くする</h3>
+                        <p class="hint">
+                            覚えたことの質、作業の使われ方、繰り返している手順を、自分で見ます。
+                            <strong>コードは書き換えません。</strong>直すのは覚えたことと決めた数字までです。
+                        </p>
+                        <div id="self-review"></div>
+                    </section>
+
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🌐</span>Chromeを開いて操る</h3>
+                        <p class="hint">
+                            この道具から、あなたのChromeを開いて操れます。
+                            <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
+                        </p>
+                        <div id="browser-control"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">⚙️</span>自動で動く決まり</h3>
+                        <p class="hint">
+                            「いつ」「何を」を決めておけば、言わなくても動きます。
+                            <strong>動いたことは必ず記録に残ります。</strong>
+                        </p>
+                        <div id="auto-rules"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🎓</span>新しい作業を覚えさせる</h3>
+                        <p class="hint">
+                            やり方を並べて教えると、その手順を覚えます。次からは一言で実行できます。
+                            <strong>できることが、教えるだけで増えていきます。</strong>
+                        </p>
+                        <div id="teach-task"></div>
+                    </section>
+
+                    <section class="panel-card">
+                            <h3>できること</h3>
+                            <ul id="mainai-abilities" class="mainai-abilities"></ul>
+                        </section>
+
+                        <section class="panel-card">
+                            <h3>守っているルール</h3>
+                            <p class="hint">自分で決めたルールは、いつでも足す・直す・消すができます。土台のルールは外せません（理由も書いてあります）。</p>
+
+                            <h4 class="rule-head">自分で決めたルール</h4>
+                            <ul id="rules-mine" class="rule-list"></ul>
+                            <form id="rule-form" class="rule-form">
+                                <input type="text" id="rule-input" placeholder="例: 発注前に必ず原価を確認する" autocomplete="off">
+                                <button type="submit" class="btn btn-primary btn-sm">足す</button>
+                            </form>
+
+                            <h4 class="rule-head">変えられないルール（土台）</h4>
+                            <ul id="rules-fixed" class="rule-list"></ul>
+
+                            <h4 class="rule-head">変えた記録</h4>
+                            <ul id="rules-log" class="rule-log"></ul>
+                        </section>
+
+                        <section class="panel-card">
+                            <div class="panel-header-row">
+                                <h3>覚えていること</h3>
+                                <button type="button" id="mainai-refresh" class="btn btn-sm btn-secondary">更新</button>
+                            </div>
+                            <div id="mainai-memory"></div>
+                        </section>
+
+                        <section class="panel-card">
+                            <div class="panel-header-row">
+                                <h3>覚えた言い方</h3>
+                            </div>
+                            <p class="hint">分からない言い方は聞き返し、教わると覚えます。使うほど短い言葉で通るようになります。</p>
+                            <div id="mainai-phrases"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-page" class="page chat-page-full">
+                <div class="chatgpt-app">
+                    <aside class="chat-sidebar" id="chat-sidebar">
+                        <button type="button" id="chat-new-btn" class="chat-new">
+                            <span>＋</span> 新しいチャット
+                        </button>
+
+                        <div class="sidebar-block">
+                            <p class="sidebar-note">
+                                話しかけるだけで作れます。<br>
+                                「商品説明を書いて」<br>
+                                「インスタの投稿文を考えて」<br>
+                                「黒い縞のロゴを作って」<br>
+                                「工場への発注メールを書いて」
+                            </p>
+                        </div>
+
+                        <div class="sidebar-block">
+                            <h4>これまでの会話</h4>
+                            <ul id="chat-history-list" class="chat-history-list"></ul>
+                        </div>
+                    </aside>
+
+                    <main class="chat-main">
+                        <header class="chat-topbar">
+                            <button type="button" id="chat-menu-btn" class="chat-menu-btn" aria-label="メニュー">☰</button>
+                            <span id="chat-who" class="chat-who">自作AI<small>この端末の中だけで動きます</small></span>
+                            <button type="button" id="chat-brain-toggle" class="btn btn-sm btn-secondary"
+                                title="会話に使うAIを切り替えます">脳: 自作AI</button>
+                            <span id="chat-doing" class="chat-doing"></span>
+                        </header>
+
+                        <div id="chat-scroll" class="chat-scroll">
+                            <div id="chat-messages" class="chat-messages"></div>
+                        </div>
+
+                        <div class="composer-wrap">
+                            <form id="chat-form" class="chat-composer">
+                                <div id="chat-attachments-preview" class="chat-attachments-preview" hidden></div>
+
+                                <div class="composer-box">
+                                    <label class="composer-icon" title="画像・資料を添付">
+                                        <input type="file" id="chat-file-input" accept="image/*,.pdf,video/*" multiple hidden>
+                                        <span>＋</span>
+                                    </label>
+                                    <textarea id="chat-input" rows="1" placeholder="メッセージを入力…"></textarea>
+                                    <button type="button" id="chat-more-btn" class="composer-icon" title="URL・動画を追加">⋯</button>
+                                    <button type="submit" class="composer-send" aria-label="送信">↑</button>
+                                </div>
+
+                                <div id="composer-extra" class="composer-extra" hidden>
+                                    <input type="url" id="chat-url-input" placeholder="参照するURL">
+                                    <button type="button" id="chat-url-add-btn" class="btn btn-sm btn-secondary">追加</button>
+                                    <input type="url" id="chat-video-url" placeholder="動画URL">
+                                    <button type="button" id="chat-video-url-btn" class="btn btn-sm btn-secondary">追加</button>
+                                    <button type="button" id="chat-google-photos-btn" class="btn btn-sm btn-secondary">写真から</button>
+                                </div>
+
+                                <p class="composer-note">Enterで送信 · Shift+Enterで改行。すべてこの端末の中だけで動きます。</p>
+                            </form>
+                        </div>
+                    </main>
+                </div>
+            </div>
+            <!-- ブランドハブ -->
+            <div id="brands-page" class="page">
+                <div class="container">
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◈</span>古着ブランドの管理</h3>
+                            <span id="vintage-summary" class="hint"></span>
+                        </div>
+                        <p class="hint">ECサイトを持つ前の段階として、どこに・いくらで出したかと、売れたときの利益を追えるようにしてあります。</p>
+                        <form id="vintage-form" class="vintage-form">
+                            <input type="text" id="vintage-name" placeholder="品名" required autocomplete="off">
+                            <input type="text" id="vintage-brand" placeholder="ブランド" autocomplete="off">
+                            <select id="vintage-cond" aria-label="状態"></select>
+                            <input type="number" id="vintage-cost" min="0" placeholder="仕入値">
+                            <input type="number" id="vintage-price" min="0" placeholder="売値">
+                            <select id="vintage-place" aria-label="出品先"></select>
+                            <button type="submit" class="btn btn-primary btn-sm">足す</button>
+                        </form>
+                        <div class="inventory-table">
+                            <table>
+                                <thead><tr><th>品名</th><th>ブランド</th><th>状態</th><th>仕入値</th><th>売値</th><th>利益</th><th>操作</th></tr></thead>
+                                <tbody id="vintage-list"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <h2 class="section-title">ブランドハブ</h2>
+                    <p class="page-lead">ロゴ · 国 · ジャンル · 公式サイトを調査・整理。調べた内容はこの端末の中だけに残ります。</p>
+                    <div class="brand-controls">
+                        <button type="button" id="add-brand-btn" class="btn btn-primary">ブランド追加</button>
+                        <button type="button" id="brand-research-btn" class="btn btn-secondary">AI調査（要API）</button>
+                        <button type="button" id="import-competitor-brands-btn" class="btn btn-secondary">競合ブランドを読み込む（12件）</button>
+                        <button type="button" id="import-reference-brands-btn" class="btn btn-secondary">参考ブランドを読み込む（36件）</button>
+                        <button type="button" id="refresh-brands-btn" class="btn btn-secondary">更新</button>
+                    </div>
+                    <div id="brand-growth" class="brand-growth"></div>
+                    <div class="hidden-row-marker" hidden>
+                    </div>
+                    <div class="brand-filters">
+                        <input type="text" id="brand-search" placeholder="ブランド名・説明で検索…" class="search-input">
+                        <select id="brand-filter-category" class="search-input">
+                            <option value="">すべての分類</option>
+                        </select>
+                        <select id="brand-filter-side" class="search-input">
+                            <option value="">自社・他社すべて</option>
+                            <option value="own">自社だけ</option>
+                            <option value="other">他社・参考だけ</option>
+                        </select>
+                        <select id="brand-category-filter">
+                            <option value="">すべてのジャンル</option>
+                            <option value="アパレル">アパレル</option>
+                            <option value="シューズ">シューズ</option>
+                            <option value="バッグ・小物">バッグ・小物</option>
+                            <option value="アクセサリー">アクセサリー</option>
+                            <option value="ストリート">ストリート</option>
+                            <option value="ラグジュアリー">ラグジュアリー</option>
+                        </select>
+                        <select id="brand-country-filter">
+                            <option value="">すべての国</option>
+                            <option value="日本">日本</option>
+                            <option value="アメリカ">アメリカ</option>
+                            <option value="フランス">フランス</option>
+                            <option value="イタリア">イタリア</option>
+                            <option value="イギリス">イギリス</option>
+                            <option value="韓国">韓国</option>
+                        </select>
+                        <select id="brand-price-filter">
+                            <option value="">すべての価格帯</option>
+                            <option value="プチプラ">プチプラ</option>
+                            <option value="ミドル">ミドル</option>
+                            <option value="ハイブランド">ハイブランド</option>
+                            <option value="ラグジュアリー">ラグジュアリー</option>
+                        </select>
+                        <button type="button" id="brand-show-all" class="btn btn-secondary btn-sm">すべて表示</button>
+                        <span id="brand-count" class="hint"></span>
+                    </div>
+                    <div class="hub-tabs brand-sides">
+                        <button type="button" class="hub-tab-btn active" data-brand-side="own">自分のブランド <em class="side-count"></em></button>
+                        <button type="button" class="hub-tab-btn" data-brand-side="other">他社のブランド <em class="side-count"></em></button>
+                        <button type="button" class="hub-tab-btn" data-brand-side="unknown" hidden>未分類 <em class="side-count"></em></button>
+                    </div>
+                    <div id="brand-split-list" class="bsplit-list"></div>
+
+                    <details class="brand-old">
+                        <summary>これまでの一覧（写真つき）</summary>
+                        <div id="brand-list" class="brand-list"></div>
+                    </details>
+                    <section class="panel-card" style="margin-top:2rem">
+                        <h3>ファッションの話題（覚えた資料から）</h3>
+                        <p class="hint">
+                            このツールが覚えた資料の中から、「服」「生地」「素材」などに近い言葉をたどって拾います。
+                            押すと、その話題について覚えていることを出します。
+                        </p>
+                        <div id="fashion-news-feed" class="news-feed"></div>
+                        <button type="button" id="topic-refresh" class="btn btn-secondary btn-sm">↻ 拾い直す</button>
+                    </section>
+                </div>
+            </div>
+
+            <!-- SNS -->
+            <div id="sns-page" class="page">
+                <div class="container">
+                    <h2 class="section-title">SNS連携</h2>
+                    <p class="hint">AReGLM 公式アカウント — 投稿文はこのツールの中で作れます。</p>
+                    <div id="sns-onboarding-banner" class="empty-cta" hidden>
+                        <span>すべてのSNSでAPI未設定ですが、投稿文の下書き作成はAPI設定なしで今すぐ使えます。「投稿を作成」からお試しください。</span>
+                    </div>
+                    <div id="sns-platform-grid" class="sns-accounts-grid"></div>
+                    <div class="two-col">
+                        <section class="panel-card">
+                            <h3>⚡ AIで投稿文を作る</h3>
+                            <p class="hint">
+                                商品を選ぶと、この端末の中のAI（Qwen2.5）が
+                                トーン別に3パターンの投稿文を考えます。
+                            </p>
+                            <div class="form-group">
+                                <label for="sns-gen-product">商品</label>
+                                <select id="sns-gen-product"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="sns-gen-tone">トーン</label>
+                                <select id="sns-gen-tone">
+                                    <option value="カジュアル">カジュアル</option>
+                                    <option value="高級感">高級感</option>
+                                    <option value="ユーモラス">ユーモラス</option>
+                                </select>
+                            </div>
+                            <button type="button" id="sns-gen-btn" class="btn btn-primary">
+                                3パターン作る
+                            </button>
+                            <ul id="sns-gen-results" class="sns-gen-results"></ul>
+                        </section>
+                        <section class="panel-card">
+                            <h3>🙋 問い合わせに答える（AI受付）</h3>
+                            <p class="hint">
+                                お客様からの質問をここに貼り付けると、
+                                在庫・よくある質問をふまえた返信の下書きを作ります。
+                                <strong>送信はしません。必ずご自身でSNS側から送ってください。</strong>
+                            </p>
+                            <div class="form-group">
+                                <label for="faq-question">お客様からの質問</label>
+                                <textarea id="faq-question" rows="3"
+                                    placeholder="例: このデニムジャケット、Mサイズの在庫はありますか？"></textarea>
+                            </div>
+                            <button type="button" id="faq-gen-btn" class="btn btn-primary">
+                                返信を下書きする
+                            </button>
+                            <div id="faq-gen-result" class="faq-gen-result" hidden></div>
+                        </section>
+                        <section class="panel-card">
+                            <h3>投稿作成</h3>
+                            <form id="sns-post-form">
+                                <div class="form-group">
+                                    <label for="sns-platform">プラットフォーム</label>
+                                    <select id="sns-platform" required>
+                                        <option value="instagram">Instagram</option>
+                                        <option value="facebook">Facebook</option>
+                                        <option value="pinterest">Pinterest</option>
+                                        <option value="youtube">YouTube</option>
+                                        <option value="tiktok">TikTok</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sns-caption">キャプション</label>
+                                    <textarea id="sns-caption" rows="4" required placeholder="投稿文…"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">キューに追加</button>
+                                <button type="button" id="sns-auto-promo-btn" class="btn btn-accent">自動宣伝（全自動ON時）</button>
+                            </form>
+                        </section>
+                        <section class="panel-card full-width">
+                        <h3><span class="sec-icon">📱</span>出先から投稿する</h3>
+                        <p class="hint">
+                            スマホからでも、下書きを選べばそのままSNSアプリに渡せます。
+                            <strong>文章を写すところまでこちらでやります。</strong>
+                        </p>
+                        <div id="remote-post"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">📊</span>成績を見る（何が効いたか）</h3>
+                        <p class="hint">
+                            投稿ごとの数字を残すと、<strong>どの時間・どの曜日・どの型が効くか</strong>が分かります。
+                            数を並べるだけにせず、次に何をすればよいかまで出します。
+                        </p>
+                        <div id="sns-analytics"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">📈</span>いいねは、売上につながっているか</h3>
+                        <p class="hint">
+                            「いいねは来るが売上に繋がらない」を、感覚ではなく数字で見ます。
+                            まずは週1回、SNSのインサイト画面から数字を写して入れてください
+                            （自動取得はしていません。公式APIの申請が要るため）。
+                        </p>
+                        <form id="engagement-form" class="two-col">
+                            <div class="form-group">
+                                <label for="eng-week">週の開始日</label>
+                                <input type="date" id="eng-week" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eng-likes">いいね数</label>
+                                <input type="number" id="eng-likes" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eng-saves">保存数</label>
+                                <input type="number" id="eng-saves" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eng-profile">プロフィールアクセス数</label>
+                                <input type="number" id="eng-profile" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eng-sales">その週の売上（円）</label>
+                                <input type="number" id="eng-sales" min="0" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">記録する</button>
+                        </form>
+                        <div id="engagement-table"></div>
+                    </section>
+
+                    <section class="panel-card">
+                            <h3>トレンド分析</h3>
+                            <input type="text" id="sns-trend-product" placeholder="作りたい商品・キーワード">
+                            <button type="button" id="sns-trend-analyze-btn" class="btn btn-secondary" style="margin-top:0.5rem">分析</button>
+                            <div id="sns-trend-result" class="trend-result"></div>
+                        </section>
+                    </div>
+                    <section class="panel-card">
+                        <div class="panel-header-row">
+                            <h3>投稿キュー</h3>
+                            <button type="button" id="refresh-sns-btn" class="btn btn-sm btn-secondary">更新</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>媒体</th><th>内容</th><th>状態</th><th>日時</th><th></th></tr></thead>
+                            <tbody id="sns-queue-tbody"></tbody>
+                        </table>
+                    </section>
+                    <section class="panel-card">
+                        <h3>投稿戦略ガイド <small class="hint">（自主研究「SNS投稿内容が購買意欲に与える影響」より）</small></h3>
+                        <p class="hint">3系統から下書きを作成できます。ボタンを押すとキャプションが入ります。</p>
+                        <div id="sns-strategy-guide" class="sns-strategy-guide"></div>
+                    </section>
+                    <section class="panel-card">
+                        <h3>SNS別特性データ <small class="hint">（現状分析・背景整理②より）</small></h3>
+                        <p class="hint">投稿先を決めるときの判断材料です。国内SNS利用者数8,452万人（2024年末）。</p>
+                        <div id="sns-platform-data" class="sns-data-grid"></div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- 在庫（SUZURIショップのみ） -->
+            <div id="inventory-page" class="page">
+                <div class="container">
+
+                    <h2 class="section-title">在庫 · 売上</h2>
+                    <div id="seed-import-banner" class="empty-cta" hidden>
+                        <span id="seed-import-banner-text"></span>
+                        <button type="button" id="seed-import-banner-btn" class="btn btn-primary btn-sm">読み込む →</button>
+                    </div>
+                    <div id="suzuri-shop-banner" class="status-banner ok"></div>
+                    <div class="hub-stats stats-grid compact">
+                        <div class="stat-card"><h3>商品</h3><p id="hub-total-products">0</p></div>
+                        <div class="stat-card"><h3>売上</h3><p id="hub-total-sales">¥0</p></div>
+                    </div>
+                    <div class="inventory-controls">
+                        <button type="button" id="add-product-btn" class="btn btn-primary">＋ 商品を追加</button>
+                        <button type="button" id="suzuri-sync-btn" class="btn btn-secondary">SUZURIから同期</button>
+                        <button type="button" id="suzuri-shop-open-btn" class="btn btn-secondary">ショップを開く</button>
+                        <button type="button" id="inbound-btn" class="btn btn-success">入庫</button>
+                        <button type="button" id="outbound-btn" class="btn btn-warning">出庫</button>
+                        <button type="button" id="refresh-inventory-hub-btn" class="btn btn-secondary">更新</button>
+                    </div>
+                    <div class="hub-groups" id="hub-groups">
+                        <button type="button" class="hub-group-btn active" data-hub-group="product">📦 商品</button>
+                        <button type="button" class="hub-group-btn" data-hub-group="money">💰 お金</button>
+                        <button type="button" class="hub-group-btn" data-hub-group="link">🔗 連携・履歴</button>
+                    </div>
+                    <div class="hub-tabs">
+                        <button type="button" class="hub-tab-btn active" data-hub-tab="stock" data-hub-group="product">在庫一覧</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="barcode" data-hub-group="product">バーコード</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="series" data-hub-group="product">シリーズ</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="sales" data-hub-group="money">売上</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="sheet" data-hub-group="money">表計算</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="preorder" data-hub-group="money">受注</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="sync" data-hub-group="link">同期履歴</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="autosort" data-hub-group="link">自動仕分け</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="customers" data-hub-group="link">取引先</button>
+                    </div>
+
+                    <div id="hub-panel-stock" class="hub-panel active">
+                        <div class="inventory-controls">
+                            <label class="btn btn-primary btn-sm" for="product-csv-import" tabindex="0" role="button">自分の商品CSVを取り込む</label>
+                            <input type="file" id="product-csv-import" accept=".csv,text/csv" hidden>
+                            <button type="button" id="import-product-seed-btn" class="btn btn-secondary btn-sm">商品マスターを読み込む（5件）</button>
+                        </div>
+                        <p class="hint">
+                            スプレッドシートを<strong>CSVで書き出して</strong>から読み込みます（ファイル → ダウンロード → CSV）。
+                            外部のサービスにはつなぎません。<br>
+                            見出しに「商品番号・商品名・カラー・原産地・生産地・値段・在庫・保存先・備考」が入っていれば、
+                            言い方が多少違っても読み取ります。<strong>同じSKUは上書きし、値段が変われば履歴に残します。</strong>
+                        </p>
+                        <div id="product-csv-result"></div>
+                        <div class="inventory-table">
+                            <table>
+                                <thead><tr><th>SKU</th><th>商品番号</th><th>商品名</th><th>価格</th><th>在庫</th><th>操作</th></tr></thead>
+                                <tbody id="inventory-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="hub-panel-sales" class="hub-panel">
+                        <div class="sales-form">
+                            <h3>売上登録</h3>
+                            <form id="sale-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="sale-product">商品</label>
+                                        <select id="sale-product" name="product_id" required><option value="">選択</option></select>
+                                    </div>
+                                    <div class="form-group"><label for="sale-quantity">数量</label><input type="number" id="sale-quantity" name="quantity" required min="1"></div>
+                                    <div class="form-group"><label for="sale-price">単価</label><input type="number" id="sale-price" name="price" required min="0"></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">売上登録</button>
+                            </form>
+                        </div>
+                        <div class="sales-history">
+                            <h3>売上履歴</h3>
+                            <div class="sales-table">
+                                <table>
+                                    <thead><tr><th>日時</th><th>商品</th><th>数量</th><th>単価</th><th>合計</th></tr></thead>
+                                    <tbody id="sales-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hub-panel-sync" class="hub-panel">
+                        <p class="hint">SUZURI公式APIによる同期ログ</p>
+                        <table class="data-table">
+                            <thead><tr><th>日時</th><th>操作</th><th>詳細</th></tr></thead>
+                            <tbody id="ec-sync-tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="hub-panel-autosort" class="hub-panel">
+                        <p class="hint">商品名を1行ずつ入力（または在庫から自動取得）すると、カテゴリごとに自動で箱詰め・採番します。すべてこのツール内で完結し外部送信はしません。</p>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1">
+                                <label for="autosort-input">商品名リスト（1行1商品）</label>
+                                <textarea id="autosort-input" rows="6" placeholder="カジュアルスウェット&#10;スキニーパンツ&#10;スニーカー"></textarea>
+                            </div>
+                        </div>
+                        <div class="inventory-controls">
+                            <button type="button" id="autosort-run-btn" class="btn btn-primary">自動仕分けを実行</button>
+                            <button type="button" id="autosort-from-stock-btn" class="btn btn-secondary">在庫から読み込み</button>
+                            <button type="button" id="autosort-rules-btn" class="btn btn-secondary">仕分けルールを編集</button>
+                            <button type="button" id="autosort-export-btn" class="btn btn-secondary">CSVとして書き出し</button>
+                        </div>
+                        <div class="inventory-table">
+                            <table>
+                                <thead><tr><th>商品番号</th><th>商品名</th><th>箱名</th></tr></thead>
+                                <tbody id="autosort-tbody"><tr><td colspan="3" class="empty-cell">まだ実行していません</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="hub-panel-barcode" class="hub-panel">
+                        <p class="hint">バーコード（またはJANコード）と商品名を紐付けて登録します。スキャナーは「バーコード」欄にフォーカスしたまま読み取ると自動で登録できます。</p>
+                        <form id="barcode-form" class="barcode-form">
+                            <input type="text" id="barcode-code" placeholder="バーコード / JAN" required autocomplete="off">
+                            <input type="text" id="barcode-name" placeholder="商品名" required>
+                            <button type="submit" class="btn btn-primary btn-sm">登録</button>
+                            <button type="button" id="barcode-export-btn" class="btn btn-secondary btn-sm">CSV書き出し</button>
+                        </form>
+                        <div class="inventory-table">
+                            <table>
+                                <thead><tr><th>バーコード</th><th>商品名</th><th>登録日時</th><th></th></tr></thead>
+                                <tbody id="barcode-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="hub-panel-customers" class="hub-panel">
+                        <p class="hint">取引先（顧客）情報を管理します。顧客ランクで優先度を分けられます。この端末内にのみ保存されます。</p>
+                        <form id="customer-form" class="customer-form">
+                            <input type="text" id="customer-code" placeholder="顧客コード" required>
+                            <input type="text" id="customer-company" placeholder="会社名" required>
+                            <select id="customer-rank">
+                                <option value="A">Aランク</option>
+                                <option value="B" selected>Bランク</option>
+                                <option value="C">Cランク</option>
+                            </select>
+                            <input type="text" id="customer-person" placeholder="担当者名">
+                            <input type="text" id="customer-dept" placeholder="担当部署">
+                            <input type="text" id="customer-zip" placeholder="郵便番号">
+                            <input type="text" id="customer-address" placeholder="住所">
+                            <input type="tel" id="customer-tel" placeholder="電話番号">
+                            <button type="submit" class="btn btn-primary btn-sm">登録</button>
+                            <button type="button" id="customer-export-btn" class="btn btn-secondary btn-sm">CSV書き出し</button>
+                        </form>
+                        <div class="inventory-table">
+                            <table>
+                                <thead><tr><th>コード</th><th>会社名</th><th>ランク</th><th>担当者</th><th>部署</th><th>住所</th><th>電話</th><th></th></tr></thead>
+                                <tbody id="customer-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="hub-panel-sheet" class="hub-panel">
+
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">📈</span>数値計画（月ごとの損益）</h3>
+                            <p class="hint">
+                                変動費と固定費を分けて、月ごとの<strong>売上・原価・粗利・販管費・営業利益</strong>を出します。
+                                知りたいのは「<strong>何ヶ月目に黒字になるか</strong>」と「<strong>いくら用意しておけばよいか</strong>」です。
+                                <br>
+                                <a href="#stat-analysis-heading" class="hint-jump-link">↓ 平均・分散・標準偏差などの統計分析はこの下にあります（月ごとの表を飛ばして見る）</a>
+                            </p>
+
+                            <div class="guard-row">
+                                <label><input type="radio" name="plan-model" value="売り切り" checked> 売り切り型（作って売る）</label>
+                                <label><input type="radio" name="plan-model" value="サブスク"> サブスク型（毎月入る）</label>
+                            </div>
+                            <p class="hint">
+                                サブスク型では、<strong>今月の会員数＝先月の会員数−解約＋新規</strong>として、
+                                前の月から引き継いで計算します。
+                            </p>
+
+                            <div class="guard-row">
+                                <input type="text" id="plan-name" placeholder="計画の名前（例: TUZURI 2026）" autocomplete="off">
+                                <label for="plan-months">期間</label>
+                                <input type="number" id="plan-months" value="60" min="1" max="240" style="max-width:6rem">
+                                <span class="hint">ヶ月</span>
+                                <button type="button" id="plan-save" class="btn btn-sm btn-primary">この計画を保存</button>
+                                <select id="plan-saved" aria-label="保存した計画"></select>
+                            </div>
+
+                            <div class="two-col">
+                                <div>
+                                    <h4 class="rule-head">売上の変数</h4>
+                                    <div id="plan-vars-sales"></div>
+                                </div>
+                                <div>
+                                    <h4 class="rule-head">原価の変数</h4>
+                                    <div id="plan-vars-cost"></div>
+                                </div>
+                            </div>
+                            <h4 class="rule-head">販管費の変数</h4>
+                            <div id="plan-vars-sga" class="two-col"></div>
+
+                            <div id="plan-result"></div>
+
+                            <div class="guard-row">
+                                <button type="button" id="plan-review-btn" class="btn btn-sm btn-accent">この計画をAIに見てもらう</button>
+                            </div>
+                            <div id="plan-review"></div>
+                        </section>
+
+                        <section class="panel-card full-width">
+                            <h3 id="stat-analysis-heading"><span class="sec-icon">📊</span>統計分析</h3>
+                            <p class="hint">
+                                在庫・売上のデータや、手で入れた数字を対象に、
+                                <strong>基本統計・ヒストグラム・相関・回帰・区間推定・検定</strong>を出します。
+                                数字だけでなく「何が言えて、何は言えないか」も添えます。
+                            </p>
+
+                            <h4 class="rule-head">① 基本統計とヒストグラム</h4>
+                            <div class="guard-row">
+                                <select id="stat-desc-source" aria-label="データを選ぶ"></select>
+                            </div>
+                            <input type="text" id="stat-desc-manual" class="stat-manual" placeholder="数字を空白かカンマで区切って入れる（例: 12, 15, 9, 20）" hidden>
+                            <div id="stat-desc-result"></div>
+
+                            <h4 class="rule-head">② 相関と回帰（2つの指標の関係）</h4>
+                            <div class="guard-row">
+                                <label>X: <select id="stat-rel-x"></select></label>
+                                <label>Y: <select id="stat-rel-y"></select></label>
+                            </div>
+                            <input type="text" id="stat-rel-x-manual" class="stat-manual" placeholder="Xの数字（例: 10, 20, 30）" hidden>
+                            <input type="text" id="stat-rel-y-manual" class="stat-manual" placeholder="Yの数字（Xと同じ個数）" hidden>
+                            <div id="stat-rel-result"></div>
+
+                            <h4 class="rule-head">③ 区間推定</h4>
+                            <div class="guard-row">
+                                <select id="stat-est-kind">
+                                    <option value="母平均">母平均</option>
+                                    <option value="母分散">母分散・標準偏差</option>
+                                    <option value="母比率">母比率</option>
+                                </select>
+                                <select id="stat-est-level">
+                                    <option value="0.90">90%</option>
+                                    <option value="0.95" selected>95%</option>
+                                    <option value="0.99">99%</option>
+                                </select>
+                            </div>
+                            <div id="stat-est-series-wrap" class="guard-row">
+                                <select id="stat-est-source"></select>
+                            </div>
+                            <input type="text" id="stat-est-manual" class="stat-manual" placeholder="数字を区切って入れる" hidden>
+                            <div id="stat-est-prop-wrap" class="guard-row" hidden>
+                                <label>成功数 <input type="number" id="stat-est-success" min="0" value="0" style="max-width:6rem"></label>
+                                <label>全体数 <input type="number" id="stat-est-total" min="1" value="100" style="max-width:6rem"></label>
+                            </div>
+                            <div id="stat-est-result"></div>
+
+                            <h4 class="rule-head">④ 検定</h4>
+                            <div class="guard-row">
+                                <select id="stat-test-kind">
+                                    <option value="t検定">1標本のt検定（平均が、ある値と違うか）</option>
+                                    <option value="独立性の検定">独立性の検定（カイ二乗）</option>
+                                </select>
+                                <select id="stat-test-level">
+                                    <option value="0.05" selected>有意水準 5%</option>
+                                    <option value="0.01">有意水準 1%</option>
+                                    <option value="0.10">有意水準 10%</option>
+                                </select>
+                            </div>
+                            <div id="stat-test-series-wrap">
+                                <div class="guard-row">
+                                    <select id="stat-test-source"></select>
+                                    <label>比べる値 <input type="number" id="stat-test-mu" value="0" style="max-width:7rem"></label>
+                                </div>
+                                <input type="text" id="stat-test-manual" class="stat-manual" placeholder="数字を区切って入れる" hidden>
+                            </div>
+                            <div id="stat-test-table-wrap" hidden>
+                                <p class="hint">クロス集計表を、行ごとに改行して入れてください（例: 上段「20 30」、下段「30 20」）。</p>
+                                <textarea id="stat-test-table" rows="3" placeholder="20 30&#10;30 20"></textarea>
+                            </div>
+                            <div id="stat-test-result"></div>
+                        </section>
+
+                        <div class="inventory-controls">
+                            <select id="sheet-select" aria-label="表を選ぶ"></select>
+                            <button type="button" id="sheet-from-products" class="btn btn-primary btn-sm">登録商品から在庫表を作る</button>
+                            <label class="btn btn-secondary btn-sm sheet-file">
+                                CSVを読み込む
+                                <input type="file" id="sheet-import" accept=".csv,text/csv" hidden>
+                            </label>
+                            <button type="button" id="sheet-export" class="btn btn-secondary btn-sm">CSVで書き出す</button>
+                            <button type="button" id="sheet-new" class="btn btn-secondary btn-sm">新しい表</button>
+                            <button type="button" id="sheet-add-row" class="btn btn-secondary btn-sm">行を足す</button>
+                            <button type="button" id="sheet-add-col" class="btn btn-secondary btn-sm">列を足す</button>
+                            <button type="button" id="sheet-delete" class="btn btn-secondary btn-sm">この表を外す</button>
+                        </div>
+                        <p class="hint">
+                            マスに <code>=C2*D2</code> や <code>=SUM(D2:D10)</code> のような式が書けます。
+                            使える関数は SUM・AVERAGE・COUNT・MAX・MIN です。
+                            すべてこの端末の中だけに保存され、外部へは一切送りません。
+                        </p>
+                        <div id="sheet-summary" class="hint"></div>
+                        <div class="inventory-table" id="sheet-grid"></div>
+                    </div>
+
+                    <div id="hub-panel-preorder" class="hub-panel">
+                        <p class="hint">
+                            先に受注を集め、決めた数を超えたら作る売り方のための場所です。
+                            <strong>数が達したとき・締切が過ぎたときに、自動で知らせます。</strong>
+                            達しなかった場合は「販売せず、お金も取らない」という判断がすぐできます。
+                        </p>
+                        <form id="preorder-form" class="preorder-form">
+                            <input type="text" id="pre-product" placeholder="商品名" required autocomplete="off">
+                            <input type="number" id="pre-target" min="1" value="50" title="必要な受注数">
+                            <input type="number" id="pre-price" min="0" placeholder="値段">
+                            <input type="date" id="pre-deadline" title="締切">
+                            <button type="submit" class="btn btn-primary btn-sm">受付を始める</button>
+                        </form>
+                        <ul id="preorder-list" class="preorder-list"></ul>
+                    </div>
+
+                    <div id="hub-panel-series" class="hub-panel">
+                        <p class="hint">商品をシリーズごとにまとめて、進捗と在庫を一括で確認します。商品の登録は在庫一覧から行い、ここでシリーズに割り当てます。</p>
+                        <form id="series-form" class="series-form">
+                            <input type="text" id="series-name" placeholder="シリーズ名（例: 2026 Spring）" required>
+                            <input type="text" id="series-concept" placeholder="コンセプト（任意）">
+                            <select id="series-status">
+                                <option value="planning">企画中</option>
+                                <option value="sampling">サンプル制作</option>
+                                <option value="production">生産中</option>
+                                <option value="selling">販売中</option>
+                                <option value="closed">終了</option>
+                            </select>
+                            <input type="date" id="series-release" title="発売予定日">
+                            <button type="submit" class="btn btn-primary btn-sm">シリーズを追加</button>
+                        </form>
+                        <div id="series-list" class="series-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 商品開発 SUZURI -->
+            <div id="studio-page" class="page">
+                <div class="container">
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🗂</span>保管庫<small class="hint">（写真・動画・資料）</small></h3>
+                            <label class="btn btn-sm btn-primary lib-add">
+                                ファイルを入れる
+                                <input type="file" id="library-input" multiple hidden>
+                            </label>
+                        </div>
+                        <p class="hint">写真・動画・資料をこのツールの中に置けます。<strong>すべてこの端末の中だけに保存され、外部へは一切送りません。</strong></p>
+                        <div id="library-summary" class="hint"></div>
+
+                        <div class="hub-tabs lib-kinds">
+                            <button type="button" class="hub-tab-btn active" data-lib-kind="すべて">すべて <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-kind="画像">画像 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-kind="動画">動画 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-kind="PDF">PDF <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-kind="資料">資料 <em class="lib-count"></em></button>
+                        </div>
+
+                        <div id="library-list" class="lib-list"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">👕</span>モックアップ（商品に載せた見え方）</h3>
+                            <div class="header-actions">
+                                <button type="button" id="mock-export" class="btn btn-sm btn-primary">画像で書き出す</button>
+                            </div>
+                        </div>
+                        <p class="hint">
+                            デザインの<strong>大きさ・位置・配色の釣り合い</strong>を確かめられます。刷れる範囲をはみ出すと知らせます。<br>
+                            商品の形は線で描いています。写真のような仕上がりの見た目ではありません。
+                        </p>
+
+                        <div class="mock-editor">
+                            <div class="mock-fields">
+                                <label>商品 <select id="mock-item"></select></label>
+                                <label>色 <select id="mock-color"></select></label>
+                                <label>位置
+                                    <select id="mock-place">
+                                        <option value="front">胸・中央</option>
+                                        <option value="chest-small">左胸・小さく</option>
+                                        <option value="back">背中</option>
+                                    </select>
+                                </label>
+                                <label>大きさ <input type="range" id="mock-size" min="20" max="140" value="100"></label>
+                                <label>上下 <input type="range" id="mock-shift" min="-15" max="15" value="0"></label>
+
+                                <div class="mock-buttons">
+                                    <label class="btn btn-sm btn-secondary mock-file-btn">
+                                        デザインを読込
+                                        <input type="file" id="mock-file" accept="image/*" hidden>
+                                    </label>
+                                    <button type="button" id="mock-from-design" class="btn btn-sm btn-secondary">図案を作って載せる</button>
+                                    <button type="button" id="mock-clear" class="btn btn-sm btn-secondary">外す</button>
+                                </div>
+                            </div>
+
+                            <div class="mock-preview">
+                                <canvas id="mockup-canvas"></canvas>
+                                <p id="mockup-info" class="hint"></p>
+                                <p id="mockup-warn" class="mockup-warn"></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">📐</span>型紙の下書き</h3>
+                            <div class="header-actions">
+                                <select id="pattern-kind" aria-label="型の種類"></select>
+                                <button type="button" id="pattern-export" class="btn btn-sm btn-primary">図を書き出す</button>
+                            </div>
+                        </div>
+                        <p class="hint">
+                            寸法を入れると形の図になります。工場との打ち合わせにお使いください。<br>
+                            <strong>これは下書きで、実際に裁断できる型紙ではありません。</strong>
+                            本物の型紙には縫い代・地の目・いせ込みなど専門の知識が要ります。
+                        </p>
+                        <div class="pattern-editor">
+                            <div id="pattern-fields" class="pattern-fields"></div>
+                            <div class="pattern-preview">
+                                <canvas id="pattern-canvas"></canvas>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">💰</span>原価・納期の計算</h3>
+                            <div class="header-actions">
+                                <button type="button" id="cost-save" class="btn btn-sm btn-secondary">保存</button>
+                                <button type="button" id="cost-export" class="btn btn-sm btn-primary">確認書を書き出す</button>
+                            </div>
+                        </div>
+                        <p class="hint">先に数字を出し、注意書きと一緒に書面で渡しておけば、<strong>後から値段や納期を変えられたときに、その話をした証拠が残ります。</strong></p>
+
+                        <div class="cost-editor">
+                            <div class="cost-fields">
+                                <label>品名 <input type="text" id="cost-product" placeholder="デニムジャケット" autocomplete="off"></label>
+                                <label>材料費 <input type="number" id="cost-material" min="0" placeholder="1800"></label>
+                                <label>加工賃 <input type="number" id="cost-work" min="0" placeholder="2200"></label>
+                                <label>付属品費 <input type="number" id="cost-parts" min="0" placeholder="400"></label>
+                                <label>その他 <input type="number" id="cost-other" min="0" placeholder="200"></label>
+                                <label>型代 <input type="number" id="cost-mold" min="0" placeholder="30000"></label>
+                                <label>枚数 <input type="number" id="cost-qty" min="1" value="50"></label>
+                                <label>掛率 <input type="number" id="cost-rate" min="1" step="0.1" value="3"></label>
+                                <label>サンプル日数 <input type="number" id="lead-sample" min="0" placeholder="14"></label>
+                                <label>量産日数 <input type="number" id="lead-mass" min="0" placeholder="45"></label>
+                                <label>輸送日数 <input type="number" id="lead-ship" min="0" placeholder="21"></label>
+                            </div>
+                            <div class="cost-out">
+                                <div id="cost-result" class="cost-result"></div>
+                                <div id="cost-compare" class="cost-compare"></div>
+                            </div>
+                        </div>
+
+                        <h4 class="rule-head">工場へのお取り決め（確認書に載せるもの）</h4>
+                        <ul id="cost-notes" class="cost-notes"></ul>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🏬</span>自分の店のページを作る</h3>
+                        <p class="hint">
+                            登録した商品から、一枚のページを書き出します。外部から何も読み込みません。<br>
+                            <strong>支払いの仕組みは作れません。</strong>カード情報を預かるには規格（PCI DSS）が要り、
+                            前金を預かる形は資金決済法の話になります。法律で決まっていることは時間では解けません。<br>
+                            <strong>書き出しただけでは公開されません。</strong>このMacに保存されるだけです。
+                        </p>
+                        <div class="shop-row">
+                            <input type="text" id="shop-name" placeholder="店の名前（既定: AReGLM）" autocomplete="off">
+                            <input type="text" id="shop-lead" placeholder="ひとこと（任意）" autocomplete="off">
+                        </div>
+                        <div class="shop-row">
+                            <input type="url" id="shop-buy-url" placeholder="買える場所のURL（Amazon・SUZURI など／任意）" autocomplete="off">
+                        </div>
+                        <div class="shop-row">
+                            <button type="button" id="shop-preview-btn" class="btn btn-secondary">見てみる</button>
+                            <button type="button" id="shop-build-btn" class="btn btn-primary">ページを書き出す</button>
+                        </div>
+                        <iframe id="shop-preview" class="shop-preview" hidden sandbox="allow-same-origin" title="店のページの下見"></iframe>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🏷</span>値札タグの下書き</h3>
+                            <div class="header-actions">
+                                <button type="button" id="tag-save" class="btn btn-sm btn-secondary">保存</button>
+                                <button type="button" id="tag-export" class="btn btn-sm btn-primary">画像で書き出す</button>
+                            </div>
+                        </div>
+                        <p class="hint">工場やプリント業者に渡す前の、形と中身を決めるためのものです。<strong>透かしは一切入りません。</strong></p>
+
+                        <div class="tag-editor">
+                            <div class="tag-fields">
+                                <label>形 <select id="tag-shape"></select></label>
+                                <label>ブランド <input type="text" id="tag-brand" value="AReGLM" autocomplete="off"></label>
+                                <label>シリーズ <input type="text" id="tag-series" placeholder="TUDURI など" autocomplete="off"></label>
+                                <label>値段 <input type="number" id="tag-price" min="0" placeholder="12800"></label>
+                                <label>素材 <input type="text" id="tag-material" placeholder="COTTON 100%" autocomplete="off"></label>
+                                <label>原産国 <input type="text" id="tag-origin" placeholder="MADE IN JAPAN" autocomplete="off"></label>
+                                <label>品番 <input type="text" id="tag-code" placeholder="TDR-021" autocomplete="off"></label>
+                                <label>地の色 <input type="color" id="tag-bg" value="#f6f2e8"></label>
+                                <label>文字の色 <input type="color" id="tag-fg" value="#1c1c1e"></label>
+                            </div>
+                            <div class="tag-preview">
+                                <canvas id="tag-canvas"></canvas>
+                                <p id="tag-size" class="hint"></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">📷</span>カメラで撮って調べる</h3>
+                            <div class="header-actions">
+                                <button type="button" id="camera-start" class="btn btn-sm btn-primary">カメラを入れる</button>
+                                <button type="button" id="camera-stop" class="btn btn-sm btn-secondary">切る</button>
+                            </div>
+                        </div>
+                        <p class="hint">押したときだけカメラが入ります。撮った画像はこの端末の中だけに残り、外部へは一切送りません。</p>
+
+                        <div id="camera-box" class="cam-box">
+                            <video id="camera-view" playsinline muted></video>
+                            <canvas id="camera-canvas"></canvas>
+                        </div>
+
+                        <div class="cam-actions">
+                            <button type="button" id="camera-shot" class="btn btn-sm btn-primary">撮る</button>
+                            <button type="button" id="camera-save" class="btn btn-sm btn-secondary">保存</button>
+                            <label class="btn btn-sm btn-secondary cam-file">
+                                画像を選ぶ
+                                <input type="file" id="camera-file" accept="image/*" hidden>
+                            </label>
+                        </div>
+
+                        <div id="camera-result" class="cam-result"></div>
+                    </section>
+                    <h2 class="section-title">商品開発</h2>
+                    <div id="suzuri-connection-status" class="status-banner warn"></div>
+                    <div class="studio-layout">
+                        <section class="panel-card">
+                            <h3>グッズを作る（SUZURI公式API · 無料）</h3>
+                            <form id="suzuri-create-form">
+                                <div class="form-group">
+                                    <label for="suzuri-product-name">商品名</label>
+                                    <input type="text" id="suzuri-product-name" required placeholder="例: AReGLM ロゴT">
+                                </div>
+                                <div class="form-group">
+                                    <label for="suzuri-item-type">アイテム</label>
+                                    <select id="suzuri-item-type" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="suzuri-description">説明</label>
+                                    <textarea id="suzuri-description" rows="2" placeholder="デザインの説明…"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>デザイン素材</label>
+                                    <input type="file" id="suzuri-material-file" accept="image/png,image/jpeg,image/webp">
+                                    <div id="suzuri-material-preview" class="material-preview"><span class="hint">PNG/JPEG をアップロード</span></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">SUZURIに作成</button>
+                            </form>
+                        </section>
+                        <section class="panel-card">
+                            <div class="panel-header-row">
+                                <h3>作成した商品</h3>
+                                <button type="button" id="refresh-suzuri-btn" class="btn btn-sm btn-secondary">更新</button>
+                            </div>
+                            <div id="suzuri-products-grid" class="dev-grid"></div>
+                            <button type="button" id="suzuri-import-inventory-btn" class="btn btn-accent btn-block" style="margin-top:1rem">在庫・EC管理へ取り込み</button>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>画像編集 <small class="hint">（この端末内で処理 · 透かしなし）</small></h3>
+                                <span id="editor-status" class="hint"></span>
+                            </div>
+                            <p class="hint">明るさなどの調整と、部分ぼかしができます。<strong>画像の上をドラッグ</strong>すると、その範囲だけぼかせます（写り込んだ他人などを隠す用途）。</p>
+                            <div class="editor-layout">
+                                <div class="editor-controls">
+                                    <label>画像を選ぶ <input type="file" id="editor-file" accept="image/*"></label>
+                                    <label>明るさ <input type="range" id="editor-brightness" min="20" max="200" value="100"><small id="editor-brightness-val" class="hint">100</small></label>
+                                    <label>コントラスト <input type="range" id="editor-contrast" min="20" max="200" value="100"><small id="editor-contrast-val" class="hint">100</small></label>
+                                    <label>彩度 <input type="range" id="editor-saturate" min="0" max="200" value="100"><small id="editor-saturate-val" class="hint">100</small></label>
+                                    <label>ぼかしの強さ <input type="range" id="editor-blur-strength" min="2" max="40" value="12"><small id="editor-blur-strength-val" class="hint">12</small></label>
+                                    <p id="editor-blur-count" class="hint"></p>
+                                    <button type="button" id="editor-undo-blur" class="btn btn-secondary btn-sm">ぼかしを1つ戻す</button>
+                                    <button type="button" id="editor-reset" class="btn btn-secondary btn-sm">調整をリセット</button>
+                                    <button type="button" id="editor-download" class="btn btn-primary btn-sm">PNGで保存</button>
+                                </div>
+                                <div class="editor-preview">
+                                    <canvas id="editor-canvas"></canvas>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>メディアスタジオ <small class="hint">（動画・録画・録音 · すべてこの端末内で処理）</small></h3>
+                                <span id="media-status" class="hint"></span>
+                            </div>
+
+                            <h4 class="media-sub">宣伝動画をつくる</h4>
+                            <p class="hint">画像を並べるだけで動画ファイル（.webm）になります。長さの上限はありません。電子透かしは入りません。</p>
+                            <div class="media-controls">
+                                <label>画像を追加 <input type="file" id="media-slide-add" accept="image/*" multiple></label>
+                                <label>サイズ
+                                    <select id="media-video-size">
+                                        <option value="1080x1080">正方形 1080×1080</option>
+                                        <option value="1080x1920">縦 1080×1920（リール）</option>
+                                        <option value="1920x1080">横 1920×1080</option>
+                                    </select>
+                                </label>
+                                <label>1枚あたり <input type="range" id="media-duration" min="1" max="15" step="0.5" value="3"><small id="media-duration-val" class="hint">3秒/枚</small></label>
+                                <label class="checkbox-label"><input type="checkbox" id="media-fade" checked> フェードを入れる</label>
+                                <button type="button" id="media-video-build" class="btn btn-primary btn-sm">動画を書き出す</button>
+                                <button type="button" id="media-slides-clear" class="btn btn-secondary btn-sm">画像をクリア</button>
+                            </div>
+                            <p id="media-estimate" class="hint"></p>
+                            <div id="media-slides" class="media-slides"></div>
+
+                            <h4 class="media-sub">画面録画・録音・スクリーンショット</h4>
+                            <div class="media-controls">
+                                <button type="button" id="media-screen-btn" class="btn btn-secondary btn-sm">画面を録画</button>
+                                <button type="button" id="media-audio-btn" class="btn btn-secondary btn-sm">録音する</button>
+                                <button type="button" id="media-stop-btn" class="btn btn-danger btn-sm" disabled>停止して保存</button>
+                                <button type="button" id="media-shot-btn" class="btn btn-secondary btn-sm">スクリーンショット</button>
+                            </div>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>原価・価格設定</h3>
+                            </div>
+                            <p class="hint">自社分析資料の基準「仕入価格は売価の50%以下・粗利50%超」に沿っているかを判定します。</p>
+                            <div class="pricing-calc">
+                                <label>原価（仕入）<input type="number" id="pricing-cost" min="0" step="10" placeholder="1500"></label>
+                                <label>販売価格<input type="number" id="pricing-price" min="0" step="10" placeholder="3500"></label>
+                                <label>想定販売数<input type="number" id="pricing-qty" min="1" step="1" value="1"></label>
+                            </div>
+                            <div id="pricing-result" class="pricing-result"></div>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>AI 服デザイン生成</h3>
+                                <button type="button" id="imggen-run-btn" class="btn btn-sm btn-primary">生成する</button>
+                            </div>
+                            <p class="hint">項目を選ぶとStable Diffusion用の英語プロンプトが自動で組み立てられます。生成した画像は保存して、そのままモックアップやOEM依頼の資料に使えます。</p>
+                            <div class="imggen-layout">
+                                <div class="imggen-controls">
+                                    <label>アイテム
+                                        <select id="imggen-garment">
+                                            <option value="t-shirt">Tシャツ</option>
+                                            <option value="hoodie">パーカー</option>
+                                            <option value="sweatshirt">スウェット</option>
+                                            <option value="denim jacket">デニムジャケット</option>
+                                            <option value="coach jacket">コーチジャケット</option>
+                                            <option value="cargo pants">カーゴパンツ</option>
+                                            <option value="skinny pants">スキニーパンツ</option>
+                                            <option value="cap">キャップ</option>
+                                            <option value="tote bag">トートバッグ</option>
+                                        </select>
+                                    </label>
+                                    <label>素材
+                                        <select id="imggen-material">
+                                            <option value="heavyweight cotton">厚手コットン</option>
+                                            <option value="soft cotton jersey">コットンジャージ</option>
+                                            <option value="washed denim">ウォッシュデニム</option>
+                                            <option value="nylon">ナイロン</option>
+                                            <option value="corduroy">コーデュロイ</option>
+                                            <option value="wool blend">ウール混</option>
+                                        </select>
+                                    </label>
+                                    <label>色 <input type="text" id="imggen-color" value="off white" placeholder="例: black, beige"></label>
+                                    <label>スタイル
+                                        <select id="imggen-style">
+                                            <option value="minimal street style">ミニマル・ストリート</option>
+                                            <option value="Japanese avant-garde">和・アヴァンギャルド</option>
+                                            <option value="outdoor utility">アウトドア・ユーティリティ</option>
+                                            <option value="vintage 90s">90sヴィンテージ</option>
+                                            <option value="techwear">テックウェア</option>
+                                        </select>
+                                    </label>
+                                    <label>見せ方
+                                        <select id="imggen-shot">
+                                            <option value="flat lay product photo on white background, no person">平置き（白背景・人なし）</option>
+                                            <option value="worn by a model, full body, studio lighting">モデル着用（全身）</option>
+                                            <option value="technical fashion sketch, front and back view, white background">デザイン画（前後）</option>
+                                        </select>
+                                    </label>
+                                    <label>追加の指定 <input type="text" id="imggen-extra" placeholder="例: oversized fit, embroidered logo"></label>
+                                    <label>品質ステップ <input type="range" id="imggen-steps" min="20" max="50" value="35"><small id="imggen-steps-val" class="hint">35</small></label>
+                                    <label>プロンプト忠実度 <input type="range" id="imggen-guidance" min="3" max="12" step="0.5" value="7.5"><small id="imggen-guidance-val" class="hint">7.5</small></label>
+                                    <label>生成プロンプト（自動生成・編集可）
+                                        <textarea id="imggen-prompt" rows="4"></textarea>
+                                    </label>
+                                </div>
+                                <div class="imggen-result">
+                                    <div id="imggen-output" class="imggen-output"><span class="hint">ここに生成結果が表示されます</span></div>
+                                    <button type="button" id="imggen-save-btn" class="btn btn-secondary btn-sm" disabled>画像を保存</button>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>デザイン制作（SNS・モックアップ用）</h3>
+                                <button type="button" id="design-download-btn" class="btn btn-sm btn-primary">PNGで保存</button>
+                            </div>
+                            <p class="hint">背景色・テキスト・ロゴを組み合わせて、SNS投稿画像やモックアップの下地を作成できます。すべてブラウザ内で処理されます。</p>
+                            <div class="design-studio">
+                                <div class="design-controls">
+                                    <label>サイズ
+                                        <select id="design-size">
+                                            <option value="1080x1080">正方形 1080×1080（Instagram）</option>
+                                            <option value="1080x1920">縦 1080×1920（ストーリー/リール）</option>
+                                            <option value="1200x630">横 1200×630（OGP/X）</option>
+                                        </select>
+                                    </label>
+                                    <label>背景色 <input type="color" id="design-bg" value="#111111"></label>
+                                    <label>文字色 <input type="color" id="design-fg" value="#ffffff"></label>
+                                    <label>メインテキスト <input type="text" id="design-title" value="AReGLM" maxlength="40"></label>
+                                    <label>サブテキスト <input type="text" id="design-subtitle" value="" maxlength="60" placeholder="任意"></label>
+                                    <label>文字サイズ <input type="range" id="design-fontsize" min="30" max="180" value="110"></label>
+                                    <label>ロゴ画像 <input type="file" id="design-logo" accept="image/png,image/jpeg,image/webp"></label>
+                                </div>
+                                <div class="design-preview-wrap">
+                                    <canvas id="design-canvas" width="1080" height="1080"></canvas>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>技術パック（寸法表）</h3>
+                                <button type="button" id="techpack-export-btn" class="btn btn-sm btn-secondary">CSV書き出し</button>
+                            </div>
+                            <p class="hint">サイズごとの寸法をまとめて、製造・発注時の仕様書として使えます。</p>
+                            <form id="techpack-form" class="techpack-form">
+                                <input type="text" id="techpack-product" placeholder="商品名" required>
+                                <select id="techpack-size">
+                                    <option value="S">S</option>
+                                    <option value="M" selected>M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="FREE">FREE</option>
+                                </select>
+                                <input type="text" id="techpack-part" placeholder="部位（例: 着丈）" required>
+                                <input type="number" id="techpack-value" placeholder="寸法(cm)" step="0.1" required>
+                                <input type="text" id="techpack-note" placeholder="メモ（任意）">
+                                <button type="submit" class="btn btn-primary btn-sm">追加</button>
+                            </form>
+                            <div class="table-scroll">
+                                <table class="techpack-table">
+                                    <thead>
+                                        <tr><th>商品名</th><th>サイズ</th><th>部位</th><th>寸法(cm)</th><th>メモ</th><th></th></tr>
+                                    </thead>
+                                    <tbody id="techpack-tbody"></tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設定 -->
+            <div id="settings-page" class="page">
+                <div class="container container-narrow">
+                    <h2 class="section-title">設定</h2>
+                    <p class="page-lead">このツールは、すべて自作で動きます。外部のAIやサービスの鍵は要りません。</p>
+                    <section class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">◷</span>履歴</h3>
+                        </div>
+                        <div class="hub-tabs hist-tabs">
+                            <button type="button" class="hub-tab-btn active" data-hist-tab="作業">これまでの作業</button>
+                            <button type="button" class="hub-tab-btn" data-hist-tab="失敗">うまくいかなかったこと</button>
+                            <button type="button" class="hub-tab-btn" data-hist-tab="繰り返し">繰り返していること</button>
+                        </div>
+                        <div id="history-list" class="history-list"></div>
+
+                        <h4 class="rule-head">うまくいかなかったことを残す</h4>
+                        <p class="hint">同じことが2回以上起きたら知らせます。繰り返しているものは、その場の対処ではなく仕組みの問題であることが多いためです。</p>
+                        <form id="trouble-form" class="trouble-form">
+                            <input type="text" id="trouble-what" placeholder="何が起きたか" required autocomplete="off">
+                            <input type="text" id="trouble-fix" placeholder="どう対処したか（任意）" autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm">残す</button>
+                        </form>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">⬇</span>まとめて取り出す</h3>
+                        <p class="hint">取引先に渡す形や、別の端末へ移す控えを作れます。写真・動画は含みません（大きすぎて開けないファイルになるため、保管庫から個別に取り出してください）。</p>
+                        <ul id="export-list" class="export-list"></ul>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🔊</span>声と話し方</h3>
+                        <p class="hint">返事の読み上げに使う声と、その速さ・高さ・大きさを選べます。</p>
+                        <div id="voice-style"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🛡</span>取引の連絡を見る</h3>
+                        <p class="hint">
+                            工場や取引先から届いたメールを、そのまま貼り付けてください。
+                            <strong>振込先の変更、急かし、個人口座への送金</strong>など、
+                            引っかかる点があれば挙げます。<br>
+                            文面は<strong>この端末の中だけで見ます。外へは送らず、保存もしません。</strong>
+                        </p>
+                        <div class="deal-row">
+                            <input type="text" id="deal-check-from" placeholder="取引先の名前（任意）" autocomplete="off">
+                        </div>
+                        <textarea id="deal-check-text" rows="7"
+                            placeholder="ここにメールの中身をそのまま貼り付けてください"></textarea>
+                        <div class="deal-row">
+                            <button type="button" id="deal-check-run" class="btn btn-primary">🔍 この連絡を見る</button>
+                            <button type="button" id="deal-check-clear" class="btn btn-secondary btn-sm">貼った文を消す</button>
+                        </div>
+                        <div id="deal-check-result" class="deal-result"></div>
+                    </section>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🔁</span>外部の道具を置き換える計画</h3>
+                        <p class="hint">
+                            これまで外部の道具でやってきたことを、この道具でどこまでできるかの一覧です。
+                            <strong>できないものは、できない理由まで書いてあります。</strong>
+                        </p>
+                        <div id="replace-plan"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">📱</span>他の端末から使う</h3>
+                        <p class="hint">スマホや別のPCのChromeからも使えるようにします。<strong>初期は切ってあります。</strong></p>
+                        <div id="other-devices"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🛡</span>コードの安全点検</h3>
+                        <p class="hint">
+                            <strong>このツール自身のコードだけ</strong>を見て、危ういパターンがないか点検します。
+                            外部のサービスには一切送りません。見つけるだけで、自動で書き換えることはしません。
+                        </p>
+                        <button type="button" id="security-scan-run" class="btn btn-sm btn-primary">点検する</button>
+                        <div id="security-scan-result"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🔎</span>これはうちで作ったもの？（真贋の照合）</h3>
+                        <p class="hint">
+                            <strong>成果物には透かしを一切入れません。</strong>
+                            代わりに、作ったときに「指紋」だけをこの端末に控えています。
+                            画像は無改変のまま出ていき、手元には照合する手段だけが残ります。<br>
+                            真似された疑いのある画像を持ってきて、ここで確かめてください。
+                            <strong>保存し直しや圧縮をされていても見分けられます。</strong>
+                        </p>
+                        <div class="guard-row">
+                            <label for="shinngan-file" class="btn btn-sm btn-primary">画像を選んで調べる</label>
+                            <input type="file" id="shinngan-file" accept="image/*" hidden>
+                            <small id="shinngan-count" class="hint"></small>
+                        </div>
+                        <div id="shinngan-result"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🔐</span>守り（本人確認と目隠し）</h3>
+                        <p class="hint">覚えのない端末で開かれたときに合言葉を聞き、席を外したときに中身を隠します。</p>
+                        <div id="guard-ui"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">📊</span>いまの様子</h3>
+                        <p class="hint">どの画面をどれだけ使っているかを、この端末の中だけで見ています。エージェントが「次に何をするか」を考えるときに使います。</p>
+                        <div id="activity-ui"></div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">✦</span>このツールの名前</h3>
+                        <p class="hint">決めた名前は、画面と<strong>声での呼びかけ</strong>の両方に反映されます。いつでも変えられます。</p>
+                        <p id="toolname-current" class="hint"></p>
+                        <ul id="toolname-list" class="name-list"></ul>
+                        <form id="toolname-form" class="name-form">
+                            <input type="text" id="toolname-input" placeholder="自分で名前を決める" autocomplete="off">
+                            <input type="text" id="toolname-read" placeholder="読み方（任意）" autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm">この名前にする</button>
+                        </form>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">💳</span>お金がかかる機能</h3>
+                        <p class="hint">
+                            <strong>すべて既定で止めてあります。</strong>
+                            このツールは自作だけで動くので、ふだんは必要ありません。
+                            使いたいときだけ、ここで一つずつ許可できます。消してはいないので、いつでも戻せます。
+                        </p>
+                        <ul id="paid-list" class="paid-list"></ul>
+                        <h4 class="rule-head">切り替えた記録</h4>
+                        <ul id="paid-log" class="rule-log"></ul>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">📣</span>SNS連携の媒体</h3>
+                        <p class="hint">
+                            SNSページの「アカウントを開く」「投稿を作成」に出す媒体の一覧です。
+                            Instagram・Facebook・TikTok・YouTube以外（X、Threads、noteなど）を
+                            使いたいときは、ここから追加できます（コード修正は不要です）。
+                        </p>
+                        <ul id="sns-platform-manage-list" class="sns-platform-manage-list"></ul>
+                        <h4 class="rule-head">媒体を追加</h4>
+                        <form id="sns-platform-add-form" class="sns-platform-add-form">
+                            <input type="text" id="sns-plat-name" placeholder="名前（例: X）" required autocomplete="off">
+                            <input type="text" id="sns-plat-handle" placeholder="ID・ハンドル名（例: @areglm）" autocomplete="off">
+                            <input type="url" id="sns-plat-url" placeholder="アカウントURL（https://...）" required autocomplete="off">
+                            <button type="submit" class="btn btn-sm btn-primary">追加</button>
+                        </form>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">📅</span>外部カレンダー連携（Googleカレンダー）</h3>
+                        <p class="hint">
+                            「計画」タブで期限付きのタスクを追加したとき、同じ内容をGoogleカレンダーにも
+                            自動で追加する連携です。<strong>既定はオフです。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>この機能を使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>
+                            で新しいプロジェクトを作り、Google Calendar APIを有効にして、
+                            「OAuthクライアントID」を発行してください。これはコード修正だけでは
+                            代わりに行えない、Googleアカウント側の設定です。
+                        </p>
+                        <div class="form-group">
+                            <label for="gcal-client-id">OAuthクライアントID</label>
+                            <input type="text" id="gcal-client-id" placeholder="xxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="gcal-client-id-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <label class="wake-browser-opt">
+                            <input type="checkbox" id="gcal-sync-enabled" disabled>
+                            <span>
+                                <b>タスクをGoogleカレンダーに自動反映する</b>
+                                <small>
+                                    クライアントIDを保存すると選べるようになります。有効にすると、
+                                    期限付きタスクを追加・削除するたびに、この端末からGoogleへログイン確認と
+                                    予定の追加・削除の通信を行います（読み取り専用ではなく書き込みです。
+                                    Googleカレンダー側の予定をAReGLMへ取り込む「逆方向」は、
+                                    より広い権限が要るため、現時点では未対応です）。
+                                </small>
+                            </span>
+                        </label>
+                        <p id="gcal-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🎭</span>AIの話し方（性格）</h3>
+                        <p class="hint">
+                            自作AI（この端末の中だけで動くもの）の返事の口調・呼び方を決められます。
+                            ここに書いた内容は、以後の会話すべての返事づくりで参照されます
+                            （ホームの「エージェントに指示」は、あくまで<strong>その場限りの1回の指示</strong>を
+                            打ち込む欄で、ここに書かないと話し方は次の会話に引き継がれません）。
+                        </p>
+                        <textarea id="ai-persona-input" rows="5" placeholder="例: 落ち着いていて簡潔、知的な口調で。相槌は最小限にし、要点から話す。呼びかけは「オーナー」。"></textarea>
+                        <div class="guard-row">
+                            <button type="button" id="ai-persona-save" class="btn btn-sm btn-primary">保存</button>
+                            <button type="button" id="ai-persona-clear" class="btn btn-sm btn-secondary">既定の話し方に戻す</button>
+                        </div>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🔗</span>URLの本文を読みに行く</h3>
+                        <p class="hint">
+                            AIチャットにURLを添付したとき、そのページの本文を取りに行き、
+                            AIへの質問に含めるかどうかの設定です。
+                            <strong>既定は切ってあります。</strong>
+                            切ったままでも、URLを添付すること自体はできます（AIには「本文までは読んでいない」状態で伝わります）。
+                        </p>
+                        <label class="wake-browser-opt">
+                            <input type="checkbox" id="url-fetch-enabled">
+                            <span>
+                                <b>URLの本文を読みに行く</b>
+                                <small>
+                                    有効にすると、添付したURL先に<strong>この端末から直接アクセスします</strong>（この端末のIPアドレスがそのページの運営者に見える状態になります）。
+                                    取得した本文はAIへの質問にだけ使い、外部AIを使っていない限り、どこにも送信されません。
+                                    ログイン必須のページや、大きすぎるページは読み込めません。
+                                </small>
+                            </span>
+                        </label>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🧠</span>外部AI（Claude）</h3>
+                        <p class="hint">
+                            AIチャットの「脳」をClaudeに切り替えて使う場合の設定です。
+                            <strong>会話の内容はAnthropicへ送られ、使った分だけ課金されます。</strong>
+                            鍵はこの端末の中に暗号化して保存し、外部には鍵そのものを送りません（呼び出し時にAnthropicにだけ渡します）。
+                            上の「お金がかかる機能」でClaudeを許可しないと、鍵があっても呼ばれません。
+                        </p>
+                        <div class="guard-row">
+                            <input type="password" id="claude-api-key-input"
+                                placeholder="sk-ant- で始まるAPIキー" autocomplete="off">
+                            <button type="button" id="claude-api-key-save" class="btn btn-sm btn-primary">保存</button>
+                        </div>
+                        <small id="claude-api-key-status" class="hint"></small>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3>データのバックアップ</h3>
+                        <p class="hint">ブランド・商品・在庫・メモ・タスク・技術パック・学習データを1つのファイルに書き出します。外部の鍵は保存していません。</p>
+                        <div class="backup-actions">
+                            <button type="button" id="backup-export-btn" class="btn btn-primary">バックアップを書き出す</button>
+                            <label for="backup-import-file" class="btn btn-secondary">バックアップから復元</label>
+                            <input type="file" id="backup-import-file" accept="application/json" hidden>
+                        </div>
+                        <div id="backup-status" class="hint"></div>
+                        <div id="snapshot-info" class="hint"></div>
+                    </section>
+                    <section class="panel-card">
+                        <div class="panel-header-row">
+                            <h3>自作AIエンジン <small class="hint">（Python · この端末内で完結）</small></h3>
+                            <button type="button" id="local-ai-refresh" class="btn btn-sm btn-secondary">状態を確認</button>
+                        </div>
+                        <p class="hint">外部に一切通信しない、ゼロから実装したAIです。使うたびに1件ずつ学習します。</p>
+                        <div id="local-ai-status" class="local-ai-status"></div>
+                    </section>
+                    <section class="panel-card">
+                        <h3>通信先（公式APIのみ）</h3>
+                        <p class="hint">このツールが外部へ通信してよい相手は、下のリストに限定されています。リスト外への通信はサーバー側で実行前に遮断されます。非公式API・スクレイピングは行いません。</p>
+                        <div id="compliance-list" class="compliance-list"></div>
+                    </section>
+                    <section class="panel-card security-note">
+                        <h3>セキュリティ</h3>
+                        <ul>
+                            <li>無操作20分 · ログアウト時にシークレット削除</li>
+                            <li>referrer無効 · 外部ドメインへのキー送信なし（プロキシ推奨）</li>
+                            <li>有料専用・非公式APIは使用不可</li>
+                            <li>復元時は既存データを上書きせず、統合または明示確認</li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!--
+            どの画面を開いていても話しかけられる、常駐のエージェント。
+
+            以前は「エージェント」画面（◈アイコン）を開いているときしか
+            指示を受け付けず、「他の画面を開いていても反応しない」原因になっていた。
+            #main-app の中・.page-content の外に置くことで、
+            ログイン後はどのページがアクティブでも常に存在し続け、
+            ログイン前（#main-appがdisplay:none）には出ない。
+        -->
+        <div id="floating-agent" class="floating-agent collapsed">
+            <button type="button" id="floating-agent-toggle" class="floating-agent-toggle" aria-label="アレラムに話しかける">◈</button>
+            <div class="floating-agent-panel">
+                <div class="floating-agent-head">
+                    <span>アレラム</span>
+                    <button type="button" id="floating-agent-close" class="floating-agent-close" aria-label="閉じる">×</button>
+                </div>
+                <div id="floating-agent-log" class="console-log floating-agent-log"></div>
+                <form id="floating-agent-form" class="console-form">
+                    <input type="text" id="floating-agent-input" placeholder="話しかける・指示する…" autocomplete="off">
+                    <button type="button" id="floating-agent-mic-btn" class="btn btn-sm btn-secondary">🎤</button>
+                    <button type="submit" class="btn btn-sm btn-primary">▶</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ブランド詳細モーダル -->
+    <div id="brand-detail-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="brand-detail-title">ブランド詳細</h3>
+                <button type="button" class="close-btn" id="close-brand-detail">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="brand-detail-content">
+                    <div class="brand-detail-header">
+                        <div class="brand-images">
+                            <div class="brand-logo-large" id="brand-detail-logo"><img src="" alt="" id="brand-detail-logo-img"></div>
+                            <div class="brand-photo-large" id="brand-detail-photo"><img src="" alt="" id="brand-detail-photo-img"></div>
+                        </div>
+                        <div class="brand-info-summary">
+                            <h4 id="brand-detail-name"></h4>
+                            <p id="brand-detail-description"></p>
+                            <div class="brand-tags" id="brand-detail-tags"></div>
+                        </div>
+                    </div>
+                    <div class="brand-detail-body">
+                        <div class="detail-section">
+                            <h5>基本情報</h5>
+                            <div class="detail-grid">
+                                <div class="detail-item"><label>設立</label><span id="brand-detail-established"></span></div>
+                                <div class="detail-item"><label>代表</label><span id="brand-detail-ceo"></span></div>
+                                <div class="detail-item"><label>国</label><span id="brand-detail-country"></span></div>
+                                <div class="detail-item"><label>価格帯</label><span id="brand-detail-price"></span></div>
+                            </div>
+                        </div>
+                        <div class="detail-section detail-learn"><h5>参考になる点</h5><p id="brand-detail-learn"></p></div>
+                        <div class="detail-section"><h5>理念</h5><p id="brand-detail-philosophy"></p></div>
+                        <div class="detail-section"><h5>コレクション</h5><p id="brand-detail-collections"></p></div>
+                        <div class="detail-section"><h5>店舗</h5><p id="brand-detail-stores"></p></div>
+                        <div class="detail-section"><h5>公式</h5><a href="" target="_blank" rel="noopener" id="brand-detail-url"></a></div>
+                    </div>
+                    <div class="brand-detail-actions">
+                        <button type="button" class="btn btn-primary" id="edit-brand-detail">編集</button>
+                        <button type="button" class="btn btn-danger" id="delete-brand-detail">削除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="brand-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="brand-modal-title">ブランド追加</h3>
+                <button type="button" class="close-btn" id="close-brand-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="brand-modal-form">
+                    <div class="form-group"><label for="modal-brand-name">ブランド名</label><input type="text" id="modal-brand-name" name="name" required></div>
+                    <button type="button" id="brand-ai-generate-btn" class="btn btn-secondary btn-sm">🤖 資料から調べる</button>
+                            <p id="brand-ai-result" class="hint" hidden></p>
+                    <p class="hint">ブランド名・カテゴリ・ロゴURLをもとに、理念・設立年・ヒストリーの下書きをAIが提案します（要確認・編集）。</p>
+                    <div class="form-group"><label for="modal-brand-description">説明</label><textarea id="modal-brand-description" name="description" rows="3" required></textarea></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modal-brand-category">ジャンル</label>
+                            <select id="modal-brand-category" name="category" required>
+                                <option value="">選択</option>
+                                <option value="ストリート">ストリート</option>
+                                <option value="アパレル">アパレル</option>
+                                <option value="シューズ">シューズ</option>
+                                <option value="スポーツ">スポーツ</option>
+                                <option value="アウトドア">アウトドア</option>
+                                <option value="ラグジュアリー">ラグジュアリー</option>
+                                <option value="古着・ヴィンテージ">古着・ヴィンテージ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="modal-brand-country">国</label>
+                            <select id="modal-brand-country" name="country" required>
+                                <option value="">選択</option>
+                                <option value="日本">日本</option>
+                                <option value="アメリカ">アメリカ</option>
+                                <option value="イギリス">イギリス</option>
+                                <option value="フランス">フランス</option>
+                                <option value="イタリア">イタリア</option>
+                                <option value="ドイツ">ドイツ</option>
+                                <option value="スペイン">スペイン</option>
+                                <option value="韓国">韓国</option>
+                                <option value="その他">その他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modal-brand-price">価格帯</label>
+                            <select id="modal-brand-price" name="price" required>
+                                <option value="">選択</option>
+                                <option value="プチプラ">プチプラ</option>
+                                <option value="ミドル">ミドル</option>
+                                <option value="ハイブランド">ハイブランド</option>
+                                <option value="ラグジュアリー">ラグジュアリー</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label for="modal-brand-url">公式URL</label><input type="url" id="modal-brand-url" name="url"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modal-brand-logo">ロゴURL</label>
+                            <input type="url" id="modal-brand-logo" name="logo" class="image-url-input">
+                            <div class="image-preview" id="brand-logo-preview"><div class="upload-placeholder"><span>🏷️</span><p>ロゴURL</p></div></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="modal-brand-photo">写真URL</label>
+                            <input type="url" id="modal-brand-photo" name="photo" class="image-url-input">
+                            <div class="image-preview" id="brand-photo-preview"><div class="upload-placeholder"><span>📸</span><p>写真URL</p></div></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="modal-brand-established">設立年</label><input type="number" id="modal-brand-established" name="established" min="1800" max="2030"></div>
+                        <div class="form-group"><label for="modal-brand-ceo">代表者</label><input type="text" id="modal-brand-ceo" name="ceo"></div>
+                    </div>
+                    <div class="form-group form-learn">
+                        <label for="modal-brand-learn">参考になる点<small>（自分のブランド作りに何が使えるか。ここがこの一覧の中身です）</small></label>
+                        <textarea id="modal-brand-learn" name="参考になる点" rows="2"
+                            placeholder="例: ロゴは凝らなくてよい。手書きの一筆でも、続ければ印になる。"></textarea>
+                    </div>
+                    <div class="form-group"><label for="modal-brand-philosophy">理念</label><textarea id="modal-brand-philosophy" name="philosophy" rows="2"></textarea></div>
+                    <div class="form-group"><label for="modal-brand-collections">コレクション</label><textarea id="modal-brand-collections" name="collections" rows="2"></textarea></div>
+                    <div class="form-group"><label for="modal-brand-stores">店舗</label><textarea id="modal-brand-stores" name="stores" rows="2"></textarea></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" class="btn btn-secondary" id="cancel-brand">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="product-modal-title">商品追加</h3>
+                <button type="button" class="close-btn" id="close-product-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="product-modal-form">
+                    <!-- 編集のときだけ、元のSKUをここに入れて見分ける -->
+                    <input type="hidden" id="modal-edit-sku" name="editSku" value="">
+                    <div class="form-group"><label for="modal-sku">SKU</label><input type="text" id="modal-sku" name="sku" required></div>
+                    <div class="form-group"><label for="modal-name">商品名・デザイン名</label><input type="text" id="modal-name" name="name" required></div>
+                    <div class="form-group">
+                        <label for="modal-code">商品番号</label>
+                        <input type="text" id="modal-code" name="code" placeholder="AGM-TDR-001-TEE">
+                        <small class="hint">ブランド略称-シリーズ略称-連番-アイテム種別（例: AGM-TDR-001-TEE）</small>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="modal-category">カテゴリー・スタイル</label><input type="text" id="modal-category" name="category" placeholder="ストリート / TEE"></div>
+                        <div class="form-group"><label for="modal-colors">カラーバリエーション</label><input type="text" id="modal-colors" name="colors" placeholder="黒・白・ネイビー"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="modal-origin">原産地</label><input type="text" id="modal-origin" name="origin" placeholder="未定"></div>
+                        <div class="form-group"><label for="modal-madeby">生産地</label><input type="text" id="modal-madeby" name="madeBy" placeholder="SUZURI"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="modal-price">価格</label><input type="number" id="modal-price" name="price" required min="0"></div>
+                        <div class="form-group"><label for="modal-quantity">数量</label><input type="number" id="modal-quantity" name="quantity" required min="0"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-datalink">商品データの保存先</label>
+                        <input type="text" id="modal-datalink" name="dataLink" placeholder="保存先のリンク、またはこの端末の中の場所">
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-note">備考</label>
+                        <input type="text" id="modal-note" name="note" placeholder="元データ消失・店舗画像で代替保存 など">
+                    </div>
+                    <div class="form-group" id="modal-price-reason-wrap" hidden>
+                        <label for="modal-price-reason">価格を変える理由（履歴に残ります）</label>
+                        <input type="text" id="modal-price-reason" name="priceReason" placeholder="実店舗価格に修正 など">
+                    </div>
+                    <div id="modal-price-history"></div>
+                    <div id="modal-dev-links" class="modal-dev-links" hidden>
+                        <p class="hint">この商品のモックアップ・型紙は「開発」タブのツールで作れます。</p>
+                        <div class="modal-dev-links-buttons">
+                            <button type="button" class="btn btn-sm btn-secondary" id="modal-dev-jump-mock">👕 モックアップを作る</button>
+                            <button type="button" class="btn btn-sm btn-secondary" id="modal-dev-jump-pattern">📐 型紙の下書きを作る</button>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" class="btn btn-secondary" id="cancel-product">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="inventory-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="inventory-modal-title">在庫調整</h3>
+                <button type="button" class="close-btn" id="close-inventory-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="inventory-modal-form">
+                    <div class="form-group">
+                        <label for="inventory-product">商品</label>
+                        <select id="inventory-product" name="product_id" required><option value="">選択</option></select>
+                    </div>
+                    <div class="form-group"><label for="inventory-quantity">数量</label><input type="number" id="inventory-quantity" name="quantity" required min="1"></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">実行</button>
+                        <button type="button" class="btn btn-secondary" id="cancel-inventory">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification-area"></div>
+
+    <script src="js/config/areglm-profile.js" defer></script>
+    <script src="js/config/competitor-brands-seed.js" defer></script>
+    <script src="js/services/ブランドをまとめる.js" defer></script>
+    <script src="js/config/参考ブランド.js" defer></script>
+    <script src="js/config/ブランドの歴史と理念.js" defer></script>
+    <script src="js/config/置き換え計画.js" defer></script>
+    <script src="js/modules/置き換え計画.js" defer></script>
+    <script src="js/modules/先回り.js" defer></script>
+    <script src="js/modules/店のページ.js" defer></script>
+    <script src="js/config/product-seed.js" defer></script>
+    <script src="js/config/apis.js" defer></script>
+    <script src="js/config/requirements.js" defer></script>
+    <script src="js/core/api-client.js" defer></script>
+    <script src="js/core/content-policy.js" defer></script>
+    <script src="js/core/cache-guard.js"></script>
+    <script src="js/core/theme.js"></script>
+    <script src="js/core/scroll-guard.js"></script>
+    <script src="js/core/外に出さない.js"></script>
+    <script src="js/core/date.js"></script>
+    <script src="js/core/session.js"></script>
+    <script src="js/core/蓄え.js"></script>
+    <script src="js/core/security.js" defer></script>
+    <script src="js/core/api-selector.js" defer></script>
+    <script src="js/core/performance.js" defer></script>
+    <script src="js/services/learning-engine.js" defer></script>
+    <script src="js/services/local-ai.js" defer></script>
+    <script src="js/services/box-sorter.js" defer></script>
+    <script src="js/services/voice-core.js" defer></script>
+    <script src="js/services/音の単位.js" defer></script>
+    <script src="js/services/voice-learn.js" defer></script>
+    <script src="js/services/voice-wake-own.js" defer></script>
+    <script src="js/services/local-voice.js" defer></script>
+    <script src="js/services/intent.js" defer></script>
+    <script src="js/services/図案の助言.js" defer></script>
+    <script src="js/services/気づき.js" defer></script>
+    <script src="js/services/local-image.js" defer></script>
+    <script src="js/services/画像保存.js" defer></script>
+    <script src="js/services/真贋台帳.js" defer></script>
+    <script src="js/services/local-first.js" defer></script>
+    <script src="js/services/ai-engine.js" defer></script>
+    <script src="js/services/suzuri-api.js" defer></script>
+    <script src="js/main.js" defer></script>
+    <script src="js/modules/dashboard.js" defer></script>
+    <script src="js/modules/memo.js" defer></script>
+    <script src="js/modules/tasks.js" defer></script>
+    <script src="js/modules/chat.js" defer></script>
+    <script src="js/services/SNS成績.js" defer></script>
+    <script src="js/services/グラフ.js" defer></script>
+    <script src="js/modules/sns.js" defer></script>
+    <script src="js/modules/SNS分析画面.js" defer></script>
+    <script src="js/modules/転換率.js" defer></script>
+    <script src="js/services/作業タブ.js" defer></script>
+    <script src="js/modules/まとめて更新.js" defer></script>
+    <script src="js/modules/遠隔とタスク.js" defer></script>
+    <script src="js/modules/画面を整える.js" defer></script>
+    <script src="js/modules/遠隔投稿.js" defer></script>
+    <script src="js/modules/inventory-hub.js" defer></script>
+    <script src="js/modules/product-dev.js" defer></script>
+    <script src="js/modules/automation.js" defer></script>
+    <script src="js/modules/backup.js" defer></script>
+    <script src="js/modules/design-studio.js" defer></script>
+    <script src="js/modules/customers.js" defer></script>
+    <script src="js/modules/brand-manual.js" defer></script>
+    <script src="js/modules/mandala.js" defer></script>
+    <script src="js/modules/image-gen.js" defer></script>
+    <script src="js/modules/pricing.js" defer></script>
+    <script src="js/modules/console.js" defer></script>
+    <script src="js/modules/週次レポート.js" defer></script>
+    <script src="js/modules/jarvis-mode.js" defer></script>
+    <script src="js/modules/media-studio.js" defer></script>
+    <script src="js/modules/compliance.js" defer></script>
+    <script src="js/modules/knowledge-ui.js" defer></script>
+    <script src="js/modules/calendar.js" defer></script>
+    <script src="js/modules/series.js" defer></script>
+    <script src="js/modules/notify.js" defer></script>
+    <script src="js/modules/image-editor.js" defer></script>
+    <script src="js/modules/personalize.js" defer></script>
+    <script src="js/modules/main-ai.js" defer></script>
+    <script src="js/modules/text-gen.js" defer></script>
+    <script src="js/modules/quick-panel.js" defer></script>
+    <script src="js/modules/wake-word.js" defer></script>
+    <script src="js/modules/health.js" defer></script>
+    <script src="js/modules/wishlist.js" defer></script>
+    <script src="js/modules/timer.js" defer></script>
+    <script src="js/modules/vintage.js" defer></script>
+    <script src="js/modules/history.js" defer></script>
+    <script src="js/modules/export-all.js" defer></script>
+    <script src="js/modules/voice-ui.js" defer></script>
+    <script src="js/modules/声の診断.js" defer></script>
+    <script src="js/modules/常駐の待ち受け.js" defer></script>
+    <script src="js/modules/声を覚える.js" defer></script>
+    <script src="js/modules/声の使い方.js" defer></script>
+    <script src="js/modules/育ち具合.js" defer></script>
+    <script src="js/modules/声を録り直す.js" defer></script>
+    <script src="js/modules/mockup.js" defer></script>
+    <script src="js/modules/pattern.js" defer></script>
+    <script src="js/modules/library.js" defer></script>
+    <script src="js/modules/tool-name.js" defer></script>
+    <script src="js/modules/毎日の自動チェック.js" defer></script>
+    <script src="js/modules/brand-split.js" defer></script>
+    <script src="js/modules/ブランド整理.js" defer></script>
+    <script src="js/modules/paid-guard.js" defer></script>
+    <script src="js/modules/preorder.js" defer></script>
+    <script src="js/modules/techpack-cost.js" defer></script>
+    <script src="js/modules/tag-design.js" defer></script>
+    <script src="js/modules/真贋照合画面.js" defer></script>
+    <script src="js/modules/商品マスター取込.js" defer></script>
+    <script src="js/services/統計の計算.js" defer></script>
+    <script src="js/services/統計の手法.js" defer></script>
+    <script src="js/modules/数値計画.js" defer></script>
+    <script src="js/modules/統計画面.js" defer></script>
+    <script src="js/modules/コード安全点検画面.js" defer></script>
+    <script src="js/modules/sheet.js" defer></script>
+    <script src="js/modules/chat-plus.js" defer></script>
+    <script src="js/modules/executor.js" defer></script>
+    <script src="js/modules/agent-run.js" defer></script>
+    <script src="js/services/汎用の道具.js" defer></script>
+    <script src="js/services/分析.js" defer></script>
+    <script src="js/services/自動で動く.js" defer></script>
+    <script src="js/modules/作業を教える.js" defer></script>
+    <script src="js/modules/自動の決まり.js" defer></script>
+    <script src="js/modules/遠隔操作画面.js" defer></script>
+    <script src="js/modules/ブラウザ操作画面.js" defer></script>
+    <script src="js/modules/ホームからChrome.js" defer></script>
+    <script src="js/modules/自分を良くする.js" defer></script>
+    <script src="js/modules/分析画面.js" defer></script>
+    <script src="js/modules/引き継ぎ.js" defer></script>
+    <script src="js/modules/様子.js" defer></script>
+    <script src="js/modules/守り.js" defer></script>
+    <script src="js/modules/他の端末.js" defer></script>
+    <script src="js/modules/取引を見る.js" defer></script>
+    <script src="js/modules/話題.js" defer></script>
+    <script src="js/modules/voice-style.js" defer></script>
+    <script src="js/modules/trash.js" defer></script>
+    <script src="js/modules/camera.js" defer></script>
+    <script src="js/modules/rules-ui.js" defer></script>
+    <script src="js/modules/self-check.js" defer></script>
+    <script src="js/modules/requirements-ui.js" defer></script>
+    <script src="js/modules/home-tabs.js" defer></script>
+    <script src="js/app-bootstrap.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AReGLM 診断</title>
+<style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f5f5f7; color: #222; line-height: 1.7; }
+    h1 { font-size: 1.1rem; margin: 0 0 1rem; }
+    .item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: .6rem .8rem; margin-bottom: .5rem; font-size: .85rem; }
+    .ok { border-left: 4px solid #2e7d4f; }
+    .ng { border-left: 4px solid #c0392b; background: #fdecea; }
+    .warn { border-left: 4px solid #d39e00; background: #fff8e6; }
+    b { display: block; margin-bottom: .2rem; }
+    small { color: #666; word-break: break-all; }
+    #copy { position: fixed; right: 1rem; bottom: 1rem; padding: .8rem 1.2rem; border: none;
+            border-radius: 999px; background: #333; color: #fff; font-size: .9rem; cursor: pointer; }
+    /* 中身を必ず画面より長くして、スクロールできるかを確かめる */
+    #tall { height: 1500px; background: linear-gradient(#e8e8ee, #cfcfe0); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem; color: #555; }
+</style>
+</head>
+<body>
+<h1>AReGLM 診断</h1>
+<div id="out"></div>
+
+<div class="item"><b>スクロールの確認</b>
+下に長い帯があります。<strong>指またはマウスで下までスクロールできるか</strong>お試しください。</div>
+<div id="tall">ここまでスクロールできれば、ブラウザ自体は正常です</div>
+
+<button id="copy">結果をコピー</button>
+
+<script>
+(function () {
+    const out = document.getElementById('out');
+    const lines = [];
+
+    function add(label, value, level) {
+        lines.push(`${label}: ${value}`);
+        const d = document.createElement('div');
+        d.className = 'item ' + (level || 'ok');
+        d.innerHTML = '<b>' + label + '</b><small>' + value + '</small>';
+        out.appendChild(d);
+    }
+
+    // どのアドレスで開いているか
+    add('アドレス', location.href);
+    add('入口', location.port === '8090' ? 'アプリ用（8090）— 正しい入口です'
+        : location.port === '8443' ? '安全な接続（8443）'
+        : location.port === '8080' ? '通常（8080）— 古いキャッシュが残っている入口です'
+        : location.port || '不明',
+        location.port === '8090' ? 'ok' : location.port === '8080' ? 'warn' : 'ok');
+
+    // 実際に少し動かしてみて、スクロールできるかを自動で判定する
+    // （人が試すまで分からない、という状態をなくすため）
+    (function () {
+        const 中身 = document.documentElement.scrollHeight;
+        const 画面 = document.documentElement.clientHeight;
+        if (中身 <= 画面 + 1) {
+            add('スクロールの自動判定', '中身が画面に収まっているため、判定できません', 'warn');
+            return;
+        }
+        const もと = window.scrollY;
+        window.scrollTo(0, もと + 10);
+        const 動いた = window.scrollY !== もと;
+        window.scrollTo(0, もと);
+        add('スクロールの自動判定', 動いた ? '動きます（正常）' : '動きません（異常）', 動いた ? 'ok' : 'ng');
+    })();
+    add('安全な接続（マイク可否）', window.isSecureContext ? 'はい（マイクが使えます）' : 'いいえ（マイク不可）',
+        window.isSecureContext ? 'ok' : 'warn');
+
+    // 古いキャッシュが残っていないか
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((rs) => {
+            add('古いキャッシュ（Service Worker）',
+                rs.length ? rs.length + '件 残っています（これが原因の可能性）' : 'ありません',
+                rs.length ? 'ng' : 'ok');
+        });
+    }
+    if (window.caches) {
+        caches.keys().then((k) => {
+            add('保存されたキャッシュ', k.length ? k.join(', ') : 'なし', k.length ? 'warn' : 'ok');
+        });
+    }
+
+    // スクロールを妨げる指定が入っていないか
+    const h = getComputedStyle(document.documentElement);
+    const b = getComputedStyle(document.body);
+    add('html の縦スクロール', h.overflowY, /hidden|clip/.test(h.overflowY) ? 'ng' : 'ok');
+    add('body の縦スクロール', b.overflowY, /hidden|clip/.test(b.overflowY) ? 'ng' : 'ok');
+    add('body の位置指定', b.position, b.position === 'fixed' ? 'ng' : 'ok');
+    add('画面の高さ', innerHeight + 'px');
+    add('中身の高さ', document.body.scrollHeight + 'px');
+
+    // 端末の情報
+    add('ブラウザ', navigator.userAgent);
+
+    // 本体のCSSが最新かどうか
+    fetch('css/style.css', { cache: 'no-store' })
+        .then((r) => r.text())
+        .then((css) => {
+            const isNew = css.includes('overflow-x: clip');
+            add('本体CSSの版', isNew ? '最新です' : '古いままです（キャッシュが残っています）', isNew ? 'ok' : 'ng');
+        })
+        .catch(() => add('本体CSSの取得', '失敗しました', 'ng'));
+
+    // 実際にスクロールできたかを見る
+    let scrolled = false;
+    addEventListener('scroll', () => {
+        if (!scrolled && scrollY > 30) {
+            scrolled = true;
+            add('スクロール動作', '正常に動きました', 'ok');
+        }
+    }, { passive: true });
+
+    document.getElementById('copy').onclick = async () => {
+        const text = lines.join('\n') + '\nスクロール: ' + (scrolled ? '動いた' : 'まだ動かしていない/動かない');
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('コピーしました。そのまま貼り付けてください。');
+        } catch {
+            prompt('この内容をコピーしてください', text);
+        }
+    };
+})();
+</script>
+</body>
+</html>
