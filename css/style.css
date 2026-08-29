@@ -1314,7 +1314,15 @@ textarea::placeholder {
     background: #fafafa;
 }
 
-.empty-state {
+/* 「データがありません」の見た目が、書き方（.empty / .empty-activity /
+   .empty-state）によってバラバラだった（3-2指摘）。.empty と
+   .empty-activity には専用のCSSが無く、実際には無地のまま表示されて
+   いたため、.empty-state と同じ見た目にそろえる。
+   （.empty-cell は表の中で使うため余白を抑えた別物のまま、
+   .empty-cta はボタン付きの案内のため、これも別物のまま残す） */
+.empty-state,
+.empty,
+.empty-activity {
     color: var(--areglm-muted);
     text-align: center;
     padding: 2rem;
