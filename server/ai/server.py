@@ -297,6 +297,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/health':
             return self._send(200, {'ok': True, 'service': 'AReGLM AI Engine', 'local': True})
 
+        # ---- マルチエージェント化 第2段: 裏で進めている作業の一覧 ----
+        if self.path == '/agent-task/list':
+            import バックグラウンド作業
+            return self._send(200, {'ok': True, '一覧': バックグラウンド作業.一覧を得る()})
+
         if self.path == '/speech-to-text-status':
             import 音声を文字にする
             return self._send(200, 音声を文字にする.状態を返す())
@@ -682,6 +687,19 @@ class Handler(BaseHTTPRequestHandler):
                     learner.learn(発言, 'agent:user')
                 return self._send(200, 結果)
 
+            # ---- マルチエージェント化 第2段: 裏で進める作業をキューへ積む ----
+            if self.path == '/agent-task/submit':
+                import バックグラウンド作業
+
+                内容 = (data.get('内容') or '').strip()
+                if not 内容:
+                    return self._send(400, {'error': '内容が必要です'})
+                verdict = rules.check(内容)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, 'error': verdict['reason']})
+                task = バックグラウンド作業.追加する(内容, agent=data.get('agent') or None)
+                return self._send(200, {'ok': True, 'task': task})
+
             if self.path == '/chat':
                 text = (data.get('text') or '').strip()
                 if not text:
@@ -912,6 +930,10 @@ def main():
         音声を文字にする.使えるか()
 
     threading.Thread(target=_音声認識を先に用意する, daemon=True).start()
+
+    # マルチエージェント化 第2段: 裏で進める作業の常駐ワーカーを起動する。
+    import バックグラウンド作業
+    バックグラウンド作業.起動する()
 
     # 終了の合図を受けたら、覚えたことを書き出してから終わる。
     #

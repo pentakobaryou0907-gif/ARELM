@@ -4678,27 +4678,17 @@ body,
     transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
 }
 
-/* --- 朝：やわらかい明るさ --- */
-html[data-theme="morning"] body {
-    background-color: #f5f7fa;
-    color: #1e293b;
-}
-
-/* --- 昼：既定（もっとも明るい） --- */
-html[data-theme="day"] body {
-    background-color: #f1f5f9;
-    color: #1e293b;
-}
+/* --- 朝：やわらかい明るさ ---
+   body の背景・文字色は、下の「時間帯ごとの配色」セクションにある
+   --tone-bg / --tone-ink（!important）が一括して面倒を見る。
+   ここに個別の body { color/background-color } を残すと、
+   どちらが効いているか分かりにくくなる（実際に文字色だけ古い値の
+   ままに見える不具合の原因になったため、重複定義は置かない）。 */
 
 /* --- 夕方：暖色に寄せて、まぶしさを少し落とす --- */
 html[data-theme="evening"] {
     --areglm-surface: #fffdf9;
     --areglm-border: #e8ddd0;
-}
-
-html[data-theme="evening"] body {
-    background-color: #f7f0e6;
-    color: #2b2620;
 }
 
 html[data-theme="evening"] .panel-card,
@@ -4719,11 +4709,6 @@ html[data-theme="night"] {
     --areglm-border: #3a3840;
     --areglm-muted: #34323a;
     --areglm-text-muted: #a8a4b0;
-}
-
-html[data-theme="night"] body {
-    background-color: #1a191d;
-    color: #e2e0e5;
 }
 
 html[data-theme="night"] .panel-card,
@@ -4791,11 +4776,6 @@ html[data-theme="midnight"] {
     --areglm-border: #332f2b;
     --areglm-muted: #2b2825;
     --areglm-text-muted: #9c948a;
-}
-
-html[data-theme="midnight"] body {
-    background-color: #141312;
-    color: #d8d2ca;
 }
 
 html[data-theme="midnight"] .panel-card,

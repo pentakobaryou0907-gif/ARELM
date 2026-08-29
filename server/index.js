@@ -1594,6 +1594,8 @@ proxyToAiEngine('POST', '/related');
 proxyToAiEngine('POST', '/code-review');
 proxyToAiEngine('POST', '/translate');
 proxyToAiEngine('POST', '/agent-route');
+proxyToAiEngine('POST', '/agent-task/submit');
+proxyToAiEngine('GET', '/agent-task/list');
 proxyToAiEngine('POST', '/similarity/index');
 proxyToAiEngine('POST', '/similarity/check');
 proxyToAiEngine('POST', '/similarity/duplicates');
