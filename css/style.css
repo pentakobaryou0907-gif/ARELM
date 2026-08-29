@@ -8877,8 +8877,12 @@ html[data-theme] .chat-bubble.user {
 .floating-agent {
     position: fixed;
     right: 1.2rem;
-    bottom: 1.2rem;
-    z-index: 900;
+    /* 下部タブバー（.bottom-nav, z-index:1000）の裏に隠れてしまい、
+       押しても実際には裏のタブが反応する不具合があった（実測で確認）。
+       タブバーの上に出るよう位置と重なり順を上げる。quick-fab（右下・
+       bottom:5.2rem）とも重ならないよう、さらにその上に積む。 */
+    bottom: 9.2rem;
+    z-index: 1001;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -9232,4 +9236,76 @@ html[data-theme] .chat-bubble.user {
     font-size: 0.75rem;
     color: #4dabf7;
     margin-top: 0.4rem;
+}
+
+/* ページ内目次（1-1対応）
+   縦に長いページの中を、見出しから直接ジャンプできるようにする。
+   quick-fab（右下・下寄り）floating-agent（右下）とぶつからないよう左下に置く。 */
+.page-toc-btn {
+    position: fixed;
+    left: 1rem;
+    /* 下部タブバー（.bottom-nav, 高さ約4.5rem）の上に出るように。 */
+    bottom: 5.2rem;
+    z-index: 900;
+    width: 46px;
+    height: 46px;
+    border: none;
+    border-radius: 50%;
+    background: var(--areglm-surface, #fff);
+    /* --areglm-text という変数はどこにも定義されておらず、常に
+       フォールバック（#222）に落ちて夜間テーマで文字が読めなくなって
+       いた（実機で確認）。body の color を継承する案も試したが、
+       body 自身の文字色がテーマに追従していない箇所があり、あてに
+       ならなかった（これも実機で確認・別件のため深追いはしない）。
+       実際に時間帯で正しく切り替わっているのは --tone-ink 側なので、
+       そちらを使う。 */
+    color: var(--tone-ink, #222);
+    border: 1px solid var(--areglm-border, #ddd);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.25);
+    transition: transform 0.15s;
+}
+.page-toc-btn:hover {
+    transform: scale(1.08);
+}
+.page-toc-popup {
+    position: fixed;
+    left: 1rem;
+    bottom: 8.6rem;
+    z-index: 901;
+    width: min(280px, calc(100vw - 2rem));
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--areglm-surface, #fff);
+    border: 1px solid var(--areglm-border, #ddd);
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.28);
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.page-toc-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--tone-ink, #222);
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.86rem;
+    cursor: pointer;
+    white-space: normal;
+}
+.page-toc-item:hover {
+    background: var(--areglm-muted, #eee);
+}
+.page-toc-empty {
+    padding: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--areglm-text-muted, #666);
+    text-align: center;
 }

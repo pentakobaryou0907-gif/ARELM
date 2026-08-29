@@ -69,6 +69,9 @@
             <a href="#studio" class="bottom-nav-item" data-page="studio"><span class="nav-icon">✎</span><span>開発</span></a>
         </nav>
 
+        <!-- ページ内目次: 縦に長いページの中を、見出しから直接ジャンプする -->
+        <button type="button" id="page-toc-btn" class="page-toc-btn" title="この画面の目次" aria-label="この画面の目次">📑</button>
+
         <!-- クイックパネル: どのページからでも主要な操作ができる -->
         <button type="button" id="quick-fab" class="quick-fab" title="クイック操作（⌘K）" aria-label="クイック操作">＋</button>
         <div id="quick-overlay" class="quick-overlay"></div>
@@ -2587,6 +2590,7 @@
     <script src="js/modules/自己修正の安全装置.js" defer></script>
     <script src="js/modules/拍手検知.js" defer></script>
     <script src="js/modules/音声のやり取り記録.js" defer></script>
+    <script src="js/modules/ページ内目次.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>
