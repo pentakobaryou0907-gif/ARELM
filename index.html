@@ -627,6 +627,7 @@
                         <div class="jarvis-topbar">
                             <span id="jarvis-clock" class="jarvis-clock">--:--</span>
                             <span id="jarvis-mic-status" class="jarvis-mic-status">● 待機中</span>
+                            <button type="button" class="bg-task-badge" hidden></button>
                         </div>
                         <div class="jarvis-hud" id="jarvis-hud">
                             <div class="jarvis-ring jarvis-ring-1"></div>
@@ -639,10 +640,11 @@
                         <div class="jarvis-controls">
                             <button type="button" id="jarvis-mic-btn" class="jarvis-mic-btn" aria-label="話しかける">🎤</button>
                             <form id="jarvis-form" class="jarvis-form">
-                                <input type="text" id="jarvis-input" placeholder="話しかける・指示する…" autocomplete="off">
+                                <input type="text" id="jarvis-input" placeholder="話しかける・指示する…（「裏で〜して」で背景実行）" autocomplete="off">
                             </form>
                         </div>
                         <div id="jarvis-brief" class="jarvis-brief"></div>
+                        <div id="bg-task-list" class="bg-task-list" hidden></div>
                     </div>
 
                     <div class="mainai-grid">
@@ -2611,6 +2613,7 @@
     <script src="js/modules/拍手検知.js" defer></script>
     <script src="js/modules/音声のやり取り記録.js" defer></script>
     <script src="js/modules/ページ内目次.js" defer></script>
+    <script src="js/modules/バックグラウンド作業.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>

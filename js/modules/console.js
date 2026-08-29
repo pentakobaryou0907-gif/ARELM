@@ -399,6 +399,26 @@ async function runConsoleCommand(text, target) {
         会話の続き待ち = false;
     }
 
+    // マルチエージェント化 第2段: 「バックグラウンドで／裏で」と言われたら、
+    // その場では答えず、キューに積んで裏で進める（並行実行）。
+    // 聞き返しの継続応答を横取りしないよう、上のチェックより後に置く。
+    if (typeof 背景実行の指示を拾う === 'function') {
+        const 背景内容 = 背景実行の指示を拾う(text);
+        if (背景内容 && typeof 作業を頼む === 'function') {
+            const agentId = typeof 現在のページからエージェントを推定 === 'function'
+                ? 現在のページからエージェントを推定() : null;
+            const task = await 作業を頼む(背景内容, agentId);
+            const 返事 = task
+                ? '承知しました。裏で進めます。進み具合は🔄マークから確認できます。'
+                : '裏での作業を受け付けられませんでした。もう一度お試しください。';
+            appendConsoleLine('assistant', 返事, target);
+            会話の記憶に足す(target, 'assistant', 返事);
+            if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
+            声で聞かれた = false;
+            return;
+        }
+    }
+
     // 0) まとめての仕事として頼まれていないか。
     //
     // 画面操作の振り分けより先に見る。
