@@ -366,6 +366,26 @@ function 会話の記憶に足す(target, role, text) {
     会話の記憶[key] = 会話の記憶[key].slice(-8);
 }
 
+/**
+ * ありふれた挨拶なら、決まった返事を返す（LLMには渡さない）。
+ * 一致しなければ null を返し、通常の判定に進ませる。
+ */
+function 挨拶を拾う(text) {
+    const 文 = text.trim().replace(/[！!。、,.\s]+$/g, '');
+    const 対応 = [
+        [/^(こんにちは|こんにちわ)$/, 'こんにちは。ご用件をどうぞ。'],
+        [/^(おはよう(ございます)?)$/, 'おはようございます。'],
+        [/^(こんばんは|こんばんわ)$/, 'こんばんは。ご用件をどうぞ。'],
+        [/^(やあ|よう|はじめまして)$/, 'こんにちは。よろしくお願いします。'],
+        [/^(お疲れ(さま|様)(です)?|おつかれ(さま)?)$/, 'お疲れさまです。'],
+        [/^(ありがとう(ございます)?|ありがと)$/, 'いえいえ、どういたしまして。'],
+    ];
+    for (const [正規, 返事] of 対応) {
+        if (正規.test(文)) return 返事;
+    }
+    return null;
+}
+
 async function runConsoleCommand(text, target) {
     appendConsoleLine('user', text, target);
     会話の記憶に足す(target, 'user', text);
@@ -410,6 +430,23 @@ async function runConsoleCommand(text, target) {
         if (learned) {
             matched = AREGLM_COMMANDS.find((c) => c.id === learned.commandId);
             if (matched) corrected = `覚えた言い方（${learned.phrase}）`;
+        }
+    }
+
+    // 2.5) 簡単な挨拶は、LLMに判定させずここで即座に返す。
+    //
+    // 実際に「こんにちは」と話しかけたら、LLMが「ホームを開く」という
+    // 操作だと誤って判定し、無言でダッシュボードへ飛んでしまう不具合が
+    // 見つかった（挨拶をLLMに渡すと、たまに見当違いの操作に化ける）。
+    // 挨拶は種類も言い方も限られているので、判定に迷う必要が無い。
+    if (!matched) {
+        const 挨拶 = 挨拶を拾う(text);
+        if (挨拶) {
+            appendConsoleLine('assistant', 挨拶, target);
+            会話の記憶に足す(target, 'assistant', 挨拶);
+            if (声で聞かれた && typeof speakBack === 'function') speakBack(挨拶);
+            声で聞かれた = false;
+            return;
         }
     }
 
