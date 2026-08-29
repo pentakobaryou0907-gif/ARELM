@@ -9340,3 +9340,25 @@ html[data-theme] .chat-bubble.user {
     color: var(--tone-ink-dim, var(--areglm-muted, #888));
     pointer-events: none;
 }
+
+/* 商品編集モーダルの項目グループ分け（4-1対応）
+   項目が縦に並ぶだけで、どこからどこまでが一区切りか分かりにくかった。
+   見出し付きの区切りで、基本情報／分類／生産情報／価格在庫／その他に分ける。 */
+.modal-field-group {
+    margin-bottom: 1.1rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--areglm-border, #e2e8f0);
+}
+.modal-field-group:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.modal-field-group-title {
+    margin: 0 0 0.6rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--tone-ink-dim, var(--areglm-muted, #888));
+    text-transform: uppercase;
+}

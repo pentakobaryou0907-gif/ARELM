@@ -2447,38 +2447,58 @@
                 <form id="product-modal-form">
                     <!-- 編集のときだけ、元のSKUをここに入れて見分ける -->
                     <input type="hidden" id="modal-edit-sku" name="editSku" value="">
-                    <div class="form-group"><label for="modal-sku">SKU</label><input type="text" id="modal-sku" name="sku" required></div>
-                    <div class="form-group"><label for="modal-name">商品名・デザイン名</label><input type="text" id="modal-name" name="name" required></div>
-                    <div class="form-group">
-                        <label for="modal-code">商品番号</label>
-                        <input type="text" id="modal-code" name="code" placeholder="AGM-TDR-001-TEE">
-                        <small class="hint">ブランド略称-シリーズ略称-連番-アイテム種別（例: AGM-TDR-001-TEE）</small>
+
+                    <div class="modal-field-group">
+                        <h4 class="modal-field-group-title">基本情報</h4>
+                        <div class="form-group"><label for="modal-sku">SKU</label><input type="text" id="modal-sku" name="sku" required></div>
+                        <div class="form-group"><label for="modal-name">商品名・デザイン名</label><input type="text" id="modal-name" name="name" required></div>
+                        <div class="form-group">
+                            <label for="modal-code">商品番号</label>
+                            <input type="text" id="modal-code" name="code" placeholder="AGM-TDR-001-TEE">
+                            <small class="hint">ブランド略称-シリーズ略称-連番-アイテム種別（例: AGM-TDR-001-TEE）</small>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label for="modal-category">カテゴリー・スタイル</label><input type="text" id="modal-category" name="category" placeholder="ストリート / TEE"></div>
-                        <div class="form-group"><label for="modal-colors">カラーバリエーション</label><input type="text" id="modal-colors" name="colors" placeholder="黒・白・ネイビー"></div>
+
+                    <div class="modal-field-group">
+                        <h4 class="modal-field-group-title">分類</h4>
+                        <div class="form-row">
+                            <div class="form-group"><label for="modal-category">カテゴリー・スタイル</label><input type="text" id="modal-category" name="category" placeholder="ストリート / TEE"></div>
+                            <div class="form-group"><label for="modal-colors">カラーバリエーション</label><input type="text" id="modal-colors" name="colors" placeholder="黒・白・ネイビー"></div>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label for="modal-origin">原産地</label><input type="text" id="modal-origin" name="origin" placeholder="未定"></div>
-                        <div class="form-group"><label for="modal-madeby">生産地</label><input type="text" id="modal-madeby" name="madeBy" placeholder="SUZURI"></div>
+
+                    <div class="modal-field-group">
+                        <h4 class="modal-field-group-title">生産情報</h4>
+                        <div class="form-row">
+                            <div class="form-group"><label for="modal-origin">原産地</label><input type="text" id="modal-origin" name="origin" placeholder="未定"></div>
+                            <div class="form-group"><label for="modal-madeby">生産地</label><input type="text" id="modal-madeby" name="madeBy" placeholder="SUZURI"></div>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label for="modal-price">価格</label><span class="input-unit-wrap"><input type="number" id="modal-price" name="price" required min="0"><span class="input-unit">円</span></span></div>
-                        <div class="form-group"><label for="modal-quantity">数量</label><span class="input-unit-wrap"><input type="number" id="modal-quantity" name="quantity" required min="0"><span class="input-unit">個</span></span></div>
+
+                    <div class="modal-field-group">
+                        <h4 class="modal-field-group-title">価格・在庫</h4>
+                        <div class="form-row">
+                            <div class="form-group"><label for="modal-price">価格</label><span class="input-unit-wrap"><input type="number" id="modal-price" name="price" required min="0"><span class="input-unit">円</span></span></div>
+                            <div class="form-group"><label for="modal-quantity">数量</label><span class="input-unit-wrap"><input type="number" id="modal-quantity" name="quantity" required min="0"><span class="input-unit">個</span></span></div>
+                        </div>
+                        <div class="form-group" id="modal-price-reason-wrap" hidden>
+                            <label for="modal-price-reason">価格を変える理由（履歴に残ります）</label>
+                            <input type="text" id="modal-price-reason" name="priceReason" placeholder="実店舗価格に修正 など">
+                        </div>
+                        <div id="modal-price-history"></div>
                     </div>
-                    <div class="form-group">
-                        <label for="modal-datalink">商品データの保存先</label>
-                        <input type="text" id="modal-datalink" name="dataLink" placeholder="保存先のリンク、またはこの端末の中の場所">
+
+                    <div class="modal-field-group">
+                        <h4 class="modal-field-group-title">その他</h4>
+                        <div class="form-group">
+                            <label for="modal-datalink">商品データの保存先</label>
+                            <input type="text" id="modal-datalink" name="dataLink" placeholder="保存先のリンク、またはこの端末の中の場所">
+                        </div>
+                        <div class="form-group">
+                            <label for="modal-note">備考</label>
+                            <input type="text" id="modal-note" name="note" placeholder="元データ消失・店舗画像で代替保存 など">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="modal-note">備考</label>
-                        <input type="text" id="modal-note" name="note" placeholder="元データ消失・店舗画像で代替保存 など">
-                    </div>
-                    <div class="form-group" id="modal-price-reason-wrap" hidden>
-                        <label for="modal-price-reason">価格を変える理由（履歴に残ります）</label>
-                        <input type="text" id="modal-price-reason" name="priceReason" placeholder="実店舗価格に修正 など">
-                    </div>
-                    <div id="modal-price-history"></div>
                     <div id="modal-dev-links" class="modal-dev-links" hidden>
                         <p class="hint">この商品のモックアップ・型紙は「開発」タブのツールで作れます。</p>
                         <div class="modal-dev-links-buttons">
