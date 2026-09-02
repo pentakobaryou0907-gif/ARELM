@@ -2191,6 +2191,61 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">📝</span>Notion連携</h3>
+                        <p class="hint">
+                            記録（週次レポートなど）をNotionのデータベースへ送れるようにします。
+                            <strong>既定はオフです。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener">Notionの統合ページ</a>
+                            で新しい統合（インテグレーション）を作り、発行された「内部インテグレーションシークレット」を
+                            下に入れてください。さらに、送り先にしたいNotionのデータベースを開き、
+                            右上の「…」→「接続」から、作った統合を招待（共有）しておく必要があります
+                            （共有していないページ・データベースには、AReGLMからは一切触れません）。
+                        </p>
+                        <div class="form-group">
+                            <label for="notion-token">内部インテグレーションシークレット</label>
+                            <input type="password" id="notion-token" placeholder="secret_… または ntn_…" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="notion-database-id">送り先データベースID</label>
+                            <input type="text" id="notion-database-id" placeholder="データベースのURLに含まれる32桁のID" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="notion-save-btn" class="btn btn-sm btn-secondary">保存</button>
+                            <button type="button" id="notion-test-btn" class="btn btn-sm btn-secondary">接続確認</button>
+                        </div>
+                        <p id="notion-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🗂</span>Obsidian連携</h3>
+                        <p class="hint">
+                            記録をこの端末（またはLAN内）のObsidian Vaultへノートとして保存できるようにします。
+                            <strong>既定はオフです。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            Obsidianに無料のコミュニティプラグイン「Local REST API」を入れて有効にし、
+                            プラグインの設定画面に表示されるAPIキーを下に入れてください。
+                        </p>
+                        <div class="form-group">
+                            <label for="obsidian-key">APIキー</label>
+                            <input type="password" id="obsidian-key" placeholder="プラグインの設定画面に表示されるキー" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="obsidian-port">ポート番号</label>
+                            <input type="number" id="obsidian-port" placeholder="27123" min="1" max="65535">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="obsidian-save-btn" class="btn btn-sm btn-secondary">保存</button>
+                            <button type="button" id="obsidian-test-btn" class="btn btn-sm btn-secondary">接続確認</button>
+                        </div>
+                        <p id="obsidian-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">🎭</span>AIの話し方（性格）</h3>
                         <p class="hint">
                             自作AI（この端末の中だけで動くもの）の返事の口調・呼び方を決められます。
@@ -2582,6 +2637,8 @@
     <script src="js/services/local-first.js" defer></script>
     <script src="js/services/ai-engine.js" defer></script>
     <script src="js/services/suzuri-api.js" defer></script>
+    <script src="js/services/notion-api.js" defer></script>
+    <script src="js/services/obsidian-api.js" defer></script>
     <script src="js/main.js" defer></script>
     <script src="js/modules/dashboard.js" defer></script>
     <script src="js/modules/memo.js" defer></script>
@@ -2614,6 +2671,7 @@
     <script src="js/modules/音声のやり取り記録.js" defer></script>
     <script src="js/modules/ページ内目次.js" defer></script>
     <script src="js/modules/バックグラウンド作業.js" defer></script>
+    <script src="js/modules/外部ノート連携設定.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>

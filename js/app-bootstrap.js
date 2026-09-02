@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init音声のやり取り記録 === 'function') init音声のやり取り記録();
     if (typeof initページ内目次 === 'function') initページ内目次();
     if (typeof init背景作業 === 'function') init背景作業();
+    if (typeof init外部ノート連携設定 === 'function') init外部ノート連携設定();
     if (typeof initVoiceUI === 'function') initVoiceUI();
     if (typeof init常駐の待ち受け === 'function') init常駐の待ち受け();
     if (typeof init声の診断 === 'function') init声の診断();

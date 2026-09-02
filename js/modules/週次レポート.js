@@ -184,8 +184,84 @@ function レポート一覧を描く() {
             札.appendChild(p);
         }
 
+        // 外部ノート連携: 送り先を設定してあれば、この場でNotion/Obsidianへ送れる。
+        if (window.AReGLM_NOTION || window.AReGLM_OBSIDIAN) {
+            const 操作行 = document.createElement('div');
+            操作行.className = 'guard-row';
+            if (window.AReGLM_NOTION) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-sm btn-secondary';
+                b.textContent = '📝 Notionへ送る';
+                b.addEventListener('click', () => レポートをNotionへ送る(r, b));
+                操作行.appendChild(b);
+            }
+            if (window.AReGLM_OBSIDIAN) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-sm btn-secondary';
+                b.textContent = '🗂 Obsidianへ保存';
+                b.addEventListener('click', () => レポートをObsidianへ保存(r, b));
+                操作行.appendChild(b);
+            }
+            札.appendChild(操作行);
+        }
+
         箱.appendChild(札);
     });
+}
+
+/** レポートをNotionのデータベースへ1ページとして送る */
+async function レポートをNotionへ送る(r, btn) {
+    const dbId = AReGLM_NOTION.getDatabaseId();
+    if (!dbId) {
+        showNotification('先に設定（⚙）でNotionのデータベースIDを保存してください', 'error');
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = '送っています…'; }
+    try {
+        const タイトル = `Weekly Report #${r.番号}`;
+        const 本文 = [数字を文にする(r.数字 || {}).join('\n'), r.コメント ? `💬 ${r.コメント}` : '']
+            .filter(Boolean).join('\n\n');
+        const children = AReGLM_NOTION.テキストブロックにする(本文);
+
+        // データベースのタイトル列の名前は、作られ方によって「名前」「Name」等バラバラなため、
+        // よくある候補をこの順で試す。
+        const 候補列名 = ['名前', 'Name', 'Title', 'タイトル'];
+        let 最後のエラー = null;
+        for (const 列 of 候補列名) {
+            try {
+                await AReGLM_NOTION.createPage(dbId, { [列]: { title: [{ text: { content: タイトル } }] } }, children);
+                showNotification('Notionへ送りました', 'success');
+                return;
+            } catch (e) {
+                最後のエラー = e;
+            }
+        }
+        throw 最後のエラー || new Error('送れませんでした');
+    } catch (e) {
+        showNotification(`Notionへ送れませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📝 Notionへ送る'; }
+    }
+}
+
+/** レポートをObsidianのVaultへノートとして保存する */
+async function レポートをObsidianへ保存(r, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '保存しています…'; }
+    try {
+        const 本文 = `# Weekly Report #${r.番号}\n\n`
+            + `${new Date(r.作った日).toLocaleString('ja-JP')}\n\n`
+            + 数字を文にする(r.数字 || {}).map((l) => `- ${l}`).join('\n')
+            + (r.コメント ? `\n\n> ${r.コメント}` : '');
+        const 日付文字 = new Date(r.作った日).toISOString().slice(0, 10);
+        await AReGLM_OBSIDIAN.writeNote(`AReGLM/週次レポート/${日付文字}_第${r.番号}回.md`, 本文);
+        showNotification('Obsidianへ保存しました', 'success');
+    } catch (e) {
+        showNotification(`Obsidianへ保存できませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🗂 Obsidianへ保存'; }
+    }
 }
 
 function init週次レポート() {

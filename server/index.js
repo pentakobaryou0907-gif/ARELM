@@ -1338,6 +1338,19 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-29',
     },
     {
+        // Notion連携用。統合トークンは、Notion側で本人が明示的に
+        // 共有したページ・データベースにしか届かない（Notion自身の
+        // 権限モデルによる制限）。ここでの許可は「送信先ホストとして
+        // 通す」だけで、実際に触れる範囲を広げるものではない。
+        host: 'api.notion.com',
+        name: 'Notion API',
+        provider: 'Notion（公式）',
+        terms: 'https://www.notion.so/notion/Notion-API-Terms-and-Conditions',
+        無料か: true,
+        無料の中身: '統合トークンの発行・API利用そのものは無料（2026年8月時点）',
+        確かめた日: '2026-08-30',
+    },
+    {
         host: 'api.anthropic.com',
         name: 'Anthropic Claude API',
         provider: 'Anthropic（公式）',
@@ -1907,6 +1920,89 @@ app.post('/api/suzuri/products', async (req, res) => {
         res.status(upstream.status).json(data);
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Notion連携
+ *
+ * 統合トークンは本人がNotion側の設定画面で発行し、AReGLMには
+ * 暗号化してこの端末にだけ保存する（サーバー側では保持しない・
+ * 毎回ヘッダーで受け取って中継するだけ）。
+ * 実際に触れる範囲は、Notion側で本人がその統合に「共有」した
+ * ページ・データベースだけに、Notion自身の権限モデルで絞られる。
+ *
+ * パスと本文をそのまま中継する、ひとつの汎用口にしてある
+ * （search・データベースの問い合わせ・ページ作成・追記など、
+ * Notion API全体を毎回ルートを増やさずに使えるようにするため）。
+ * 送信先ホストは許可リスト（OFFICIAL_API_ALLOWLIST）で固定されており、
+ * それ以外へは safeFetch が例外で止める。
+ */
+app.post('/api/notion-proxy', async (req, res) => {
+    const token = req.headers['x-notion-token'];
+    if (!token) return res.status(401).json({ error: 'Notion統合トークンが必要です' });
+    const { method, path, body } = req.body || {};
+    if (!method || !path || !/^\/[\w./-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const upstream = await safeFetch(`https://api.notion.com/v1${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json'
+            },
+            body: (method === 'GET' || method === 'HEAD') ? undefined : JSON.stringify(body || {})
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Obsidian連携（Local REST APIプラグイン経由）
+ *
+ * ObsidianはVault自体がこの端末（またはLAN内の別端末）にあり、
+ * 無料のコミュニティプラグイン「Local REST API」が立てるローカルの
+ * サーバーへ話しかける仕組み。外部（インターネット上のサービス）
+ * ではないため、OFFICIAL_API_ALLOWLIST（外部公式APIの許可リスト）
+ * の対象にはしない。ただし送信先は必ず127.0.0.1固定・ポート番号は
+ * 数字のみに絞り、他のホストへは向けさせない。
+ */
+app.post('/api/obsidian-proxy', async (req, res) => {
+    const key = req.headers['x-obsidian-key'];
+    if (!key) return res.status(401).json({ error: 'ObsidianのAPIキーが必要です' });
+    const { method, path, body, port } = req.body || {};
+    const ポート = parseInt(port, 10) || 27123;
+    if (!method || !path || !/^\/[\w./%-]*$/.test(path) || ポート < 1 || ポート > 65535) {
+        return res.status(400).json({ error: 'method・path・port の形が不正です' });
+    }
+    try {
+        const upstream = await fetch(`http://127.0.0.1:${ポート}${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${key}`,
+                'Content-Type': typeof body === 'string' ? 'text/markdown' : 'application/json'
+            },
+            body: (method === 'GET' || method === 'HEAD' || body == null)
+                ? undefined
+                : (typeof body === 'string' ? body : JSON.stringify(body))
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(502).json({
+            error: 'Obsidianに繋がりません',
+            hint: 'Obsidianを起動し、Local REST APIプラグインを有効にしてください',
+            detail: e.message
+        });
     }
 });
 
