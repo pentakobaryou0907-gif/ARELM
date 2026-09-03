@@ -16,6 +16,9 @@ Node側のゲートウェイから呼ばれる。外部への通信は一切行�
   GET  /summary             学習状況
   POST /similarity/check    似すぎ判定（似た商品を作らないため）
   POST /similarity/index    既存商品を登録し直す
+  POST /design/learn-media  写真・動画からファッションの傾向を学ぶ
+  POST /design/suggest      学習した傾向からデザイン提案の叩き台を出す
+  POST /techpack-deck/build 商品ごとのテックパックスライド（.pptx）を作る
 """
 
 import json
@@ -929,6 +932,123 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/similarity/duplicates':
                 with _lock:
                     return self._send(200, {'pairs': similarity.find_duplicates_within()})
+
+            # ---- デザイン学習（アップロードした写真・動画からファッションの傾向を学ぶ）----
+            #
+            # 外部の画像認識APIは使わない。この端末のPillow/numpyだけで、
+            # 色・構図の大まかな傾向を見て、学習データに加える
+            # （デザイン分析.py 参照。厳密な認識ではなく、あくまで参考程度のもの）。
+            if self.path == '/design/learn-media':
+                種類 = data.get('種類') or 'image'
+                元 = data.get('path') or data.get('dataUrl') or ''
+                説明文 = (data.get('説明文') or '').strip()
+                ファイル名 = data.get('ファイル名') or ''
+
+                if not 元:
+                    return self._send(400, {'error': '画像・動画のデータが必要です'})
+
+                import デザイン分析
+                if 種類 == 'video':
+                    特徴 = デザイン分析.動画から特徴を取り出す(元)
+                else:
+                    特徴 = デザイン分析.画像から特徴を取り出す(元)
+
+                if not 特徴.get('ok'):
+                    return self._send(200, {'ok': False, '訳': 特徴.get('訳', '解析できませんでした')})
+
+                text = デザイン分析.特徴をテキストにする(特徴)
+                if 説明文:
+                    text = f'{text} {説明文}'.strip()
+
+                verdict = rules.check(text)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, '訳': verdict['reason']})
+
+                # 説明文（本人が書いた言葉）にだけ、権利チェックをかける。
+                # 画像そのものの権利の有無は技術的に判定できないため、
+                # 添えられた文章から「他人の資料の転載」らしさだけを見る。
+                if 説明文:
+                    import 権利の見分け
+                    判定 = 権利の見分け.調べる(説明文)
+                    if not 判定['学ばせてよいか']:
+                        return self._send(200, {
+                            'ok': False,
+                            '訳': f'説明文に{判定["種類"]}が含まれるため、学習しませんでした',
+                        })
+
+                with _lock:
+                    learner.learn(text, 'design_trend')
+                    knowledge.add(text, source='document', topic='design_trend',
+                                  note=f'アップロード（{ファイル名 or 種類}）から')
+                    knowledge.save()
+
+                return self._send(200, {
+                    'ok': True,
+                    'キーワード': 特徴.get('キーワード', []),
+                    '構図': 特徴.get('構図'),
+                    '訳': 'この画像/動画の傾向を学習しました',
+                })
+
+            # ---- 学習したファッション傾向から、デザイン提案の叩き台を出す ----
+            #
+            # 断定はしない。あくまで「これまで学習した中では」という
+            # 参考程度の提案にとどめる（学習の質は、学ばせた量に依存する）。
+            if self.path == '/design/suggest':
+                お題 = (data.get('お題文') or '').strip()
+                with _lock:
+                    if お題:
+                        キーワード = [t for t, _s in learner.keywords(お題, 8)]
+                        for t in list(キーワード[:3]):
+                            キーワード.extend(x['term'] for x in learner.related_terms(t, 4))
+                    else:
+                        # お題が無ければ、design_trendカテゴリで多く学んだ語を出す
+                        カテゴリ語 = learner.class_word_counts.get('design_trend') or {}
+                        上位 = sorted(カテゴリ語.items(), key=lambda x: -x[1])[:20]
+                        キーワード = [t for t, _c in 上位]
+
+                    見た = set()
+                    絞った = []
+                    for k in キーワード:
+                        if k not in 見た:
+                            見た.add(k)
+                            絞った.append(k)
+
+                return self._send(200, {
+                    'ok': True,
+                    'キーワード': 絞った[:12],
+                    '訳': 'これまで学習した内容からの傾向です。断定はできません。',
+                })
+
+            # ---- テックパックスライド（.pptx）を組み立てる ----
+            #
+            # Canva公式APIには「1着1スライド＋テキストの精密配置」を
+            # 無料で自動組み立てできる仕組みが無いため（本命のAutofill
+            # APIはCanva Enterprise専用）、この端末だけで.pptxを完成
+            # させる。.pptxはCanva・PowerPoint・Keynoteのどれでも開ける。
+            if self.path == '/techpack-deck/build':
+                商品たち = data.get('商品たち') or []
+                if not 商品たち:
+                    return self._send(400, {'error': '商品が1件もありません'})
+
+                for 商品 in 商品たち:
+                    text = f"{商品.get('name', '')} {商品.get('description', '')}"
+                    verdict = rules.check(text)
+                    if not verdict['ok']:
+                        return self._send(200, {
+                            'ok': False,
+                            '訳': f"「{商品.get('name', '')}」: {verdict['reason']}",
+                        })
+
+                import techpack_deck
+                import uuid as _uuid
+                ファイル名 = f'techpack_{_uuid.uuid4().hex[:10]}.pptx'
+                出力パス = os.path.join(DATA_DIR, 'techpack_decks', ファイル名)
+                結果 = techpack_deck.スライドを作る(
+                    商品たち, 出力パス, タイトル=data.get('タイトル') or 'OEM商品開発資料')
+                if not 結果.get('ok'):
+                    return self._send(200, 結果)
+
+                return self._send(200, {'ok': True, 'ファイル名': ファイル名, '枚数': 結果['枚数']})
 
             self._send(404, {'error': 'not found'})
 
