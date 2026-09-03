@@ -59,6 +59,20 @@ const AREGLM_COMMANDS = [
         run: () => goToPageByName('studio')
     },
     {
+        id: 'create-product',
+        keywords: ['商品を作って', '新商品を作って'],
+        label: '商品を自動で作る（商品名・デザイン画像・SUZURI登録まで）',
+        needsArg: true,
+        run: (arg, target) => {
+            if (typeof 商品を自動で作る !== 'function') {
+                return '商品の自動作成の仕組みが読み込まれていません。';
+            }
+            // 非同期の途中経過（appendConsoleLine）は関数の中で自分で出す。
+            // ここでは Promise をそのまま返し、呼び出し元に最後の一言だけ待たせる。
+            return 商品を自動で作る(arg, target);
+        }
+    },
+    {
         id: 'add-memo',
         keywords: ['メモ'],
         label: 'メモを追加',
@@ -545,8 +559,10 @@ async function runConsoleCommand(text, target) {
  */
 async function 判定した操作を実行する(matched, arg, 元の発言, target) {
     try {
-        // run() は同期・非同期どちらもありうるので、Promise なら待ってから表示する
-        const raw = matched.run(matched.needsArg ? arg : undefined);
+        // run() は同期・非同期どちらもありうるので、Promise なら待ってから表示する。
+        // target も渡しておく（進行中の経過を、話しかけた場所に自分で足したい
+        // コマンド向け。使わないコマンドは第2引数を無視するだけでよい）。
+        const raw = matched.run(matched.needsArg ? arg : undefined, target);
         const result = raw && typeof raw.then === 'function' ? await raw : raw;
         const 文 = result || `${matched.label}を実行しました`;
         appendConsoleLine('assistant', 文, target);

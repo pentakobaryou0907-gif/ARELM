@@ -58,40 +58,48 @@ function previewSuzuriMaterial(e) {
     reader.readAsDataURL(file);
 }
 
-async function handleSuzuriCreate(e) {
-    e.preventDefault();
-    const name = document.getElementById('suzuri-product-name')?.value?.trim();
-    const itemType = document.getElementById('suzuri-item-type')?.value;
-    const description = document.getElementById('suzuri-description')?.value?.trim() || '';
-    const preview = document.getElementById('suzuri-material-preview');
-    const materialData = preview?.dataset?.dataUrl;
+/**
+ * SUZURI商品を実際に作る、共通の中身。
+ *
+ * フォームからの手入力（handleSuzuriCreate）と、エージェントへの
+ * 指示からの自動作成（js/modules/商品自動作成.js）の、両方から使う。
+ * 二重に書くとどちらかだけ直して片方が古いままになりやすいため、
+ * ここ一箇所にまとめてある。
+ *
+ * @param {{name:string, itemType:number, description?:string, materialDataUrl?:string, 確認なしで似すぎを許す?:boolean}} 入力
+ * @returns {{ok:boolean, draft:object, message:string, 類似:object|null}}
+ */
+async function SUZURI商品を作る(入力) {
+    const name = (入力.name || '').trim();
+    const itemType = 入力.itemType;
+    const description = (入力.description || '').trim();
+    const materialData = 入力.materialDataUrl;
 
     if (!name || !itemType) {
-        showNotification('商品名とアイテムを入力してください', 'error');
-        return;
+        return { ok: false, draft: null, message: '商品名とアイテムが必要です', 類似: null };
     }
 
     const policy = AReGLM_CONTENT_POLICY.validate(name + ' ' + description);
     if (!policy.ok) {
-        showNotification(policy.message, 'error');
-        return;
+        return { ok: false, draft: null, message: policy.message, 類似: null };
     }
 
     // 既存商品と似すぎていないか、自作AIエンジンで確認する。
     // 「似たような商品は作らない」を作成前に機械的に担保するため。
+    let 類似 = null;
     if (window.AReGLM_LOCAL_AI) {
         await AReGLM_LOCAL_AI.indexProducts();
-        const sim = await AReGLM_LOCAL_AI.checkSimilar(`${name} ${description}`, {
-            item: itemType
-        });
+        const sim = await AReGLM_LOCAL_AI.checkSimilar(`${name} ${description}`, { item: itemType });
         if (sim && sim.verdict !== 'ok' && sim.matches?.length) {
-            const top = sim.matches[0];
-            const proceed = confirm(
-                `${sim.message}\n\n` +
-                `最も近い既存商品:\n「${top.text}」\n類似度: ${Math.round(top.score * 100)}%\n\n` +
-                `このまま作成しますか？`
-            );
-            if (!proceed) return;
+            類似 = sim;
+            if (!入力.確認なしで似すぎを許す) {
+                return {
+                    ok: false, draft: null,
+                    message: `${sim.message}（最も近い既存商品: 「${sim.matches[0].text}」`
+                        + `・類似度${Math.round(sim.matches[0].score * 100)}%）`,
+                    類似,
+                };
+            }
         }
     }
 
@@ -108,6 +116,7 @@ async function handleSuzuriCreate(e) {
     // 肝心の「商品として登録する」publishProductDraft が一度も呼ばれていなかった。
     // 素材を送っただけではSUZURI側に商品は作られず、「在庫ページで同期して
     // ください」という案内だけが出て、実際には何も同期されるものが無い状態だった。
+    let message = '下書きを保存しました';
     if (materialData) {
         try {
             const 素材 = await AReGLM_SUZURI.createMaterial(materialData, 'design.png');
@@ -117,7 +126,7 @@ async function handleSuzuriCreate(e) {
             // その柄が乗った商品として登録できる。
             draft.materialId = 素材?.id ?? 素材?.material?.id ?? null;
         } catch (err) {
-            showNotification('素材API: ' + err.message, 'info');
+            message = '素材API: ' + err.message;
         }
     }
 
@@ -127,37 +136,68 @@ async function handleSuzuriCreate(e) {
             if (結果?.id) {
                 draft.status = 'published';
                 draft.suzuriId = 結果.id;
-                showNotification('作成しました。SUZURIに商品として登録済みです', 'success');
+                message = '作成しました。SUZURIに商品として登録済みです';
             } else {
                 // 商品APIの実際の必須項目は、本物のトークンで試すまで
                 // 確実には分からない（ここでは正直に伝える）。
                 draft.status = 'material_uploaded';
-                showNotification(
-                    '素材は送れましたが、商品としての登録は完了しませんでした。'
+                message = '素材は送れましたが、商品としての登録は完了しませんでした。'
                     + '本番のSUZURIトークンで一度お試しください（'
-                    + JSON.stringify(結果).slice(0, 120) + '）', 'error');
+                    + JSON.stringify(結果).slice(0, 120) + '）';
             }
         } catch (err) {
             draft.status = 'material_uploaded';
-            showNotification('商品登録API: ' + err.message, 'error');
+            message = '商品登録API: ' + err.message;
         }
     } else if (!materialData) {
-        showNotification('デザイン画像を選ぶと、素材の送信・商品登録まで自動で行います', 'info');
+        message = 'デザイン画像が無いため、下書きのみ保存しました';
     }
 
     const list = JSON.parse(localStorage.getItem('areglm_suzuri_products') || '[]');
     list.push(draft);
     localStorage.setItem('areglm_suzuri_products', JSON.stringify(list));
 
+    loadProductDev();
+    logActivity(`SUZURI商品「${name}」を作成`);
+
+    return { ok: draft.status === 'published', draft, message, 類似 };
+}
+
+async function handleSuzuriCreate(e) {
+    e.preventDefault();
+    const name = document.getElementById('suzuri-product-name')?.value?.trim();
+    const itemType = document.getElementById('suzuri-item-type')?.value;
+    const description = document.getElementById('suzuri-description')?.value?.trim() || '';
+    const preview = document.getElementById('suzuri-material-preview');
+    const materialData = preview?.dataset?.dataUrl;
+
+    if (!name || !itemType) {
+        showNotification('商品名とアイテムを入力してください', 'error');
+        return;
+    }
+
+    // 似すぎ確認だけは、フォームからの手入力では引き続き人に確認する
+    // （confirm() はエージェントからの自動作成では使えないため、
+    // 共通関数側では既定で「似すぎなら止める」にしてある）。
+    let 確認なしで許す = false;
+    const 事前 = await SUZURI商品を作る({ name, itemType, description, materialDataUrl: materialData });
+    let 結果 = 事前;
+    if (!事前.ok && 事前.類似 && !事前.draft) {
+        const top = 事前.類似.matches[0];
+        const proceed = confirm(
+            `${事前.類似.message}\n\n最も近い既存商品:\n「${top.text}」\n類似度: ${Math.round(top.score * 100)}%\n\n`
+            + 'このまま作成しますか？'
+        );
+        if (!proceed) return;
+        確認なしで許す = true;
+        結果 = await SUZURI商品を作る({ name, itemType, description, materialDataUrl: materialData, 確認なしで似すぎを許す: 確認なしで許す });
+    }
+
     e.target.reset();
     preview.innerHTML = '<span class="hint">PNG/JPEG をアップロード</span>';
     delete preview.dataset.dataUrl;
 
-    loadProductDev();
-    logActivity(`SUZURI商品「${name}」を作成`);
-    if (draft.status !== 'published') {
-        showNotification('下書きを保存しました', 'success');
-    }
+    showNotification(結果.message, 結果.ok ? 'success' : (結果.draft ? 'error' : 'error'));
 }
 
 function loadProductDev() {
@@ -309,6 +349,7 @@ function exportTechpackCsv() {
     logActivity('技術パックをCSV書き出し');
 }
 
+window.SUZURI商品を作る = SUZURI商品を作る;
 window.initProductDev = initProductDev;
 window.loadProductDev = loadProductDev;
 window.deleteSuzuriProduct = deleteSuzuriProduct;
