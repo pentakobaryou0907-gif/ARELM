@@ -73,34 +73,96 @@ _キーワード = {
 }
 
 
-def エージェントを選ぶ(page=None, 発言=None):
-    """今の画面が分かればそれを使う。無ければ発言のキーワードから推定する。"""
+def _ページから選ぶ(page):
     page = (page or '').strip()
-    if page in エージェント一覧:
-        return page
+    return page if page in エージェント一覧 else None
 
+
+def _キーワードから選ぶ(発言):
     text = (発言 or '').lower()
-    if text:
-        for agent_id, words in _キーワード.items():
-            if any(w.lower() in text for w in words):
-                return agent_id
+    if not text:
+        return None
+    for agent_id, words in _キーワード.items():
+        if any(w.lower() in text for w in words):
+            return agent_id
     return None
 
 
-def エージェントの指示文(agent_id):
+def _名指しで選ぶ(発言):
+    """「在庫番に聞いて」「SNS担当さん」のように、名前で直接呼ばれていないか。"""
+    text = (発言 or '')
+    if not text:
+        return None
+    for agent_id, a in エージェント一覧.items():
+        if a['名'] in text:
+            return agent_id
+    return None
+
+
+def エージェントを選ぶ(page=None, 発言=None):
+    """今の画面が分かればそれを使う。無ければ発言のキーワードから推定する。
+    （後方互換のため、id だけを返す簡易版として残す。詳しい経緯が要る
+    呼び出し元は エージェントを選ぶ詳細 を使うこと）"""
+    return エージェントを選ぶ詳細(page, 発言)['id']
+
+
+def エージェントを選ぶ詳細(page=None, 発言=None):
+    """
+    担当を選ぶ。優先順位は次の通り:
+      1. 発言の中で名前を直接呼ばれている（例:「在庫番に聞いて」）
+      2. 今見ている画面（page）
+      3. 発言に出てくる言葉からの推定
+
+    2と3が食い違う（今の画面とは別の話題を聞かれた）場合は、
+    3の担当が答え、1〜2の担当から「引き継いだ」ことが分かる形で返す
+    （エージェント同士の連携・自動引き継ぎ）。
+    """
+    名指し = _名指しで選ぶ(発言)
+    if 名指し:
+        return {'id': 名指し, '経緯': 'name', '引き継ぎ元': None}
+
+    ページの担当 = _ページから選ぶ(page)
+    キーワードの担当 = _キーワードから選ぶ(発言)
+
+    if キーワードの担当 and ページの担当 and キーワードの担当 != ページの担当:
+        # 今の画面の担当ではなく、話題に合う担当が代わりに答える。
+        return {'id': キーワードの担当, '経緯': 'handoff', '引き継ぎ元': ページの担当}
+
+    if ページの担当:
+        return {'id': ページの担当, '経緯': 'page', '引き継ぎ元': None}
+
+    if キーワードの担当:
+        return {'id': キーワードの担当, '経緯': 'keyword', '引き継ぎ元': None}
+
+    return {'id': None, '経緯': None, '引き継ぎ元': None}
+
+
+def エージェントの指示文(agent_id, 引き継ぎ元=None):
     """LLMプロンプトに差し込む、担当エージェントの自己紹介文。"""
     a = エージェント一覧.get(agent_id)
     if not a:
         return ''
-    return (
+    文 = (
         f"あなたは「{a['名']}」という、{a['専門']}"
         'この担当としての立場で答えてください（他の話題を聞かれたら、'
         '素直に自分の専門外だと伝えて構いません）。'
     )
+    元 = エージェント一覧.get(引き継ぎ元)
+    if 元:
+        文 += (
+            f'\n（この質問は「{元["名"]}」の画面から来ましたが、'
+            f'話題があなたの専門のため、あなたが代わりに引き継いで答えます。'
+            'そのことに軽く触れてから答えてください。）'
+        )
+    return 文
 
 
-def エージェント情報(agent_id):
+def エージェント情報(agent_id, 引き継ぎ元=None):
     a = エージェント一覧.get(agent_id)
     if not a:
         return None
-    return {'id': agent_id, '名': a['名'], '絵': a['絵']}
+    出す = {'id': agent_id, '名': a['名'], '絵': a['絵']}
+    元 = エージェント一覧.get(引き継ぎ元)
+    if 元:
+        出す['引き継ぎ元'] = {'id': 引き継ぎ元, '名': 元['名'], '絵': 元['絵']}
+    return 出す

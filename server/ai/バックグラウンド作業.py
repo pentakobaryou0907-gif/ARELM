@@ -5,9 +5,17 @@ JARVISと話している間も、時間のかかる指示（長い文章づく�
 裏で進められるようにする。ひとつの会話が止まっている間に、
 別の作業を進めておける、という意味での「並行」。
 
-実装は、キュー（順番待ちの列）＋ 常駐スレッドひとつ。
+実装は、キュー（順番待ちの列）＋ 常駐スレッド複数（既定2本）。
 外部のジョブキューは使わない（この端末の中だけで完結させるため）。
 一覧はファイルに保存し、サーバーが再起動しても直近の記録が残るようにする。
+
+正直に書いておくこと：
+  この端末のローカルLLM（Ollama）自体は、1台のモデルを使い回すため、
+  実際の生成そのものが完全に同時進行するとは限らない（Ollama側の
+  混み具合次第）。それでもワーカーを複数にしておく意味はある——
+  1本のときは「前の作業が終わるまで、次の作業はキューに積まれた
+  ままLLMへすら渡らない」状態だったが、複数にすることで、
+  空いているワーカーがすぐ次の作業に取り掛かれる。
 """
 
 import json
@@ -29,6 +37,10 @@ _保存先 = os.path.join(_ここ, '..', 'data', 'agent_tasks.json')
 
 # 溜まりすぎないよう、記録として残すのは直近だけにする。
 _保持件数 = 200
+
+# 同時に処理するワーカーの本数。増やしすぎても、結局は
+# ローカルLLM側で詰まるだけなので、控えめにしておく。
+_ワーカー本数 = 2
 
 
 def _読む():
@@ -79,6 +91,51 @@ def 一覧を得る():
         return sorted((dict(t) for t in _一覧.values()), key=lambda t: -t.get('作成', 0))
 
 
+def 取り消す(id):
+    """待機中の作業だけ取り消せる。実行中・完了済みは取り消せない。"""
+    with _ロック:
+        task = _一覧.get(id)
+        if not task:
+            return {'ok': False, '訳': '見つかりません'}
+        if task['状態'] != '待機中':
+            return {'ok': False, '訳': f'すでに{task["状態"]}のため取り消せません'}
+        task['状態'] = '取り消し済み'
+        task['終了'] = time.time()
+        _書く()
+    return {'ok': True}
+
+
+def やり直す(id):
+    """失敗した作業を、もう一度キューへ積み直す。"""
+    with _ロック:
+        task = _一覧.get(id)
+        if not task:
+            return {'ok': False, '訳': '見つかりません'}
+        if task['状態'] not in ('失敗', '取り消し済み'):
+            return {'ok': False, '訳': f'{task["状態"]}のため、やり直しの対象ではありません'}
+        task['状態'] = '待機中'
+        task['開始'] = None
+        task['終了'] = None
+        task['結果'] = None
+        task['エラー'] = None
+        _書く()
+    _キュー.put(id)
+    return {'ok': True}
+
+
+def 消す(id):
+    """終わった（完了・失敗・取り消し済み）作業を、一覧から消す。"""
+    with _ロック:
+        task = _一覧.get(id)
+        if not task:
+            return {'ok': False, '訳': '見つかりません'}
+        if task['状態'] in ('待機中', '実行中'):
+            return {'ok': False, '訳': f'{task["状態"]}のため消せません（先に取り消してください）'}
+        del _一覧[id]
+        _書く()
+    return {'ok': True}
+
+
 def _処理する(task):
     指示 = task['内容']
     担当id = task.get('agent', {}).get('id') if task.get('agent') else None
@@ -98,21 +155,23 @@ def _ワーカー():
         id = _キュー.get()
         with _ロック:
             task = _一覧.get(id)
-        if not task:
-            continue
-        task['状態'] = '実行中'
-        task['開始'] = time.time()
-        with _ロック:
+            # キューに積まれたあと取り消された分は、ここで静かに飛ばす。
+            if not task or task['状態'] != '待機中':
+                continue
+            task['状態'] = '実行中'
+            task['開始'] = time.time()
             _書く()
         try:
             結果 = _処理する(task)
-            task['結果'] = 結果
-            task['状態'] = '完了'
+            with _ロック:
+                task['結果'] = 結果
+                task['状態'] = '完了'
         except Exception as e:  # noqa: BLE001 — 何が起きても、記録して次へ進む
-            task['エラー'] = str(e)
-            task['状態'] = '失敗'
-        task['終了'] = time.time()
+            with _ロック:
+                task['エラー'] = str(e)
+                task['状態'] = '失敗'
         with _ロック:
+            task['終了'] = time.time()
             _書く()
 
 
@@ -120,7 +179,7 @@ _起動済み = False
 
 
 def 起動する():
-    """サーバー起動時に一度だけ呼ぶ。常駐スレッドを立てる。"""
+    """サーバー起動時に一度だけ呼ぶ。常駐スレッドを複数立てる。"""
     global _起動済み
     if _起動済み:
         return
@@ -135,5 +194,5 @@ def 起動する():
                 t['エラー'] = 'サーバーの再起動で中断されました'
                 t['終了'] = time.time()
         _書く()
-    t = threading.Thread(target=_ワーカー, daemon=True)
-    t.start()
+    for _ in range(_ワーカー本数):
+        threading.Thread(target=_ワーカー, daemon=True).start()

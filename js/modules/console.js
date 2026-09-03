@@ -859,8 +859,12 @@ function appendConsoleLine(role, text, target, agent) {
     div.className = `console-line console-${role}`;
     let html = '';
     // マルチエージェント化: どの担当が答えたか分かるよう、小さく表示する。
+    // 画面と話題が食い違って引き継いだときは、引き継ぎ元も添える。
     if (agent?.名) {
-        html += `<div class="agent-tag">${AReGLM_SECURITY.sanitizeHtml(agent.絵 || '')} ${AReGLM_SECURITY.sanitizeHtml(agent.名)}</div>`;
+        const 引き継ぎ = agent.引き継ぎ元
+            ? `<span class="agent-tag-handoff">（${AReGLM_SECURITY.sanitizeHtml(agent.引き継ぎ元.絵 || '')}${AReGLM_SECURITY.sanitizeHtml(agent.引き継ぎ元.名)}から引き継ぎ）</span>`
+            : '';
+        html += `<div class="agent-tag">${AReGLM_SECURITY.sanitizeHtml(agent.絵 || '')} ${AReGLM_SECURITY.sanitizeHtml(agent.名)}${引き継ぎ}</div>`;
     }
     html += AReGLM_SECURITY.sanitizeHtml(text).replace(/\n/g, '<br>');
     div.innerHTML = html;

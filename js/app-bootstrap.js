@@ -14,6 +14,14 @@ window.loadPageData = function (pageName) {
             populateAiSelects();
             if (typeof loadChatHistory === 'function') loadChatHistory();
             break;
+        case 'remote':
+            // js/main.js の旧 loadPageData にあった処理。この関数の方が
+            // あとから読み込まれ window.loadPageData を上書きするため、
+            // ここに無いと遠隔操作ページを開き直しても表示が更新されない
+            // （実際に消えて不具合になっていたのを見つけて戻した）。
+            if (typeof init遠隔とタスク === 'function') init遠隔とタスク();
+            if (typeof render遠隔操作 === 'function') render遠隔操作();
+            break;
         case 'brands':
             if (typeof loadBrandsData === 'function') loadBrandsData();
             break;
@@ -25,6 +33,9 @@ window.loadPageData = function (pageName) {
             break;
         case 'studio':
             if (typeof loadProductDev === 'function') loadProductDev();
+            break;
+        case 'tasks':
+            if (typeof タスク管理画面を描く === 'function') タスク管理画面を描く();
             break;
         case 'settings':
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');

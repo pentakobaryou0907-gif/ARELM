@@ -9351,6 +9351,11 @@ html[data-theme] .chat-bubble.user {
     color: var(--areglm-accent, #6366f1);
     margin-bottom: 0.2rem;
 }
+.agent-tag-handoff {
+    font-weight: 400;
+    color: var(--areglm-muted, #888);
+    margin-left: 0.3rem;
+}
 
 /* マルチエージェント化 第2段: 裏で進めている作業のバッジ・一覧 */
 .bg-task-badge {
@@ -9456,4 +9461,40 @@ html[data-theme] .chat-bubble.user {
     /* 左に寄せていたページ内目次ボタンが、サイドバーと重ならないように */
     .page-toc-btn { left: calc(208px + 1rem); }
     .page-toc-popup { left: calc(208px + 1rem); }
+}
+
+/* 作業状況の管理画面（マルチエージェント化 拡張）
+   JARVISオーバーレイの中の .bg-task-* とは別に、通常ページなので
+   時間帯テーマに追従する色（--tone-ink 等）を使う。 */
+.task-manage-list {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+.task-manage-card {
+    background: var(--areglm-surface, #fff);
+    border: 1px solid var(--areglm-border, #e2e8f0);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    font-size: 0.86rem;
+}
+.task-manage-card .bg-task-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--tone-ink-dim, var(--areglm-muted, #888));
+    margin-bottom: 0.3rem;
+}
+.task-manage-card .bg-task-content {
+    color: var(--tone-ink, inherit);
+}
+.task-manage-card .bg-task-result {
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--areglm-border, #e2e8f0);
+    color: var(--tone-ink-dim, var(--areglm-muted, #888));
+}
+.task-manage-card .guard-row {
+    margin-top: 0.5rem;
 }

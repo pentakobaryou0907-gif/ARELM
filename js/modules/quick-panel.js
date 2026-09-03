@@ -269,6 +269,7 @@ function renderQuickJump() {
         { id: 'sns', label: 'SNS', icon: '◎' },
         { id: 'inventory', label: '在庫', icon: '▣' },
         { id: 'studio', label: '商品開発', icon: '✎' },
+        { id: 'tasks', label: '作業状況', icon: '🔄' },
         { id: 'settings', label: '設定', icon: '⚙' }
     ];
 

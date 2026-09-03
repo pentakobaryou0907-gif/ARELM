@@ -700,6 +700,28 @@ class Handler(BaseHTTPRequestHandler):
                 task = バックグラウンド作業.追加する(内容, agent=data.get('agent') or None)
                 return self._send(200, {'ok': True, 'task': task})
 
+            # ---- 作業状況の管理: 取り消し・やり直し・削除 ----
+            if self.path == '/agent-task/cancel':
+                import バックグラウンド作業
+                id = (data.get('id') or '').strip()
+                if not id:
+                    return self._send(400, {'error': 'id が必要です'})
+                return self._send(200, バックグラウンド作業.取り消す(id))
+
+            if self.path == '/agent-task/retry':
+                import バックグラウンド作業
+                id = (data.get('id') or '').strip()
+                if not id:
+                    return self._send(400, {'error': 'id が必要です'})
+                return self._send(200, バックグラウンド作業.やり直す(id))
+
+            if self.path == '/agent-task/delete':
+                import バックグラウンド作業
+                id = (data.get('id') or '').strip()
+                if not id:
+                    return self._send(400, {'error': 'id が必要です'})
+                return self._send(200, バックグラウンド作業.消す(id))
+
             if self.path == '/chat':
                 text = (data.get('text') or '').strip()
                 if not text:

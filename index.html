@@ -67,6 +67,7 @@
             <a href="#sns" class="bottom-nav-item" data-page="sns"><span class="nav-icon">◎</span><span>SNS</span></a>
             <a href="#inventory" class="bottom-nav-item" data-page="inventory"><span class="nav-icon">▣</span><span>在庫</span></a>
             <a href="#studio" class="bottom-nav-item" data-page="studio"><span class="nav-icon">✎</span><span>開発</span></a>
+            <a href="#tasks" class="bottom-nav-item" data-page="tasks"><span class="nav-icon">🔄</span><span>作業</span></a>
         </nav>
 
         <!-- ページ内目次: 縦に長いページの中を、見出しから直接ジャンプする -->
@@ -1978,6 +1979,28 @@
                             </div>
                         </section>
                     </div>
+                </div>
+            </div>
+
+            <!-- マルチエージェント化 第2段: 裏で進める作業の管理画面 -->
+            <div id="tasks-page" class="page">
+                <div class="container">
+                    <div class="page-header-row">
+                        <h2 class="section-title">作業状況</h2>
+                    </div>
+                    <p class="page-lead">
+                        「裏で〜して」と頼んだ作業が、ここに並びます。待機中の作業は取り消せ、
+                        失敗した作業はやり直せます。
+                    </p>
+                    <div class="hub-tabs" id="task-status-tabs">
+                        <button type="button" class="hub-tab-btn active" data-task-status="すべて">すべて</button>
+                        <button type="button" class="hub-tab-btn" data-task-status="待機中">待機中</button>
+                        <button type="button" class="hub-tab-btn" data-task-status="実行中">実行中</button>
+                        <button type="button" class="hub-tab-btn" data-task-status="完了">完了</button>
+                        <button type="button" class="hub-tab-btn" data-task-status="失敗">失敗</button>
+                        <button type="button" class="hub-tab-btn" data-task-status="取り消し済み">取り消し済み</button>
+                    </div>
+                    <div id="task-manage-list" class="task-manage-list"></div>
                 </div>
             </div>
 

@@ -106,31 +106,16 @@ function switchPage(pageName) {
 }
 
 // ページ固有のデータ読み込み
+//
+// この関数の中身は js/app-bootstrap.js の window.loadPageData に
+// 統合した（あちらが app-bootstrap.js の読み込みタイミングで
+// window.loadPageData を上書きするため、ここに書いても実際には
+// 呼ばれない状態になっていた＝死んでいたコード）。
+// switchPage() からは bare な loadPageData(...) で呼んでいるが、
+// グローバルの束縛は共有されるため、実行時には
+// window.loadPageData（app-bootstrap.js版）が使われる。
 function loadPageData(pageName) {
-    console.log('ページデータ読み込み:', pageName);
-    
-    switch (pageName) {
-        case 'dashboard':
-            if (typeof loadDashboardData === 'function') loadDashboardData();
-            break;
-        case 'remote':
-            if (typeof init遠隔とタスク === 'function') init遠隔とタスク();
-            if (typeof render遠隔操作 === 'function') render遠隔操作();
-            break;
-        case 'brands':
-            loadBrandsData();
-            break;
-        case 'inventory':
-            if (typeof loadInventoryHub === 'function') loadInventoryHub();
-            else loadInventoryData();
-            break;
-        case 'chat':
-        case 'sns':
-        case 'settings':
-            break;
-        default:
-            console.log('ページ:', pageName);
-    }
+    window.loadPageData(pageName);
 }
 
 // ブランド管理システムの初期化
