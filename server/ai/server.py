@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import _import_fix                         # noqa: E402,F401  日本語ファイル名のimportがNFC/NFDの食い違いで失敗しないようにする
 import analyzer                            # noqa: E402
 from chat_engine import ChatEngine         # noqa: E402
 from generator import Generator, PhraseLearner  # noqa: E402
