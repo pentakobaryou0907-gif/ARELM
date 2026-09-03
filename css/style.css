@@ -9398,3 +9398,62 @@ html[data-theme] .chat-bubble.user {
     border-top: 1px dashed rgba(255, 255, 255, 0.15);
     color: #b8c4d4;
 }
+
+/* ページ一覧の左サイドバー化（広い画面向け）
+   スマホ幅の下部タブバーと同じ要素（.bottom-nav）を使い回し、
+   画面が広いときだけ左側の縦並びに組み替える。二重に一覧を
+   作らないことで、片方だけ更新し忘れる不具合を防ぐ。 */
+@media (min-width: 900px) {
+    .bottom-nav {
+        top: 0;
+        left: 0;
+        right: auto;
+        bottom: 0;
+        /* ヘッダー（.header, z-index:1000）の下に収まるよう、
+           重なり順は控えめにしておく。ヘッダーの高さぶんだけ
+           上に余白を取り、項目がヘッダーの裏に隠れないようにする。 */
+        z-index: 900;
+        width: 208px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        gap: 0.15rem;
+        padding: 4.6rem 0.6rem 1rem;
+        border-top: none;
+        border-right: 1px solid var(--areglm-border);
+        box-shadow: 2px 0 16px rgba(15, 23, 42, 0.06);
+        overflow-y: auto;
+    }
+
+    .bottom-nav-item {
+        flex: none;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 0.7rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: 10px;
+        font-size: 0.86rem;
+        font-weight: 500;
+    }
+
+    .bottom-nav-item .nav-icon {
+        font-size: 1.05rem;
+        width: 1.4rem;
+        text-align: center;
+    }
+
+    .bottom-nav-item.active {
+        background: var(--areglm-accent, #6366f1);
+        color: #fff;
+    }
+
+    .main-app {
+        padding-bottom: 0;
+        padding-left: 208px;
+    }
+
+    /* 左に寄せていたページ内目次ボタンが、サイドバーと重ならないように */
+    .page-toc-btn { left: calc(208px + 1rem); }
+    .page-toc-popup { left: calc(208px + 1rem); }
+}

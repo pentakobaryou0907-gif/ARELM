@@ -1986,6 +1986,13 @@
                 <div class="container container-narrow">
                     <h2 class="section-title">設定</h2>
                     <p class="page-lead">このツールは、すべて自作で動きます。外部のAIやサービスの鍵は要りません。</p>
+
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">🔌</span>API接続状況</h3>
+                        <p class="hint">下の各項目で鍵・トークンを保存すると、ここに反映されます。</p>
+                        <div id="settings-api-list" class="api-pills"></div>
+                    </section>
+
                     <section class="panel-card full-width">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">◷</span>履歴</h3>
@@ -2191,6 +2198,27 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">🛍</span>SUZURI連携（商品作成・在庫同期）</h3>
+                        <p class="hint">
+                            「商品開発」タブでのグッズ作成や、SUZURIショップの在庫・注文状況の同期に使う、
+                            SUZURI公式APIのトークンです。<strong>既定は未設定です。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://suzuri.jp/developer" target="_blank" rel="noopener">SUZURI開発者ページ</a>
+                            でAPIトークンを発行し、下に入れてください。
+                        </p>
+                        <div class="form-group">
+                            <label for="suzuri-api-token">APIトークン</label>
+                            <input type="password" id="suzuri-api-token" placeholder="SUZURI APIトークン" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="suzuri-api-token-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <p id="suzuri-api-token-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📝</span>Notion連携</h3>
                         <p class="hint">
                             記録（週次レポートなど）をNotionのデータベースへ送れるようにします。
@@ -2279,6 +2307,66 @@
                                 </small>
                             </span>
                         </label>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">✨</span>外部AI（Gemini・無料枠あり）</h3>
+                        <p class="hint">
+                            AIチャット・画像理解・URL分析・学習・Imagenでの画像生成に使う、Google Geminiの無料枠APIキーです。
+                            <strong>既定は未設定です。</strong>キーが無い間は自作AIが使われます。
+                            無料枠を超えると課金されるため、上の「お金がかかる機能」でGeminiを許可しないとキーがあっても呼ばれません。
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+                            でAPIキーを発行し、下に入れてください。
+                        </p>
+                        <div class="guard-row">
+                            <input type="password" id="gemini-api-key-input"
+                                placeholder="AIza… で始まるAPIキー" autocomplete="off">
+                            <button type="button" id="gemini-api-key-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <small id="gemini-api-key-status" class="hint"></small>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">⚡</span>外部AI（Groq・無料枠あり）</h3>
+                        <p class="hint">
+                            AIチャット・学習で、Geminiが使えないときの代わりとして使う、Groqの無料枠APIキーです。
+                            <strong>既定は未設定です。</strong>無料枠を超えると課金されるため、
+                            上の「お金がかかる機能」でGroqを許可しないとキーがあっても呼ばれません。
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq Console</a>
+                            でAPIキーを発行し、下に入れてください。
+                        </p>
+                        <div class="guard-row">
+                            <input type="password" id="groq-api-key-input"
+                                placeholder="gsk_ で始まるAPIキー" autocomplete="off">
+                            <button type="button" id="groq-api-key-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <small id="groq-api-key-status" class="hint"></small>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🖼</span>外部AI（Hugging Face・画像生成）</h3>
+                        <p class="hint">
+                            商品開発での画像生成に使う、Hugging Faceの無料枠APIキーです。
+                            <strong>既定は未設定です。</strong>無料枠を超えると課金されるため、
+                            上の「お金がかかる機能」でHugging Faceを許可しないとキーがあっても呼ばれません。
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">Hugging Face のトークン発行ページ</a>
+                            でアクセストークンを発行し、下に入れてください。
+                        </p>
+                        <div class="guard-row">
+                            <input type="password" id="huggingface-api-key-input"
+                                placeholder="hf_ で始まるアクセストークン" autocomplete="off">
+                            <button type="button" id="huggingface-api-key-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <small id="huggingface-api-key-status" class="hint"></small>
                     </section>
 
                     <section class="panel-card">

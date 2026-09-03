@@ -27,67 +27,10 @@ window.loadPageData = function (pageName) {
             if (typeof loadProductDev === 'function') loadProductDev();
             break;
         case 'settings':
-            renderApiSettingsForm();
-            loadApiSettingsForm();
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
             break;
     }
 };
-
-function renderApiSettingsForm() {
-    const form = document.getElementById('api-settings-form');
-    if (!form || form.dataset.rendered === '1') return;
-
-    const keep = form.querySelector('#api-auto-optimize')?.closest('label');
-    const submit = form.querySelector('button[type="submit"]');
-    form.innerHTML = '';
-
-    const labels = { ai: 'AI（公式無料）', sns: 'SNS（公式無料）', suzuri: 'SUZURI', media: 'Google（写真）' };
-
-    Object.entries(AReGLM_API_REGISTRY).forEach(([cat, items]) => {
-        const fs = document.createElement('fieldset');
-        const lg = document.createElement('legend');
-        lg.textContent = labels[cat] || cat;
-        fs.appendChild(lg);
-
-        Object.entries(items).forEach(([id, meta]) => {
-            const div = document.createElement('div');
-            div.className = 'form-group';
-            const lab = document.createElement('label');
-            lab.textContent = meta.name;
-            const inp = document.createElement('input');
-            inp.type = 'password';
-            inp.autocomplete = 'off';
-            inp.dataset.apiCat = cat;
-            inp.dataset.apiId = id;
-            inp.placeholder = meta.docs;
-            div.appendChild(lab);
-            div.appendChild(inp);
-            fs.appendChild(div);
-        });
-        form.appendChild(fs);
-    });
-
-    const gid = document.createElement('div');
-    gid.className = 'form-group';
-    gid.innerHTML = '<label>Google Client ID（写真ピッカー・任意）</label><input type="text" id="google-client-id" autocomplete="off" placeholder="Google Cloud Console">';
-    form.appendChild(gid);
-
-    if (keep) form.appendChild(keep);
-    const list = document.createElement('div');
-    list.id = 'settings-api-list';
-    list.className = 'api-pills';
-    form.appendChild(list);
-    if (submit) form.appendChild(submit);
-    else {
-        const btn = document.createElement('button');
-        btn.type = 'submit';
-        btn.className = 'btn btn-primary btn-block';
-        btn.textContent = '保存（暗号化）';
-        form.appendChild(btn);
-    }
-    form.dataset.rendered = '1';
-}
 
 /**
  * AIの選択欄は無くした。
@@ -114,7 +57,6 @@ window.checkGatewayStatus = async function checkGatewayStatus() {
 
 document.addEventListener('DOMContentLoaded', async function () {
     await checkGatewayStatus();
-    renderApiSettingsForm();
 
     if (typeof initDashboard === 'function') initDashboard();
     if (typeof initChat === 'function') initChat();
@@ -228,10 +170,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('import-product-seed-btn')?.addEventListener('click', importProductSeed);
     document.getElementById('seed-import-banner-btn')?.addEventListener('click', importProductSeed);
 
-    // Claude APIキーの保存（この端末の中に暗号化保存。外部には送らない）
+    // APIキーの保存（この端末の中に暗号化保存。外部には送らない）
     initClaudeKeyInput();
+    initSuzuriKeyInput();
+    initGeminiKeyInput();
+    initGroqKeyInput();
+    initHuggingfaceKeyInput();
     if (typeof init様子 === 'function') init様子();
-    initSettingsPage();
     initQuickLinks();
 
     // 追加した絞り込みと「すべて表示」を有効にする
@@ -377,53 +322,99 @@ function initGoogleCalendarSettings() {
     表示を直す();
 }
 
-function initSettingsPage() {
-    const form = document.getElementById('api-settings-form');
-    if (!form) return;
+/**
+ * SUZURI連携（公式API）のトークン入力欄。
+ *
+ * 汎用の #api-settings-form（旧 initSettingsPage）はHTML側に対応する要素が無く
+ * 常に何もしなかったため削除し、Claude APIキー・Googleカレンダー・Notion・Obsidianと
+ * 同様に、SUZURI専用の保存ボタンで直接 AReGLM_SECURITY に暗号化保存する方式に揃えた。
+ * 下の Gemini・Groq・Hugging Face（js/services/ai-engine.js から
+ * getKey('gemini' / 'groq' / 'huggingface') で実際に呼ばれているのに、
+ * 保存する入力欄がどこにも無かった）も同じ方式で揃えてある。
+ */
+function initSuzuriKeyInput() {
+    const 入力 = document.getElementById('suzuri-api-token');
+    const 保存 = document.getElementById('suzuri-api-token-save');
+    const 状態 = document.getElementById('suzuri-api-token-status');
+    if (!入力 || !保存) return;
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    const 表示を直す = async () => {
+        const 設定済み = !!(await AReGLM_SUZURI.getToken());
+        入力.placeholder = 設定済み ? '•••• 設定済み' : 'SUZURI APIトークン';
+        if (状態) {
+            状態.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいトークンを入れて保存）'
+                : 'まだ設定されていません。';
+        }
+    };
+
+    保存.addEventListener('click', async () => {
+        const トークン = 入力.value.trim();
+        if (!トークン) { showNotification('APIトークンを入れてください', 'error'); return; }
+
+        await AReGLM_SECURITY.saveApiKeySecure('suzuri', 'api', トークン);
+
         const cfg = getApiConfig();
-        cfg._autoOptimize = document.getElementById('api-auto-optimize')?.checked !== false;
+        if (!cfg.suzuri) cfg.suzuri = {};
+        cfg.suzuri.api = { connected: true, updatedAt: new Date().toISOString() };
+        saveApiConfig(cfg);
 
-        const gcid = document.getElementById('google-client-id')?.value?.trim();
-        if (gcid) cfg.google_client_id = gcid;
+        入力.value = '';
+        await 表示を直す();
+        showNotification('SUZURI APIトークンを暗号化して保存しました', 'success');
+        if (typeof renderSuzuriStatus === 'function') renderSuzuriStatus();
+        AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
+        AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
 
-        for (const input of form.querySelectorAll('[data-api-cat]')) {
-            const cat = input.dataset.apiCat;
-            const id = input.dataset.apiId;
-            const val = input.value.trim();
-            if (!cfg[cat]) cfg[cat] = {};
-            if (val) {
-                await AReGLM_SECURITY.saveApiKeySecure(cat, id, val);
-                cfg[cat][id] = { connected: true, updatedAt: new Date().toISOString() };
-                input.value = '';
-                input.placeholder = '•••• 設定済み';
-            }
+    表示を直す();
+}
+
+/**
+ * ai カテゴリの無料枠APIキー入力欄（Gemini / Groq / Hugging Face 共通処理）。
+ * cat/id は js/config/apis.js の AReGLM_API_REGISTRY と js/services/ai-engine.js の
+ * getKey(provider) 呼び出しに合わせてあるので、ここで保存した鍵がそのままAI呼び出しで使われる。
+ */
+function initAiKeyInput(id, label, prefix) {
+    const 入力 = document.getElementById(`${id}-api-key-input`);
+    const 保存 = document.getElementById(`${id}-api-key-save`);
+    const 状態 = document.getElementById(`${id}-api-key-status`);
+    if (!入力 || !保存) return;
+
+    AReGLM_SECURITY.loadApiKeySecure('ai', id).then((k) => {
+        if (k) {
+            入力.placeholder = '•••• 設定済み';
+            if (状態) 状態.textContent = '設定済みです（変更する場合は新しい鍵を入れて保存）';
+        }
+    });
+
+    保存.addEventListener('click', async () => {
+        const 鍵 = 入力.value.trim();
+        if (!鍵) { showNotification('APIキーを入れてください', 'error'); return; }
+        if (prefix && !鍵.startsWith(prefix)) {
+            showNotification(`${label} のAPIキーは ${prefix} で始まります。もう一度確かめてください`, 'error');
+            return;
         }
 
+        await AReGLM_SECURITY.saveApiKeySecure('ai', id, 鍵);
+
+        const cfg = getApiConfig();
+        if (!cfg.ai) cfg.ai = {};
+        cfg.ai[id] = { connected: true, updatedAt: new Date().toISOString() };
         saveApiConfig(cfg);
-        ['ai', 'suzuri', 'sns'].forEach((c) => AReGLM_API_SELECTOR?.getActiveForCategory(c));
-        showNotification('APIキーを暗号化保存しました', 'success');
-        populateAiSelects();
-        loadDashboardData?.();
+
+        入力.value = '';
+        入力.placeholder = '•••• 設定済み';
+        if (状態) 状態.textContent = '設定済みです（変更する場合は新しい鍵を入れて保存）';
+        showNotification(`${label} APIキーを暗号化して保存しました`, 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
     });
 }
 
-function loadApiSettingsForm() {
-    const cfg = getApiConfig();
-    document.querySelectorAll('[data-api-cat]').forEach((input) => {
-        if (cfg[input.dataset.apiCat]?.[input.dataset.apiId]?.connected) {
-            input.placeholder = '•••• 設定済み（再入力で更新）';
-        }
-    });
-    const g = document.getElementById('google-client-id');
-    if (g && cfg.google_client_id) g.value = cfg.google_client_id;
-    const auto = document.getElementById('api-auto-optimize');
-    if (auto) auto.checked = cfg._autoOptimize !== false;
-}
+function initGeminiKeyInput() { initAiKeyInput('gemini', 'Gemini', 'AIza'); }
+function initGroqKeyInput() { initAiKeyInput('groq', 'Groq', 'gsk_'); }
+function initHuggingfaceKeyInput() { initAiKeyInput('huggingface', 'Hugging Face', 'hf_'); }
 
 function initQuickLinks() {
     document.querySelectorAll('[data-goto]').forEach((btn) => {
