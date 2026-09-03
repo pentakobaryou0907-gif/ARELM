@@ -6,9 +6,11 @@ function initSns() {
     document.getElementById('sns-auto-promo-btn')?.addEventListener('click', runAutoPromo);
     document.getElementById('sns-trend-analyze-btn')?.addEventListener('click', analyzeTrendsWithAi);
     document.getElementById('refresh-sns-btn')?.addEventListener('click', loadSnsData);
-    document.getElementById('sns-gen-btn')?.addEventListener('click', generateSnsCaptions);
+    document.getElementById('sns-gen-btn')?.addEventListener('click', () => generateSnsCaptions(false));
+    document.getElementById('sns-gen-more-btn')?.addEventListener('click', () => generateSnsCaptions(true));
     document.getElementById('sns-gen-type')?.addEventListener('change', 投稿文の型が変わった);
     document.getElementById('sns-post-format')?.addEventListener('change', 投稿形式が変わった);
+    document.getElementById('sns-post-reel-ai-btn')?.addEventListener('click', generateReelStoryboard);
     document.getElementById('sns-open-remote-btn')?.addEventListener('click', SNSを遠隔操作で開く);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     if (typeof init転換率 === 'function') init転換率();
@@ -121,6 +123,10 @@ function SNSを遠隔操作で開く() {
 async function 投稿文の型が変わった() {
     const 型 = document.getElementById('sns-gen-type')?.value;
 
+    // 型を変えたら、前の型の結果に対する「もっと作る」は意味が無いので隠す。
+    const もっと = document.getElementById('sns-gen-more-btn');
+    if (もっと) もっと.hidden = true;
+
     const dm枠 = document.getElementById('sns-gen-dm-wrap');
     if (dm枠) dm枠.hidden = 型 !== 'DM下書き';
 
@@ -143,12 +149,36 @@ async function 投稿文の型が変わった() {
         .join('');
 }
 
-async function generateSnsCaptions() {
+/** クリップボードに写す（遠隔投稿.js の同名の考え方を、この画面用に軽く持つ） */
+async function sns結果を写す(文) {
+    try {
+        await navigator.clipboard.writeText(文);
+        return true;
+    } catch {
+        const 欄 = document.createElement('textarea');
+        欄.value = 文;
+        欄.style.position = 'fixed';
+        欄.style.opacity = '0';
+        document.body.appendChild(欄);
+        欄.select();
+        let よい = false;
+        try { よい = document.execCommand('copy'); } catch { よい = false; }
+        欄.remove();
+        return よい;
+    }
+}
+
+/**
+ * @param 追加か  true のときは今の結果を消さず、下に追加する（「＋もっと作る」から）。
+ */
+async function generateSnsCaptions(追加か = false) {
     const btn = document.getElementById('sns-gen-btn');
+    const moreBtn = document.getElementById('sns-gen-more-btn');
     const box = document.getElementById('sns-gen-results');
     const sel = document.getElementById('sns-gen-product');
     const toneSel = document.getElementById('sns-gen-tone');
     const typeSel = document.getElementById('sns-gen-type');
+    const countSel = document.getElementById('sns-gen-count');
     if (!box || !sel) return;
 
     const products = JSON.parse(localStorage.getItem('products') || '[]');
@@ -188,13 +218,36 @@ async function generateSnsCaptions() {
         商品情報 = `【DMの目的】${目的}\n\n${商品情報}`;
     }
 
-    box.innerHTML = '<li class="sns-gen-loading" id="sns-gen-loading-line">作っています…（この端末のAIなので少し時間がかかります・0秒）</li>';
+    // 「必ず入れたい一言」は、どの型にも共通で使える（指定が無ければ何もしない）。
+    const 必須 = (document.getElementById('sns-gen-must-include')?.value || '').trim();
+    if (必須) {
+        const 必須policy = AReGLM_CONTENT_POLICY.validate(必須);
+        if (!必須policy.ok) {
+            showNotification(必須policy.message, 'error');
+            return;
+        }
+        商品情報 = `${商品情報}\n\n【必ず含める点】${必須}`;
+    }
+
+    // パターン数は、型ごとの標準値を土台にしつつ、指定があればそちらを使う。
+    const 既定件数 = (型 === '工程公開' || 型 === 'ストーリーズ' || 型 === 'DM下書き') ? 2 : 3;
+    const 件数 = Number(countSel?.value) || 既定件数;
+
+    const 読込id = 'sns-gen-loading-' + Date.now();
+    const 読込行 = document.createElement('li');
+    読込行.className = 'sns-gen-loading';
+    読込行.id = 読込id;
+    読込行.textContent = '作っています…（この端末のAIなので少し時間がかかります・0秒）';
+    if (!追加か) box.innerHTML = '';
+    box.appendChild(読込行);
+
     if (btn) btn.disabled = true;
+    if (moreBtn) moreBtn.disabled = true;
 
     // 待っている間、固まったと誤解されないよう経過秒数を出す。
     const 開始時刻 = Date.now();
     const 経過表示 = setInterval(() => {
-        const 行 = document.getElementById('sns-gen-loading-line');
+        const 行 = document.getElementById(読込id);
         if (!行) { clearInterval(経過表示); return; }
         const 秒 = Math.floor((Date.now() - 開始時刻) / 1000);
         行.textContent = `作っています…（この端末のAIなので少し時間がかかります・${秒}秒）`;
@@ -204,13 +257,15 @@ async function generateSnsCaptions() {
         const r = await fetch('/api/sns/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数: (型 === '工程公開' || 型 === 'ストーリーズ' || 型 === 'DM下書き') ? 2 : 3, 型 }),
+            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数, 型 }),
         }).then((y) => y.json());
+
+        document.getElementById(読込id)?.remove();
 
         if (!r.ok) {
             // 失敗したとき、同じボタンをもう一度押せばよいのかが
             // 画面から分かりにくかった。その場に再試行ボタンを出す。
-            box.innerHTML = '';
+            if (!追加か) box.innerHTML = '';
             const 行 = document.createElement('li');
             行.className = 'sns-gen-loading';
             行.textContent = r.訳 || '作れませんでした';
@@ -221,39 +276,135 @@ async function generateSnsCaptions() {
             再試行.className = 'btn btn-sm btn-secondary';
             再試行.textContent = 'もう一度試す';
             再試行.style.marginTop = '0.5rem';
-            再試行.addEventListener('click', generateSnsCaptions);
+            再試行.addEventListener('click', () => generateSnsCaptions(追加か));
             box.appendChild(再試行);
             return;
         }
 
-        box.innerHTML = '';
         (r['パターン'] || []).forEach((文, i) => {
-            const li = document.createElement('li');
-            li.className = 'sns-gen-item';
-
-            const 本文 = document.createElement('p');
-            本文.textContent = 文;
-            li.appendChild(本文);
-
-            const 使うボタン = document.createElement('button');
-            使うボタン.type = 'button';
-            使うボタン.className = 'btn btn-sm btn-secondary';
-            使うボタン.textContent = `これを使う（${i + 1}）`;
-            使うボタン.addEventListener('click', () => {
-                const caption = document.getElementById('sns-caption');
-                if (caption) {
-                    caption.value = 文;
-                    caption.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            });
-            li.appendChild(使うボタン);
-            box.appendChild(li);
+            box.appendChild(sns生成結果の行を作る(文, i, 型));
         });
+
+        if (moreBtn) moreBtn.hidden = false;
     } catch (e) {
-        box.innerHTML = `<li class="sns-gen-loading">つながりませんでした: ${AReGLM_SECURITY.sanitizeHtml(e.message)}</li>`;
+        document.getElementById(読込id)?.remove();
+        const 行 = document.createElement('li');
+        行.className = 'sns-gen-loading';
+        行.textContent = `つながりませんでした: ${e.message}`;
+        box.appendChild(行);
     } finally {
         clearInterval(経過表示);
         if (btn) btn.disabled = false;
+        if (moreBtn) moreBtn.disabled = false;
+    }
+}
+
+/**
+ * AIが作った1パターンぶんの<li>を作る。
+ *
+ * 型によって「使う」の意味が違う:
+ *   ・ストーリーズ … 本文とステッカー案が「本文／ステッカー案: ...」の1文で来るので分け、
+ *     キャプション欄・ステッカー欄の両方と、投稿形式（ストーリーズ）まで一度に設定する。
+ *   ・DM下書き … 投稿のキャプション欄には入れない（DMは投稿ではないため）。
+ *     代わりにクリップボードへ写し、DMアプリに貼るだけで済むようにする。
+ *   ・それ以外 … これまでどおり、キャプション欄に入れる。
+ */
+function sns生成結果の行を作る(文, i, 型) {
+    const li = document.createElement('li');
+    li.className = 'sns-gen-item';
+
+    const 本文 = document.createElement('p');
+    本文.textContent = 文;
+    li.appendChild(本文);
+
+    const ボタン = document.createElement('button');
+    ボタン.type = 'button';
+    ボタン.className = 'btn btn-sm btn-secondary';
+
+    if (型 === 'ストーリーズ') {
+        const 区切り = 文.split(/ステッカー案[:：]/);
+        const キャプション文 = (区切り[0] || 文).replace(/[／/]\s*$/, '').trim();
+        const ステッカー文 = (区切り[1] || '').trim();
+
+        ボタン.textContent = `これを使う（ストーリーズに設定・${i + 1}）`;
+        ボタン.addEventListener('click', () => {
+            const caption = document.getElementById('sns-caption');
+            const sticker = document.getElementById('sns-post-sticker');
+            const formatSel = document.getElementById('sns-post-format');
+            if (caption) caption.value = キャプション文;
+            if (sticker) sticker.value = ステッカー文;
+            if (formatSel) {
+                formatSel.value = 'story';
+                投稿形式が変わった();
+            }
+            caption?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showNotification('ストーリーズの下書きとして設定しました', 'success');
+        });
+    } else if (型 === 'DM下書き') {
+        ボタン.textContent = `📋 これをコピーする（${i + 1}）`;
+        ボタン.addEventListener('click', async () => {
+            const よい = await sns結果を写す(文);
+            showNotification(よい ? 'コピーしました。DMアプリに貼ってください' : 'コピーできませんでした', よい ? 'success' : 'error');
+        });
+    } else {
+        ボタン.textContent = `これを使う（${i + 1}）`;
+        ボタン.addEventListener('click', () => {
+            const caption = document.getElementById('sns-caption');
+            if (caption) {
+                caption.value = 文;
+                caption.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
+
+    li.appendChild(ボタン);
+    return li;
+}
+
+/**
+ * リールの構成（カット割り）を、いま書いてあるキャプションをもとにAIで考える。
+ * 結果は「動画の構成メモ」欄にそのまま入る（追記ではなく置き換え）。
+ */
+async function generateReelStoryboard() {
+    const btn = document.getElementById('sns-post-reel-ai-btn');
+    const hint = document.getElementById('sns-post-reel-ai-hint');
+    const noteBox = document.getElementById('sns-post-video-note');
+    const captionBox = document.getElementById('sns-caption');
+    const cutsSel = document.getElementById('sns-post-reel-cuts');
+    if (!noteBox) return;
+
+    const 元 = (captionBox?.value || '').trim();
+    if (!元) {
+        showNotification('先にキャプション欄に、商品や内容の説明を書いてください（それをもとに構成を考えます）', 'error');
+        return;
+    }
+
+    const カット数 = Number(cutsSel?.value) || 4;
+
+    if (btn) btn.disabled = true;
+    if (hint) hint.hidden = false;
+
+    try {
+        const r = await fetch('/api/sns/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 商品情報: 元, トーン: document.getElementById('sns-gen-tone')?.value || 'カジュアル', 件数: カット数, 型: 'リール構成' }),
+        }).then((y) => y.json());
+
+        if (!r.ok) {
+            showNotification(r.訳 || '構成を作れませんでした', 'error');
+            return;
+        }
+
+        noteBox.value = (r['パターン'] || [])
+            .map((文, i) => `カット${i + 1}: ${文}`)
+            .join('\n');
+        showNotification('構成メモを入れました。内容を見て、必要なら書き直してください', 'success');
+    } catch (e) {
+        showNotification(`つながりませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (hint) hint.hidden = true;
     }
 }
 
@@ -427,8 +578,8 @@ function renderSnsAccounts() {
 const AREGLM_SNS_POST_FORMATS = {
     feed: { label: '🖼 フィード', 型: '写真', badgeClass: '' },
     reel: { label: '🎬 リール', 型: '動画', badgeClass: 'fmt-reel' },
-    story: { label: '⭐ ストーリーズ', 型: '写真', badgeClass: 'fmt-story' },
-    shopping: { label: '🛍 ショッピング', 型: '写真', badgeClass: 'fmt-shopping' },
+    story: { label: '⭐ ストーリーズ', 型: 'ストーリー', badgeClass: 'fmt-story' },
+    shopping: { label: '🛍 ショッピング', 型: 'ショッピング', badgeClass: 'fmt-shopping' },
 };
 
 function renderSnsQueue() {

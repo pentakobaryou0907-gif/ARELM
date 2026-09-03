@@ -1105,8 +1105,26 @@
                                     <option value="ユーモラス">ユーモラス</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label for="sns-gen-count">パターン数</label>
+                                <select id="sns-gen-count">
+                                    <option value="">おまかせ（型ごとの標準数）</option>
+                                    <option value="2">2パターン</option>
+                                    <option value="3">3パターン</option>
+                                    <option value="4">4パターン</option>
+                                    <option value="5">5パターン</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="sns-gen-must-include">必ず入れたい一言（任意）</label>
+                                <input type="text" id="sns-gen-must-include" placeholder="例: 数量限定であること／再入荷であること">
+                                <p class="hint">指定すると、どのパターンにもその内容が必ず入るようにします。</p>
+                            </div>
                             <button type="button" id="sns-gen-btn" class="btn btn-primary">
                                 作る
+                            </button>
+                            <button type="button" id="sns-gen-more-btn" class="btn btn-sm btn-secondary" hidden>
+                                ＋ 同じ条件でもっと作る
                             </button>
                             <ul id="sns-gen-results" class="sns-gen-results"></ul>
                         </section>
@@ -1160,7 +1178,16 @@
                                 </div>
                                 <div class="form-group sns-format-field" id="sns-post-reel-wrap" hidden>
                                     <label for="sns-post-video-note">動画の構成メモ（カット割り・使う素材など）</label>
-                                    <textarea id="sns-post-video-note" rows="3" placeholder="例: 1カット目=着用ショット→2カット目=素材アップ→3カット目=歩いている様子"></textarea>
+                                    <textarea id="sns-post-video-note" rows="5" placeholder="例: カット1: 着用ショット→カット2: 素材アップ→カット3: 歩いている様子"></textarea>
+                                    <div class="sns-reel-ai-row">
+                                        <select id="sns-post-reel-cuts">
+                                            <option value="3">3カット</option>
+                                            <option value="4" selected>4カット</option>
+                                            <option value="5">5カット</option>
+                                        </select>
+                                        <button type="button" id="sns-post-reel-ai-btn" class="btn btn-sm btn-secondary">🎬 AIで構成を考える（キャプションをもとに）</button>
+                                    </div>
+                                    <p class="hint" id="sns-post-reel-ai-hint" hidden>考えています…</p>
                                 </div>
                                 <div class="form-group sns-format-field" id="sns-post-story-wrap" hidden>
                                     <label for="sns-post-sticker">ステッカー案（投票・質問など・任意）</label>

@@ -250,7 +250,7 @@ function 成績を入れる欄(まだ無い) {
 
     const 型 = document.createElement('select');
     型.id = 'm-型';
-    ['写真', '動画', '複数枚', '文章のみ', 'ストーリー'].forEach((p) => {
+    ['写真', '動画', '複数枚', '文章のみ', 'ストーリー', 'ショッピング'].forEach((p) => {
         const o = document.createElement('option'); o.value = p; o.textContent = p; 型.appendChild(o);
     });
     const 行1 = document.createElement('div');
@@ -311,6 +311,10 @@ function 成績を入れる欄(まだ無い) {
             場所.value = x.platform || x.場所 || 'Instagram';
             if (x.date || x.日) 日.value = (x.date || x.日).slice(0, 10);
             本文.value = x.caption || x.text || x.本文 || '';
+            // 「投稿作成」で選んだ投稿形式（フィード／リール／ストーリーズ／ショッピング）が
+            // 分かっていれば、型もそこから埋める（無ければ、本人に選んでもらう）。
+            const 形式定義 = (window.AREGLM_SNS_POST_FORMATS || {})[x.format];
+            if (形式定義) 型.value = 形式定義.型;
             showNotification('埋めました。数字だけ入れてください。', 'success');
         });
         行.appendChild(選);
