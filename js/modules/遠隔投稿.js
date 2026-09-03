@@ -259,6 +259,16 @@ function 下書きを出す(箱, x) {
     const 印 = document.createElement('b');
     印.textContent = 場所;
     上.appendChild(印);
+
+    // 「投稿作成」で選んだ投稿形式（フィード／リール／ストーリーズ／ショッピング）を、
+    // ここでも分かるように出す。sns.js の AREGLM_SNS_POST_FORMATS を正とする。
+    const 形式定義 = (window.AREGLM_SNS_POST_FORMATS || {})[x.format];
+    if (形式定義) {
+        const 形式印 = document.createElement('span');
+        形式印.className = `sns-format-badge ${形式定義.badgeClass || ''}`;
+        形式印.textContent = 形式定義.label;
+        上.appendChild(形式印);
+    }
     if (x.date || x.日) {
         const s = document.createElement('small');
         s.textContent = x.date || x.日;
@@ -269,6 +279,28 @@ function 下書きを出す(箱, x) {
     const 本 = document.createElement('p');
     本.textContent = 文.slice(0, 120) + (文.length > 120 ? '…' : '');
     札.appendChild(本);
+
+    // 形式ごとの、投稿するときに忘れやすい準備事項を出しておく。
+    // （公式APIを使わず自分で操作する方針のため、ここは「本人への申し送り」であって、
+    // ツールが自動でリール化・タグ付けをするわけではない）
+    if (x.videoNote) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.textContent = `🎬 動画の構成メモ: ${x.videoNote}`;
+        札.appendChild(注);
+    }
+    if (x.sticker) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.textContent = `⭐ ステッカー案: ${x.sticker}`;
+        札.appendChild(注);
+    }
+    if (x.taggedProducts && x.taggedProducts.length) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.textContent = `🛍 商品タグ: ${x.taggedProducts.join('、')}`;
+        札.appendChild(注);
+    }
 
     const 決まり = 決まりを探す(場所) || SNSたち.Instagram;
     if (文.length > 決まり.字数) {
@@ -285,7 +317,7 @@ function 下書きを出す(箱, x) {
     出すボタン.type = 'button';
     出すボタン.className = 'btn btn-sm btn-primary';
     出すボタン.textContent = `${場所}で出す`;
-    出すボタン.addEventListener('click', () => 出す(場所, 文, 出すボタン));
+    出すボタン.addEventListener('click', () => 出す(場所, 文, 出すボタン, x.format));
     並び.appendChild(出すボタン);
 
     if (navigator.share) {
@@ -311,7 +343,7 @@ function 下書きを出す(箱, x) {
  * 「コピーしてください」とは言わない。
  * 写すところまでこちらでやって、アプリを開く。
  */
-async function 出す(場所, 文, ボタン) {
+async function 出す(場所, 文, ボタン, 投稿形式) {
     const 本文 = String(文 || '').trim();
     if (!本文) { showNotification('先に書いてください', 'error'); return; }
 
@@ -348,10 +380,11 @@ async function 出す(場所, 文, ボタン) {
     // 出したことを、成績の下ごしらえとして残しておく。
     // あとで数字を入れるとき、探さなくて済む。
     if (typeof 成績を残す === 'function') {
+        const 形式定義 = (window.AREGLM_SNS_POST_FORMATS || {})[投稿形式];
         成績を残す({
             場所,
             本文,
-            型: '写真',
+            型: 形式定義?.型 || '写真',
             表示: 0, 反応: 0, 流入: 0,
         });
     }

@@ -1076,6 +1076,8 @@
                                     <option value="キャプション">ふつうのキャプション（3パターン）</option>
                                     <option value="トーク台本">🎤 トーク台本（顔出し動画用・約30秒）</option>
                                     <option value="工程公開">📸 工程公開（写真つき投稿用・2パターン）</option>
+                                    <option value="ストーリーズ">⭐ ストーリーズ文（短文＋ステッカー案）</option>
+                                    <option value="DM下書き">✉️ DM下書き（目的を選んで作成）</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -1085,6 +1087,15 @@
                             <div class="form-group" id="sns-gen-photo-wrap" hidden>
                                 <label for="sns-gen-photo">保管庫の写真（覚え書きを内容として使います）</label>
                                 <select id="sns-gen-photo"></select>
+                            </div>
+                            <div class="form-group" id="sns-gen-dm-wrap" hidden>
+                                <label for="sns-gen-dm-purpose">DMの目的</label>
+                                <select id="sns-gen-dm-purpose">
+                                    <option value="新規フォロワー御礼">新規フォロワーへのお礼</option>
+                                    <option value="コラボ打診">インフルエンサー・コラボ打診</option>
+                                    <option value="入荷お知らせ">お気に入り登録者への入荷お知らせ</option>
+                                    <option value="発送連絡">購入者への発送連絡</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="sns-gen-tone">トーン</label>
@@ -1118,6 +1129,11 @@
                         </section>
                         <section class="panel-card">
                             <h3>投稿作成</h3>
+                            <p class="hint">
+                                Instagramの主な投稿形式（フィード写真・リール・ストーリーズ・ショッピング投稿）ごとに、
+                                必要な項目をここでまとめて用意できます。実際にログインして投稿する操作は、
+                                引き続き「遠隔操作」から行ってください。
+                            </p>
                             <form id="sns-post-form">
                                 <div class="form-group">
                                     <label for="sns-platform">プラットフォーム</label>
@@ -1130,8 +1146,31 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
+                                    <label for="sns-post-format">投稿形式</label>
+                                    <select id="sns-post-format">
+                                        <option value="feed">🖼 フィード投稿（写真）</option>
+                                        <option value="reel">🎬 リール（動画）</option>
+                                        <option value="story">⭐ ストーリーズ</option>
+                                        <option value="shopping">🛍 ショッピング投稿（商品タグ付き）</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
                                     <label for="sns-caption">キャプション</label>
                                     <textarea id="sns-caption" rows="4" required placeholder="投稿文…"></textarea>
+                                </div>
+                                <div class="form-group sns-format-field" id="sns-post-reel-wrap" hidden>
+                                    <label for="sns-post-video-note">動画の構成メモ（カット割り・使う素材など）</label>
+                                    <textarea id="sns-post-video-note" rows="3" placeholder="例: 1カット目=着用ショット→2カット目=素材アップ→3カット目=歩いている様子"></textarea>
+                                </div>
+                                <div class="form-group sns-format-field" id="sns-post-story-wrap" hidden>
+                                    <label for="sns-post-sticker">ステッカー案（投票・質問など・任意）</label>
+                                    <input type="text" id="sns-post-sticker" placeholder="例: 質問スタンプ「どっちが好き？」">
+                                    <p class="hint">ストーリーズは24時間で消えます。日常の裏側やお知らせ向きです。</p>
+                                </div>
+                                <div class="form-group sns-format-field" id="sns-post-shopping-wrap" hidden>
+                                    <label>商品タグ（複数選べます）</label>
+                                    <div id="sns-post-product-tags" class="sns-product-tag-list"></div>
+                                    <p class="hint">タグ付けする商品にチェックしてください。実際のタグ付け操作はInstagram側で行います（ここでは準備のみ）。</p>
                                 </div>
                                 <button type="submit" class="btn btn-primary">キューに追加</button>
                                 <button type="button" id="sns-auto-promo-btn" class="btn btn-accent">自動宣伝（全自動ON時）</button>
@@ -1201,7 +1240,7 @@
                             <button type="button" id="refresh-sns-btn" class="btn btn-sm btn-secondary">更新</button>
                         </div>
                         <table class="data-table">
-                            <thead><tr><th>媒体</th><th>内容</th><th>状態</th><th>日時</th><th></th></tr></thead>
+                            <thead><tr><th>媒体</th><th>形式</th><th>内容</th><th>状態</th><th>日時</th><th></th></tr></thead>
                             <tbody id="sns-queue-tbody"></tbody>
                         </table>
                     </section>

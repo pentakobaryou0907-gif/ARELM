@@ -8,14 +8,55 @@ function initSns() {
     document.getElementById('refresh-sns-btn')?.addEventListener('click', loadSnsData);
     document.getElementById('sns-gen-btn')?.addEventListener('click', generateSnsCaptions);
     document.getElementById('sns-gen-type')?.addEventListener('change', 投稿文の型が変わった);
+    document.getElementById('sns-post-format')?.addEventListener('change', 投稿形式が変わった);
     document.getElementById('sns-open-remote-btn')?.addEventListener('click', SNSを遠隔操作で開く);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     if (typeof init転換率 === 'function') init転換率();
     populateSnsPlatformSelect();
     populateSnsProductSelect();
+    投稿形式が変わった();
     loadSnsData();
     renderSnsStrategyGuide();
     renderSnsPlatformData();
+}
+
+/**
+ * Instagramの投稿形式（フィード写真・リール・ストーリーズ・ショッピング投稿）ごとに、
+ * 「投稿作成」で必要になる項目だけを出し分ける。
+ *
+ * 公式APIは使わない方針のまま（SNSを遠隔操作で開く 参照）なので、
+ * ここで用意するのはあくまで下書き・準備（構成メモ・ステッカー案・商品タグ）であり、
+ * 実際にリール動画を書き出したり、Instagram上でタグ付けを実行したりはしない。
+ */
+function 投稿形式が変わった() {
+    const 形式 = document.getElementById('sns-post-format')?.value || 'feed';
+    const 表示 = {
+        'sns-post-reel-wrap': 形式 === 'reel',
+        'sns-post-story-wrap': 形式 === 'story',
+        'sns-post-shopping-wrap': 形式 === 'shopping',
+    };
+    Object.entries(表示).forEach(([id, 出す]) => {
+        const 枠 = document.getElementById(id);
+        if (枠) 枠.hidden = !出す;
+    });
+    if (形式 === 'shopping') populateSnsProductTags();
+}
+
+/** ショッピング投稿用に、在庫の商品をチェックボックスで選べるようにする */
+function populateSnsProductTags() {
+    const 箱 = document.getElementById('sns-post-product-tags');
+    if (!箱) return;
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    if (!products.length) {
+        箱.innerHTML = '<p class="empty">（商品がありません。先に在庫で登録してください）</p>';
+        return;
+    }
+    箱.innerHTML = products
+        .map((p, i) => `<label>
+            <input type="checkbox" class="sns-product-tag-check" value="${i}">
+            ${AReGLM_SECURITY.sanitizeHtml(p.name || '（名称未設定）')}${p.price ? `（¥${AReGLM_SECURITY.sanitizeHtml(String(p.price))}）` : ''}
+        </label>`)
+        .join('');
 }
 
 /** 商品セレクトを埋める（投稿文づくりの元にする） */
@@ -76,9 +117,13 @@ function SNSを遠隔操作で開く() {
     }, 50);
 }
 
-/** 「工程公開」を選んだときだけ、保管庫の写真から選べるようにする */
+/** 「工程公開」なら保管庫の写真、「DM下書き」ならDMの目的を、型に応じて出し分ける */
 async function 投稿文の型が変わった() {
     const 型 = document.getElementById('sns-gen-type')?.value;
+
+    const dm枠 = document.getElementById('sns-gen-dm-wrap');
+    if (dm枠) dm枠.hidden = 型 !== 'DM下書き';
+
     const 枠 = document.getElementById('sns-gen-photo-wrap');
     if (!枠) return;
     枠.hidden = 型 !== '工程公開';
@@ -138,6 +183,11 @@ async function generateSnsCaptions() {
         商品情報 = `${商品情報}\n\n写真の内容（本人の覚え書き）: ${覚え書き}`;
     }
 
+    if (型 === 'DM下書き') {
+        const 目的 = document.getElementById('sns-gen-dm-purpose')?.value || '新規フォロワー御礼';
+        商品情報 = `【DMの目的】${目的}\n\n${商品情報}`;
+    }
+
     box.innerHTML = '<li class="sns-gen-loading" id="sns-gen-loading-line">作っています…（この端末のAIなので少し時間がかかります・0秒）</li>';
     if (btn) btn.disabled = true;
 
@@ -154,7 +204,7 @@ async function generateSnsCaptions() {
         const r = await fetch('/api/sns/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数: 型 === '工程公開' ? 2 : 3, 型 }),
+            body: JSON.stringify({ 商品情報, トーン: toneSel?.value || 'カジュアル', 件数: (型 === '工程公開' || 型 === 'ストーリーズ' || 型 === 'DM下書き') ? 2 : 3, 型 }),
         }).then((y) => y.json());
 
         if (!r.ok) {
@@ -370,20 +420,33 @@ function renderSnsAccounts() {
     });
 }
 
+/**
+ * 投稿形式（キューに保存する id）ごとの表示名・分析用の「型」・バッジの色分けクラス。
+ * SNS成績.js の型別分析（写真・動画・文章）と合わせられるよう、型はそこに合わせる。
+ */
+const AREGLM_SNS_POST_FORMATS = {
+    feed: { label: '🖼 フィード', 型: '写真', badgeClass: '' },
+    reel: { label: '🎬 リール', 型: '動画', badgeClass: 'fmt-reel' },
+    story: { label: '⭐ ストーリーズ', 型: '写真', badgeClass: 'fmt-story' },
+    shopping: { label: '🛍 ショッピング', 型: '写真', badgeClass: 'fmt-shopping' },
+};
+
 function renderSnsQueue() {
     const tbody = document.getElementById('sns-queue-tbody');
     if (!tbody) return;
     const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
     if (!queue.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">キューは空です</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">キューは空です</td></tr>';
         return;
     }
     tbody.innerHTML = queue
         .map((q) => {
             const profile = AREGLM_PROFILE.sns[q.platform];
             const link = profile?.url || '#';
+            const fmt = AREGLM_SNS_POST_FORMATS[q.format] || AREGLM_SNS_POST_FORMATS.feed;
             return `<tr>
             <td><a href="${AReGLM_SECURITY.escapeAttr(link)}" target="_blank" rel="noopener">${AReGLM_SECURITY.sanitizeHtml(profile?.name || q.platform)}</a></td>
+            <td><span class="sns-format-badge ${fmt.badgeClass}">${AReGLM_SECURITY.sanitizeHtml(fmt.label)}</span></td>
             <td>${AReGLM_SECURITY.sanitizeHtml((q.caption || '').slice(0, 50))}…</td>
             <td><span class="status-badge">${AReGLM_SECURITY.sanitizeHtml(q.status)}</span></td>
             <td>${new Date(q.scheduledAt || q.createdAt).toLocaleString('ja-JP')}</td>
@@ -397,12 +460,38 @@ function handleSnsPost(e) {
     e.preventDefault();
     const platform = document.getElementById('sns-platform')?.value;
     const caption = document.getElementById('sns-caption')?.value?.trim();
+    const format = document.getElementById('sns-post-format')?.value || 'feed';
     if (!platform || !caption) return;
 
     const policy = AReGLM_CONTENT_POLICY.validate(caption);
     if (!policy.ok) {
         showNotification(policy.message, 'error');
         return;
+    }
+
+    // 形式ごとの追加項目。空欄なら保存しない（キューの表示・分析を汚さないため）。
+    const videoNote = format === 'reel' ? (document.getElementById('sns-post-video-note')?.value || '').trim() : '';
+    const sticker = format === 'story' ? (document.getElementById('sns-post-sticker')?.value || '').trim() : '';
+
+    for (const extra of [videoNote, sticker]) {
+        if (!extra) continue;
+        const extraPolicy = AReGLM_CONTENT_POLICY.validate(extra);
+        if (!extraPolicy.ok) {
+            showNotification(extraPolicy.message, 'error');
+            return;
+        }
+    }
+
+    let taggedProducts = [];
+    if (format === 'shopping') {
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        taggedProducts = Array.from(document.querySelectorAll('.sns-product-tag-check:checked'))
+            .map((el) => products[Number(el.value)]?.name)
+            .filter(Boolean);
+        if (!taggedProducts.length) {
+            showNotification('ショッピング投稿は、タグ付けする商品を1つ以上選んでください', 'error');
+            return;
+        }
     }
 
     const shop = AREGLM_PROFILE.suzuriShop;
@@ -412,7 +501,11 @@ function handleSnsPost(e) {
     queue.push({
         id: 'sns_' + Date.now(),
         platform,
+        format,
         caption: fullCaption,
+        videoNote: videoNote || undefined,
+        sticker: sticker || undefined,
+        taggedProducts: taggedProducts.length ? taggedProducts : undefined,
         profileUrl: AREGLM_PROFILE.sns[platform]?.url,
         status: 'pending',
         createdAt: new Date().toISOString()
@@ -420,9 +513,10 @@ function handleSnsPost(e) {
     localStorage.setItem('areglm_sns_queue', JSON.stringify(queue));
 
     e.target.reset();
+    投稿形式が変わった();
     loadSnsData();
-    logActivity(`${AREGLM_PROFILE.sns[platform]?.name} 投稿をキューに追加`);
-    showNotification('投稿をキューに追加しました（公式API設定後に自動投稿）', 'success');
+    logActivity(`${AREGLM_PROFILE.sns[platform]?.name} 投稿をキューに追加（${AREGLM_SNS_POST_FORMATS[format]?.label || format}）`);
+    showNotification('投稿をキューに追加しました（実際の投稿は「遠隔操作」または「出先から投稿する」から）', 'success');
 }
 
 function removeSnsQueue(id) {
@@ -459,6 +553,7 @@ async function runAutoPromo(自動実行か = false) {
         queue.push({
             id: 'promo_' + Date.now() + i,
             platform: plat,
+            format: 'feed',
             caption: `【AReGLM】${p.name}\n${p.shopUrl || AREGLM_PROFILE.suzuriShop}`,
             profileUrl: AREGLM_PROFILE.sns[plat]?.url,
             status: 'scheduled',
@@ -609,3 +704,4 @@ window.removeSnsQueue = removeSnsQueue;
 window.renderSnsStrategyGuide = renderSnsStrategyGuide;
 window.renderSnsPlatformData = renderSnsPlatformData;
 window.initSnsPlatformManage = initSnsPlatformManage;
+window.AREGLM_SNS_POST_FORMATS = AREGLM_SNS_POST_FORMATS;
