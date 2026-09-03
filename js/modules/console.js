@@ -593,16 +593,31 @@ async function AIで意図を判定する(text, target) {
         const 操作たち = AREGLM_COMMANDS.map((c) => ({
             id: c.id, label: c.label, examples: c.keywords, needsArg: !!c.needsArg,
         }));
+        const 直近の会話 = 会話の記憶[CONSOLE_TARGET_IDS[target] ? target : 'console'];
+        const persona = localStorage.getItem('areglm_ai_persona') || '';
+        // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
+        const page = document.querySelector('.page.active')?.id?.replace('-page', '') || '';
+
+        // 「脳: Claude」に切り替えているときは、エージェントの判定そのものを
+        // Claudeへ頼む（AIチャットの会話だけでなく、指示の実行判定にも
+        // 同じ「脳」を使う、という以前からの決定をここにも反映する）。
+        if (typeof Claudeを使うか === 'function' && Claudeを使うか()
+            && typeof Claudeでエージェントの意図を判定する === 'function') {
+            const 判定 = await Claudeでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);
+            if (判定 && 判定.ok) return 判定;
+            // Claudeで判定できなかったときは、黙って終わらせず自作AIへ回す
+            // （エージェントが無言になることを避けるため）。
+        }
+
         const r = await fetch('/api/ai-local/agent-route', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text,
                 操作たち,
-                直近の会話: 会話の記憶[CONSOLE_TARGET_IDS[target] ? target : 'console'],
-                persona: localStorage.getItem('areglm_ai_persona') || '',
-                // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
-                page: document.querySelector('.page.active')?.id?.replace('-page', '') || '',
+                直近の会話,
+                persona,
+                page,
             }),
         });
         if (!r.ok) return null;

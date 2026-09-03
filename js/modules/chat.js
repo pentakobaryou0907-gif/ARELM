@@ -123,7 +123,7 @@ function 脳の表示を直す() {
     }
     if (who) {
         who.innerHTML = claude
-            ? 'Claude<small>会話は外部（Anthropic）へ送られます・従量課金</small>'
+            ? 'Claude<small>会話・エージェントへの指示ともに外部（Anthropic）へ送られます・従量課金</small>'
             : '自作AI<small>この端末の中だけで動きます</small>';
     }
 }
