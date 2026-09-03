@@ -42,6 +42,19 @@ const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * Windows対応について（正直に書いておくこと）:
+ *
+ * この端末（開発時）はMacのため、Windows側の動作はこのコードから
+ * 読める範囲で慎重に組んだが、実機（Windows）では検証できていない。
+ * PowerShellの一般的な自動化手法（P/Invoke・System.Drawing・SendKeys）
+ * を使っており、書き方自体はよく知られたものだが、実際にWindows機で
+ * 一度動作を確かめてから使ってほしい。うまくいかない操作があれば、
+ * この関数のWindows向けの部分だけを直せばよいよう、Mac側（osascript）
+ * とは完全に分けてある。
+ */
+const WIN = process.platform === 'win32';
+
 const 記録の道 = path.join(__dirname, 'data', 'パソコン操作の記録.json');
 const 止めの札 = path.join(__dirname, 'data', '操作を止める');
 
@@ -64,12 +77,16 @@ const できる操作 = {
         重さ: '軽い',
         説: 'いま何のアプリが前にいるかを見る',
         本文: () => 'tell application "System Events" to get name of first process whose frontmost is true',
+        winスクリプト: () => `${PS_前面窓の定義}; $h=[AReGLM.Win32]::GetForegroundWindow(); `
+            + `$sb=New-Object System.Text.StringBuilder 256; [AReGLM.Win32]::GetWindowText($h,$sb,256)|Out-Null; $sb.ToString()`,
     },
 
     音量を見る: {
         重さ: '軽い',
         説: 'いまの音量を見る',
         本文: () => 'get volume settings',
+        // Windowsには、数値をそのまま取り出す簡単な標準の手段が無いため未対応。
+        windows未対応: true,
     },
 
     /* --- 環境を整える（取り返しがつく） --- */
@@ -79,6 +96,9 @@ const できる操作 = {
         説: 'アプリを前に出す',
         要る: ['名前'],
         本文: (材) => `tell application ${引用符(材.名前)} to activate`,
+        // Windowsには「同名のアプリを前面へ出す」統一の仕組みが無いため、
+        // 起動（または再起動）で代用する（すでに動いていても前に出ない場合がある）。
+        winスクリプト: (材) => `Start-Process ${PS引用符(材.名前)}`,
     },
 
     音量を変える: {
@@ -89,24 +109,38 @@ const できる操作 = {
             const n = Math.max(0, Math.min(100, Number(材.大きさ) || 0));
             return `set volume output volume ${n}`;
         },
+        // Windowsには音量を数値で直接指定するAPIが標準では無いため、
+        // 一旦下げきってから、目安の回数だけ上げるやり方で近づける
+        // （1回あたり約2%が一般的だが、環境によりずれることがある）。
+        winスクリプト: (材) => {
+            const n = Math.max(0, Math.min(100, Number(材.大きさ) || 0));
+            const 回数 = Math.round(n / 2);
+            return `${PS_音量キー定義}; for($i=0;$i -lt 60;$i++){[AReGLM.Snd]::Send(0xAE)}; `
+                + `for($i=0;$i -lt ${回数};$i++){[AReGLM.Snd]::Send(0xAF)}`;
+        },
     },
 
     音を消す: {
         重さ: '軽い',
         説: '音を消す／戻す',
         本文: (材) => `set volume ${材.戻す ? 'without' : 'with'} output muted`,
+        winスクリプト: () => `${PS_音量キー定義}; [AReGLM.Snd]::Send(0xAD)`, // ミュートの切り替え（トグル）
     },
 
     画面を暗くする: {
         重さ: '軽い',
         説: '画面を消す（すぐ戻せます）',
         本文: () => 'tell application "System Events" to sleep',
+        winスクリプト: () => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + '[System.Windows.Forms.Application]::SetSuspendState("Suspend", $false, $false)',
     },
 
     スリープさせる: {
         重さ: '重い',
         説: 'パソコンを眠らせる',
         本文: () => 'tell application "System Events" to sleep',
+        winスクリプト: () => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + '[System.Windows.Forms.Application]::SetSuspendState("Suspend", $false, $false)',
     },
 
     読み上げる: {
@@ -114,6 +148,8 @@ const できる操作 = {
         説: '声で読み上げる',
         要る: ['文'],
         本文: (材) => `say ${引用符(String(材.文).slice(0, 300))} using "Kyoko"`,
+        winスクリプト: (材) => 'Add-Type -AssemblyName System.Speech; '
+            + `(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak(${PS引用符(String(材.文).slice(0, 300))})`,
     },
 
     知らせる: {
@@ -122,6 +158,12 @@ const できる操作 = {
         要る: ['文'],
         本文: (材) => `display notification ${引用符(String(材.文).slice(0, 200))} `
             + `with title "AReGLM"`,
+        // バルーン通知（NotifyIcon）は標準搭載の部品だけで確実に出せる形。
+        winスクリプト: (材) => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + '$ni=New-Object System.Windows.Forms.NotifyIcon; '
+            + '$ni.Icon=[System.Drawing.SystemIcons]::Information; $ni.Visible=$true; '
+            + `$ni.ShowBalloonTip(4000,"AReGLM",${PS引用符(String(材.文).slice(0, 200))},[System.Windows.Forms.ToolTipIcon]::Info); `
+            + 'Start-Sleep -Milliseconds 300; $ni.Dispose()',
     },
 
     フォルダーを開く: {
@@ -129,6 +171,7 @@ const できる操作 = {
         説: 'フォルダーをFinderで開く',
         要る: ['場所'],
         本文: (材) => `tell application "Finder" to open POSIX file ${引用符(材.場所)}`,
+        winスクリプト: (材) => `Start-Process explorer.exe ${PS引用符(材.場所)}`,
     },
 
     ページを開く: {
@@ -143,6 +186,13 @@ const できる操作 = {
                 throw new Error('http か https で始まる場所だけ開けます');
             }
             return `open location ${引用符(u)}`;
+        },
+        winスクリプト: (材) => {
+            const u = String(材.場所 || '');
+            if (!/^https?:\/\//.test(u)) {
+                throw new Error('http か https で始まる場所だけ開けます');
+            }
+            return `Start-Process ${PS引用符(u)}`;
         },
     },
 
@@ -174,12 +224,22 @@ const できる操作 = {
         重さ: '軽い',
         説: '画面を明るくする',
         本文: () => 'tell application "System Events" to key code 144',
+        // WMIのモニター輝度制御はノートPC等、対応ハードウェアでのみ効く
+        // （外部モニターやデスクトップでは失敗することがある。正直に書いておく）。
+        winスクリプト: () => 'try { $m=Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightness -ErrorAction Stop; '
+            + '$new=[Math]::Min(100,$m.CurrentBrightness+15); '
+            + '(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1,$new) } '
+            + 'catch { throw "この端末の輝度をソフトから変えられませんでした（対応していない場合があります）" }',
     },
 
     暗くする: {
         重さ: '軽い',
         説: '画面を暗くする',
         本文: () => 'tell application "System Events" to key code 145',
+        winスクリプト: () => 'try { $m=Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightness -ErrorAction Stop; '
+            + '$new=[Math]::Max(0,$m.CurrentBrightness-15); '
+            + '(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1,$new) } '
+            + 'catch { throw "この端末の輝度をソフトから変えられませんでした（対応していない場合があります）" }',
     },
 
     邪魔をしない: {
@@ -193,6 +253,9 @@ const できる操作 = {
         },
         下ごしらえ: 'ショートカットアプリに「AReGLM_集中オン」「AReGLM_集中オフ」を'
             + '作っておくと使えます（作り方はこちらで用意します）',
+        // Windowsの「集中モード（Focus Assist）」を外から確実に切り替える、
+        // 簡単で壊れにくい標準の手段が無いため、正直に未対応としておく。
+        windows未対応: true,
     },
 
     作業に入る: {
@@ -239,6 +302,8 @@ const できる操作 = {
         合言葉を見る: true,
         本文: (材) => `tell application "System Events" to keystroke `
             + 引用符(String(材.文).slice(0, 500)),
+        winスクリプト: (材) => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + `[System.Windows.Forms.SendKeys]::SendWait(${PS引用符(SendKeysエスケープ(String(材.文).slice(0, 500)))})`,
     },
 
     キーを押す: {
@@ -257,6 +322,19 @@ const できる操作 = {
             }
             return `tell application "System Events" to keystroke "${字}" using command down`;
         },
+        // Windowsに⌘（command）キーは無いため、同じ役目のCtrlで送る。
+        winスクリプト: (材) => {
+            const 対応 = {
+                保存: 's', コピー: 'c', 貼る: 'v', 全部選ぶ: 'a',
+                戻す: 'z', 新しく: 'n', 探す: 'f', 閉じる: 'w', 開く: 'o',
+            };
+            const 字 = 対応[材.キー];
+            if (!字) {
+                throw new Error(`「${材.キー}」は押せません。押せるのは: ${Object.keys(対応).join('、')}`);
+            }
+            return 'Add-Type -AssemblyName System.Windows.Forms; '
+                + `[System.Windows.Forms.SendKeys]::SendWait(${PS引用符('^' + 字)})`;
+        },
     },
 
     改行を押す: {
@@ -264,6 +342,8 @@ const できる操作 = {
         説: 'エンターを押す',
         合言葉を見る: true,
         本文: () => 'tell application "System Events" to key code 36',
+        winスクリプト: () => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + "[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')",
     },
 
     クリックする: {
@@ -274,6 +354,13 @@ const できる操作 = {
             const x = Math.max(0, Math.round(Number(材.よこ) || 0));
             const y = Math.max(0, Math.round(Number(材.たて) || 0));
             return `tell application "System Events" to click at {${x}, ${y}}`;
+        },
+        winスクリプト: (材) => {
+            const x = Math.max(0, Math.round(Number(材.よこ) || 0));
+            const y = Math.max(0, Math.round(Number(材.たて) || 0));
+            return `${PS_マウス定義}; [AReGLM.Mouse]::SetCursorPos(${x},${y}); `
+                + '[AReGLM.Mouse]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero); '
+                + '[AReGLM.Mouse]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)';
         },
     },
 };
@@ -291,6 +378,104 @@ function 引用符(文) {
         .replace(/[\r\n]/g, ' ');
     return `"${s}"`;
 }
+
+/**
+ * Windows向け。PowerShellの単一引用符（'...'）の中で安全に使える形にする。
+ * 単一引用符は変数展開をしないため、AppleScriptの二重引用符より安全に
+ * 埋め込める（'' で単一引用符そのものをエスケープする決まり）。
+ */
+function PS引用符(文) {
+    const s = String(文 == null ? '' : 文)
+        .replace(/'/g, "''")
+        .replace(/[\r\n]/g, ' ');
+    return `'${s}'`;
+}
+
+/**
+ * Windows向け。SendKeys に渡す文字列で特別な意味を持つ記号
+ * （+ ^ % ~ ( ) { } [ ]）を {} で包み、そのままの文字として打たせる。
+ */
+function SendKeysエスケープ(文) {
+    return String(文 == null ? '' : 文).replace(/[+^%~(){}[\]]/g, (c) => `{${c}}`);
+}
+
+/**
+ * Windows向け。前面ウィンドウ・フォーカス中の入力欄を調べるためのP/Invoke定義。
+ * GUITHREADINFO はWin2000から変わっていない安定した構造体（フィールド順を
+ * 変えると壊れるので、そのままの並びで書くこと）。
+ */
+const PS_前面窓の定義 = `
+if (-not ('AReGLM.Win32' -as [type])) {
+Add-Type @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+namespace AReGLM {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct RECT { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct GUITHREADINFO {
+    public int cbSize;
+    public int flags;
+    public IntPtr hwndActive;
+    public IntPtr hwndFocus;
+    public IntPtr hwndCapture;
+    public IntPtr hwndMenuOwner;
+    public IntPtr hwndMoveSize;
+    public IntPtr hwndCaret;
+    public RECT rcCaret;
+  }
+  public class Win32 {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int c);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint id, ref GUITHREADINFO info);
+    [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int idx);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern int GetClassName(IntPtr h, StringBuilder s, int c);
+  }
+}
+'@
+}`;
+// 注意: この文字列は Add-Type の -TypeDefinition に here-string（@' ... '@）を
+// 使っているため、改行をつぶしてはいけない（here-stringは改行に依存する）。
+// execFileSync には配列で渡すので、シェルを経由せず、この文字列に含まれる
+// 改行はそのままPowerShellへ渡る。
+
+/**
+ * Windows向け。音量キー（ミュート/上げる/下げる）を、実際のキーボードの
+ * メディアキーと同じ形で送る（keybd_event。フォーカスに関係なく効く）。
+ */
+const PS_音量キー定義 = `
+if (-not ('AReGLM.Snd' -as [type])) {
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+namespace AReGLM {
+  public class Snd {
+    [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    public static void Send(byte vk) {
+      keybd_event(vk, 0, 0, UIntPtr.Zero);
+      keybd_event(vk, 0, 2, UIntPtr.Zero);
+    }
+  }
+}
+'@
+}`;
+
+/** Windows向け。マウスを動かして左クリックするためのP/Invoke定義。 */
+const PS_マウス定義 = `
+if (-not ('AReGLM.Mouse' -as [type])) {
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+namespace AReGLM {
+  public class Mouse {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+  }
+}
+'@
+}`;
 
 /* ==========================================================
    守り
@@ -324,8 +509,40 @@ function 動かす() {
  * macOS は、合言葉の欄にいるとき「安全な入力中」になる。
  * そのときに打つと、合言葉の欄に文字が入る。
  * 絶対にしてはいけない。
+ *
+ * Windows向けについて、正直に書いておくこと:
+ *   Windowsには、macOSの「安全な入力中」のような、システム全体で
+ *   一律に分かる仕組みが無い。ここでは、いま入力欄として選ばれている
+ *   部品が「パスワード用のEdit（ES_PASSWORDスタイル）」かどうかを見て
+ *   判定している。これは古典的なWin32の入力欄（多くのデスクトップアプリ）
+ *   では効くが、ブラウザ（Chrome等）やElectron製アプリが自前で描く
+ *   パスワード欄までは検知できない可能性がある。判定できない・
+ *   分からないときは、macOS側と同じく「危ないほうに倒す」（=合言葉の
+ *   画面として扱い、打たない）。
  */
 function 合言葉の画面か() {
+    if (WIN) {
+        try {
+            const script = `${PS_前面窓の定義}
+$h=[AReGLM.Win32]::GetForegroundWindow()
+$tpid=0
+$tid=[AReGLM.Win32]::GetWindowThreadProcessId($h,[ref]$tpid)
+$info=New-Object AReGLM.GUITHREADINFO
+$info.cbSize=[System.Runtime.InteropServices.Marshal]::SizeOf([type][AReGLM.GUITHREADINFO])
+$ok=[AReGLM.Win32]::GetGUIThreadInfo($tid,[ref]$info)
+if ($ok -and $info.hwndFocus -ne [IntPtr]::Zero) {
+  $style=[AReGLM.Win32]::GetWindowLong($info.hwndFocus,-16)
+  if (($style -band 0x20) -ne 0) { Write-Output "1" } else { Write-Output "0" }
+} else { Write-Output "0" }`;
+            const 出 = execFileSync('powershell.exe',
+                ['-NoProfile', '-NonInteractive', '-Command', script],
+                { encoding: 'utf8', timeout: 5000 });
+            return 出.trim() === '1';
+        } catch {
+            return true; // 見られないときは、危ないほうに倒す。
+        }
+    }
+
     try {
         const 出 = execFileSync('/bin/sh',
             ['-c', 'ioreg -l -w 0 | grep -c "kCGSSessionSecureInputPID" || true'],
@@ -393,6 +610,15 @@ function 操る(操作名, 材料) {
         }
     }
 
+    /* --- Windowsでは対応していない操作か --- */
+    if (WIN && 決まり.windows未対応 && !決まり.まとめ && !決まり.別のやり方) {
+        return {
+            ok: false,
+            訳: `「${操作名}」は、Windows版ではまだ対応していません`
+                + '（この端末の中だけで、確実にできると分かる形が見つかっていないため）。',
+        };
+    }
+
     /* --- 動きすぎていないか --- */
     if (動きすぎか()) {
         return {
@@ -427,10 +653,10 @@ function 操る(操作名, 材料) {
         return { ok: true, 訳: `${決まり.説}`, 中身: 結果.join(' / ') };
     }
 
-    /* --- 命令を組み立てる --- */
+    /* --- 命令を組み立てる（OSごとに違う書き方を使う） --- */
     let 本文;
     try {
-        本文 = 決まり.本文(材料);
+        本文 = WIN ? 決まり.winスクリプト(材料) : 決まり.本文(材料);
     } catch (e) {
         return { ok: false, 訳: e.message };
     }
@@ -438,8 +664,11 @@ function 操る(操作名, 材料) {
     最近の操作.push(Date.now());
 
     try {
-        const 出 = execFileSync('/usr/bin/osascript', ['-e', 本文],
-            { encoding: 'utf8', timeout: 8000 });
+        const 出 = WIN
+            ? execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 本文],
+                { encoding: 'utf8', timeout: 8000 })
+            : execFileSync('/usr/bin/osascript', ['-e', 本文],
+                { encoding: 'utf8', timeout: 8000 });
         記録を残す({
             操作: 操作名,
             材料: JSON.stringify(材料).slice(0, 120),
@@ -467,6 +696,23 @@ function 操る(操作名, 材料) {
  *     ・<b>古いものは自動で片づける</b>（30日、20枚まで）
  *     ・置き場所はこの端末の中だけ。どこにも送らない。
  */
+/**
+ * Windows向け。画面全体（全モニター分）をPNGとして指定の場所に保存する。
+ * macOSの screencapture と違い、Windowsでは通常この方法に特別な許可は要らない
+ * （ここは実機で未検証。企業のポリシー等で塞がれていた場合は失敗するだけで、
+ * 危険な副作用は無い）。
+ */
+function _win_画面を撮って保存する(保存先) {
+    const script = 'Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; '
+        + '$b=[System.Windows.Forms.SystemInformation]::VirtualScreen; '
+        + '$bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; '
+        + '$g=[System.Drawing.Graphics]::FromImage($bmp); '
+        + '$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); '
+        + `$bmp.Save(${PS引用符(保存先)},[System.Drawing.Imaging.ImageFormat]::Png); `
+        + '$g.Dispose(); $bmp.Dispose()';
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 10000 });
+}
+
 function 画面を撮る() {
     // 合言葉の画面が開いているときは撮らない。
     // 撮った写真に合言葉が写れば、それは漏れたのと同じ。
@@ -488,8 +734,12 @@ function 画面を撮る() {
     const 道 = path.join(場所, 名);
 
     try {
-        // -x は撮影音を鳴らさない
-        execFileSync('/usr/sbin/screencapture', ['-x', 道], { timeout: 8000 });
+        if (WIN) {
+            _win_画面を撮って保存する(道);
+        } else {
+            // -x は撮影音を鳴らさない
+            execFileSync('/usr/sbin/screencapture', ['-x', 道], { timeout: 8000 });
+        }
 
         // 撮れたことにして中身が空、ということがある。
         // ファイルの大きさを見て、本当に撮れたかを確かめる。
@@ -504,7 +754,8 @@ function 画面を撮る() {
     } catch (e) {
         // 画面収録の許可が無いときは、「設定してください」で終わらせない。
         // 設定の場所をこちらで開く。探させない。
-        const 許可がない = /許可|not authorized|could not create image/i
+        // （Windowsでは通常この種の許可自体が無いため、この案内はMacのみ。）
+        const 許可がない = !WIN && /許可|not authorized|could not create image/i
             .test(String(e.stderr || e.message));
 
         if (許可がない) {
@@ -607,6 +858,31 @@ function 古い写真を片づける(場所) {
  * 画面に縮めて出したとき、
  * <b>押された場所を元の座標へ戻す</b>のに要る。
  */
+/**
+ * Windows向け。既に保存済みの画像の大きさを読み、必要なら縮めて別名で保存する。
+ * macOS版が sips でやっている「縮める」「大きさを読む」を、
+ * System.Drawing でまとめて行う。
+ */
+function _win_画像を縮めて情報を得る(元, 縮み先, 最大幅) {
+    const script = 'Add-Type -AssemblyName System.Drawing; '
+        + `$img=[System.Drawing.Image]::FromFile(${PS引用符(元)}); `
+        + '$w=$img.Width; $h=$img.Height; $縮めた=0; '
+        + `if ($w -gt ${最大幅}) { `
+        + `$nh=[Math]::Round($h * ${最大幅} / $w); `
+        + `$bmp=New-Object System.Drawing.Bitmap ${最大幅},$nh; `
+        + '$g=[System.Drawing.Graphics]::FromImage($bmp); '
+        + `$g.DrawImage($img,0,0,${最大幅},$nh); `
+        + `$bmp.Save(${PS引用符(縮み先)},[System.Drawing.Imaging.ImageFormat]::Png); `
+        + '$g.Dispose(); $bmp.Dispose(); $縮めた=1 } '
+        + '$img.Dispose(); '
+        + 'Write-Output "$w,$h,$縮めた"';
+    const 出 = execFileSync('powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', script],
+        { encoding: 'utf8', timeout: 10000 });
+    const [w, h, 縮めたFlag] = 出.trim().split(',').map(Number);
+    return { 幅: w, 高さ: h, 縮めた: 縮めたFlag === 1 };
+}
+
 function 画面を写して返す(縮める) {
     if (合言葉の画面か()) {
         return {
@@ -620,8 +896,12 @@ function 画面を写して返す(縮める) {
         'areglm_gamen_' + Date.now() + '.png');
 
     try {
-        // -x は撮影音を鳴らさない
-        execFileSync('/usr/sbin/screencapture', ['-x', 仮], { timeout: 10000 });
+        if (WIN) {
+            _win_画面を撮って保存する(仮);
+        } else {
+            // -x は撮影音を鳴らさない
+            execFileSync('/usr/sbin/screencapture', ['-x', 仮], { timeout: 10000 });
+        }
 
         const 大きさ = fs.existsSync(仮) ? fs.statSync(仮).size : 0;
         if (大きさ < 1000) {
@@ -630,34 +910,46 @@ function 画面を写して返す(縮める) {
         }
 
         // 縮める。そのままだと重くて、何枚も送れない。
+        // 元の画面の大きさも、ここで一緒に読む（押された場所を戻すのに要る）。
         let 出す道 = 仮;
-        if (縮める !== false) {
-            const 縮 = 仮.replace('.png', '_small.png');
+        let 元幅 = 0;
+        let 元高 = 0;
+
+        if (WIN) {
             try {
-                execFileSync('/usr/bin/sips',
-                    ['-Z', '1400', 仮, '--out', 縮],
-                    { timeout: 10000, stdio: 'pipe' });
-                if (fs.existsSync(縮)) 出す道 = 縮;
+                const 縮 = 仮.replace('.png', '_small.png');
+                const 情報 = _win_画像を縮めて情報を得る(仮, 縮, 1400);
+                元幅 = 情報.幅;
+                元高 = 情報.高さ;
+                if (縮める !== false && 情報.縮めた && fs.existsSync(縮)) 出す道 = 縮;
             } catch (e) {
-                // 縮められなくても、元のままで出せる。
-                console.warn('画面を縮められませんでした:', e.message);
+                console.warn('画面の縮小・大きさの取得に失敗しました:', e.message);
+            }
+        } else {
+            if (縮める !== false) {
+                const 縮 = 仮.replace('.png', '_small.png');
+                try {
+                    execFileSync('/usr/bin/sips',
+                        ['-Z', '1400', 仮, '--out', 縮],
+                        { timeout: 10000, stdio: 'pipe' });
+                    if (fs.existsSync(縮)) 出す道 = 縮;
+                } catch (e) {
+                    // 縮められなくても、元のままで出せる。
+                    console.warn('画面を縮められませんでした:', e.message);
+                }
+            }
+            try {
+                const 情報 = execFileSync('/usr/bin/sips',
+                    ['-g', 'pixelWidth', '-g', 'pixelHeight', 仮],
+                    { encoding: 'utf8', timeout: 5000 });
+                元幅 = Number((情報.match(/pixelWidth:\s*(\d+)/) || [])[1] || 0);
+                元高 = Number((情報.match(/pixelHeight:\s*(\d+)/) || [])[1] || 0);
+            } catch (e) {
+                console.warn('画面の大きさを読めませんでした:', e.message);
             }
         }
 
         const 中身 = fs.readFileSync(出す道).toString('base64');
-
-        // 元の画面の大きさを見る。押された場所を戻すのに要る。
-        let 元幅 = 0;
-        let 元高 = 0;
-        try {
-            const 情報 = execFileSync('/usr/bin/sips',
-                ['-g', 'pixelWidth', '-g', 'pixelHeight', 仮],
-                { encoding: 'utf8', timeout: 5000 });
-            元幅 = Number((情報.match(/pixelWidth:\s*(\d+)/) || [])[1] || 0);
-            元高 = Number((情報.match(/pixelHeight:\s*(\d+)/) || [])[1] || 0);
-        } catch (e) {
-            console.warn('画面の大きさを読めませんでした:', e.message);
-        }
 
         // 一時のものは、その場で片づける
         [仮, 出す道].forEach((f) => {
@@ -677,7 +969,7 @@ function 画面を写して返す(縮める) {
             try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch { /* 同上 */ }
         });
 
-        const 許可がない = /許可|not authorized|could not create image/i
+        const 許可がない = !WIN && /許可|not authorized|could not create image/i
             .test(String(e.stderr || e.message));
 
         if (許可がない) {

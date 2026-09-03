@@ -2032,7 +2032,10 @@ app.post('/api/obsidian-proxy', async (req, res) => {
  *      （呼び出す側が本人に見せてから、別途「このまま記録する」を呼ぶ）
  */
 const { execFileSync: 実行 } = require('child_process');
-const AREGLM_ROOT = __dirname.replace(/\/server$/, '');
+// __dirname.replace(/\/server$/, '') は Windows のバックスラッシュ区切り
+// パス（C:\...\server）では効かず、常に AReGLM のルートを指せなかった。
+// path.dirname はOSに関係なく、ひとつ上の階層を正しく返す。
+const AREGLM_ROOT = require('path').dirname(__dirname);
 const 大きな変更の目安 = 50; // これを超える行数の差分は、確認なしでは記録しない
 
 function gitで実行(args) {
@@ -2044,15 +2047,42 @@ function gitで実行(args) {
  * （numpy等）の入っていない別のバージョンを指してしまうことがある
  * （実際にテストで踏んだ）。自作AIエンジン本体（server.py）と
  * 同じ実体を、確実に同じもので実行する。
+ *
+ * Windowsには pyenv も /usr/bin/python3 のような決まった場所も無く、
+ * 素の python（または py ランチャー）がそのまま使えることが多いため、
+ * OSごとに探し方を分ける。見つけたものは --version で本当に動くか
+ * 確かめてから使う（無いものを掴んだまま先へ進まないように）。
  */
 const PYTHON_BIN = (() => {
-    try {
-        const 一覧 = 実行('bash', ['-lc', 'ls /Users/ari/.pyenv/versions/*/bin/python3 2>/dev/null'], { encoding: 'utf8' })
-            .split('\n').filter(Boolean);
-        return 一覧[一覧.length - 1] || 'python3';
-    } catch {
-        return 'python3';
+    const os = require('os');
+    const 候補 = [];
+
+    if (process.platform === 'win32') {
+        // Windows: py ランチャー（公式インストーラーで標準的に入る）を優先し、
+        // 無ければ素の python / python3 を試す。
+        try {
+            const 出 = 実行('where', ['py'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+            if (出.length) 候補.push(出[0].trim());
+        } catch { /* py ランチャーが無ければ次へ */ }
+        候補.push('python', 'python3');
+    } else {
+        // Mac/Linux: pyenv でインストールした実体があれば、そちらを優先する
+        // （server/ai/server.py と同じ環境で、numpy等のパッケージが揃っているため）。
+        try {
+            const 一覧 = 実行('bash', ['-lc', `ls ${os.homedir()}/.pyenv/versions/*/bin/python3 2>/dev/null`], { encoding: 'utf8' })
+                .split('\n').filter(Boolean);
+            if (一覧.length) 候補.push(一覧[一覧.length - 1]);
+        } catch { /* pyenv が無ければ次へ */ }
+        候補.push('python3', 'python');
     }
+
+    for (const 候補地 of 候補) {
+        try {
+            実行(候補地, ['--version'], { encoding: 'utf8' });
+            return 候補地;
+        } catch { /* 実際には動かないので次を試す */ }
+    }
+    return process.platform === 'win32' ? 'python' : 'python3';
 })();
 
 /** 変更されたコードファイルだけを検査する（学習データ等は対象外） */

@@ -38,6 +38,23 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Windows対応について、正直に書いておくこと:
+ *
+ * このファイルのタブ一覧・タブ選択・進む/戻る等（走らせる() 経由の操作）は、
+ * macOSのAppleScript（Chromeが持つ「辞書」）で作られており、Windowsには
+ * 同じ仕組みが無い。Windowsで同じことをするには、Chromeを
+ * リモートデバッグモード（--remote-debugging-port）で起動し、
+ * Chrome DevTools Protocolという別の仕組みで話しかける必要があり、
+ * 作りがまるごと変わる（このツールにはまだ無いWebSocket通信が要る）。
+ *
+ * 中途半端に作って壊れたまま使われるよりはっきりしているほうがよいので、
+ * ここでは「プロフィールを選んでChromeを開く」までをWindowsでも
+ * 動くようにし、そこから先（タブの読み書き）は今のところ未対応と
+ * 正直に伝える形にしてある。
+ */
+const WIN = process.platform === 'win32';
+
+/**
  * 業務用に使うChromeのアカウント（プロフィール）。
  *
  * Chromeにはすでにいくつものアカウントがログイン済みだった。
@@ -71,10 +88,10 @@ const よく使うプロフィール = {
  */
 function プロフィールを読む() {
     try {
-        const 道 = path.join(
-            process.env.HOME || '',
-            'Library/Application Support/Google/Chrome/Local State',
-        );
+        // ChromeのLocal State（プロフィール一覧）の置き場所はOSで違う。
+        const 道 = WIN
+            ? path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data', 'Local State')
+            : path.join(process.env.HOME || '', 'Library/Application Support/Google/Chrome/Local State');
         const d = JSON.parse(fs.readFileSync(道, 'utf8'));
         const info = (d.profile && d.profile.info_cache) || {};
         const 一覧 = {};
@@ -115,18 +132,27 @@ function プロフィールで開く(プロフィール名, 道) {
 
     最近.push(Date.now());
     try {
-        const 引数 = ['-na', 'Google Chrome', '--args', `--profile-directory=${ディレクトリ}`];
-        if (u) 引数.push(u);
-        execFileSync('/usr/bin/open', 引数, { timeout: 10000 });
+        if (WIN) {
+            // Windowsでは chrome.exe に直接 --profile-directory と場所を渡して開く。
+            // （Mac版のように「開いた後に前面タブへ入れ直す」再挑戦は、
+            // AppleScriptに相当する仕組みが無いため行っていない。）
+            const 引数 = [`--profile-directory=${ディレクトリ}`];
+            if (u) 引数.push(u);
+            execFileSync('cmd.exe', ['/c', 'start', '', 'chrome', ...引数], { timeout: 10000 });
+        } else {
+            const 引数 = ['-na', 'Google Chrome', '--args', `--profile-directory=${ディレクトリ}`];
+            if (u) 引数.push(u);
+            execFileSync('/usr/bin/open', 引数, { timeout: 10000 });
 
-        // 初めてそのプロフィールを開いたときは、アカウント選択の画面が
-        // 出て、指定した場所へ行かないことがある。
-        // 少し待ってから、front window に改めて場所を入れ直す。
-        if (u) {
-            try {
-                execFileSync('/bin/sh', ['-c', 'sleep 2'], { timeout: 3000 });
-                走らせる(`tell application "Google Chrome" to set URL of active tab of front window to ${引用符(u)}`, 10);
-            } catch { /* 最初の open だけでも開けていれば良しとする */ }
+            // 初めてそのプロフィールを開いたときは、アカウント選択の画面が
+            // 出て、指定した場所へ行かないことがある。
+            // 少し待ってから、front window に改めて場所を入れ直す。
+            if (u) {
+                try {
+                    execFileSync('/bin/sh', ['-c', 'sleep 2'], { timeout: 3000 });
+                    走らせる(`tell application "Google Chrome" to set URL of active tab of front window to ${引用符(u)}`, 10);
+                } catch { /* 最初の open だけでも開けていれば良しとする */ }
+            }
         }
 
         記録を残す({ 操作: 'プロフィールで開く', 中身: `${プロフィール名}: ${u}`, 結果: '開きました' });
@@ -188,6 +214,12 @@ function 動きすぎか() {
 }
 
 function 走らせる(本文, 秒) {
+    if (WIN) {
+        // タブの読み書きは、Chrome DevTools Protocol という別の仕組みが
+        // 要り、このツールにはまだ無い。ここで正直に止める
+        // （黙って何もしない・作り話の結果を返す、をしないため）。
+        throw new Error('タブの読み書きは、Windows版ではまだ対応していません（Chromeの起動は使えます）。');
+    }
     return execFileSync('/usr/bin/osascript', ['-e', 本文],
         { encoding: 'utf8', timeout: (秒 || 10) * 1000 }).trim();
 }
