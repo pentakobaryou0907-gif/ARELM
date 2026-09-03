@@ -1,0 +1,26 @@
+// Syncthing 用の除外リスト（Mac ⇄ Windows でコードを同期するため）
+//
+// .gitignore と同じ考え方: ここで除外するのは「コードではないもの」
+// 「端末ごとに別であるべきもの」。
+//
+// server/data/ は特に大事な理由がある: このフォルダは、動いている
+// AReGLMのサーバー自身が随時書き換えている（学習データ・在庫・
+// タスクなど）。ここを同期対象にすると、Mac側とWindows側で
+// それぞれサーバーを動かしたときに、同時に書き換えが起きて
+// 競合ファイル（.sync-conflict-*）が大量にできてしまう。
+// 端末ごとに独立したデータのままにしておく。
+//
+// .git/ も同様の理由で除外する。自己修正の安全装置（gitの記録）は
+// 端末ごとに別々に持たせ、Syncthingでは「作業中のコード」だけを
+// やり取りする。
+
+server/data/
+node_modules/
+server/node_modules/
+*.log
+server_launchd.log
+.DS_Store
+__pycache__/
+*.pyc
+.env
+.git/

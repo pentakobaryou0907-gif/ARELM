@@ -25,3 +25,6 @@ __pycache__/
 
 # 端末ごとの設定（鍵などは別途暗号化されて保存される）
 .env
+
+# Syncthing（Mac⇄Windows間のコード同期）の内部マーカー。中身はない。
+.stfolder/
