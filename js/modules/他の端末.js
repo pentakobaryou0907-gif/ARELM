@@ -137,6 +137,90 @@ async function render他の端末() {
     }
     箱.appendChild(行);
 
+    /* ==========================================================
+       Tailscale専用の区画（同じWi-Fiには開けたくないが、
+       Tailscaleでつないだ自分の端末だけは許したい、という人向け）
+       ========================================================== */
+    const 区切り = document.createElement('hr');
+    箱.appendChild(区切り);
+
+    const TS見出し = document.createElement('h4');
+    TS見出し.textContent = 'Tailscale経由で使う（自分の端末だけに限定）';
+    箱.appendChild(TS見出し);
+
+    const TS説明 = document.createElement('p');
+    TS説明.className = 'hint';
+    TS説明.innerHTML = '<a href="https://tailscale.com/" target="_blank" rel="noopener">Tailscale</a>'
+        + '（無料プランあり）を、このMacと使いたい端末の両方に入れて、'
+        + '<b>同じアカウントでログイン</b>しておいてください（インストール・ログインはご本人の作業です）。'
+        + 'それだけで「自分がログインした端末」だけがつながる、閉じたネットワークになります。'
+        + '上の「他の端末から使う」とは<b>別に</b>切り替えられ、'
+        + 'Tailscaleを入にしても同じWi-Fiには入口自体が見えません。';
+    箱.appendChild(TS説明);
+
+    const TS状態 = document.createElement('p');
+    if (!d.Tailscaleの住所) {
+        TS状態.className = 'hint';
+        TS状態.textContent = 'いまTailscaleのアドレスが見つかりません（Tailscaleが起動していないか、未接続です）。';
+    } else if (d.Tailscale使う) {
+        TS状態.className = 'guard-off';
+        TS状態.innerHTML = `Tailscale経由で使えます:<br><b>http://${d.Tailscaleの住所}:${d.アプリ入口}</b>`;
+    } else {
+        TS状態.className = 'guard-on';
+        TS状態.textContent = `Tailscaleのアドレスは見つかっています（${d.Tailscaleの住所}）が、まだ許可していません。`;
+    }
+    箱.appendChild(TS状態);
+
+    const TS行 = document.createElement('div');
+    TS行.className = 'guard-row';
+
+    if (!d.Tailscale使う) {
+        const TS入力 = document.createElement('input');
+        TS入力.type = 'password';
+        TS入力.placeholder = d.合言葉を決めてあるか ? '合言葉（未設定なら決めてください）' : '合言葉（8文字以上）';
+        TS入力.autocomplete = 'new-password';
+
+        const TS開く = document.createElement('button');
+        TS開く.type = 'button';
+        TS開く.className = 'btn btn-sm btn-primary';
+        TS開く.textContent = 'Tailscaleから使えるようにする';
+        TS開く.addEventListener('click', async () => {
+            TS開く.disabled = true;
+            TS開く.textContent = '設定しています…';
+            const 中身 = { 'Tailscale使う': true };
+            if (TS入力.value.trim()) 中身.合言葉 = TS入力.value.trim();
+            const r = await fetch('/api/other-devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(中身),
+            });
+            const 返 = await r.json();
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
+            TS入力.value = '';
+            render他の端末();
+        });
+
+        TS行.appendChild(TS入力);
+        TS行.appendChild(TS開く);
+    } else {
+        const TS閉じる = document.createElement('button');
+        TS閉じる.type = 'button';
+        TS閉じる.className = 'btn btn-sm btn-secondary';
+        TS閉じる.textContent = 'Tailscale経由は止める';
+        TS閉じる.addEventListener('click', async () => {
+            const r = await fetch('/api/other-devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 'Tailscale使う': false }),
+            });
+            const 返 = await r.json();
+            showNotification(返.訳, 'success');
+            render他の端末();
+        });
+        TS行.appendChild(TS閉じる);
+    }
+    箱.appendChild(TS行);
+
     // --- 許した端末 ---
     if (d.許した端末?.length) {
         const 一覧 = document.createElement('ul');

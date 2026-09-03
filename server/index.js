@@ -44,34 +44,77 @@ function 他の端末を許しているか() {
     }
 }
 
-門番.門番を置く(app, 他の端末を許しているか);
+/**
+ * Tailscale（本人だけの端末をつなぐVPN）から使うことを許しているか。
+ *
+ * 「他の端末から使う」（同じWi-Fiなら誰でも入口が見える）とは、
+ * わざと別の設定にしてある。Tailscaleでつないだ自分の端末だけを
+ * 許したい・普通のWi-Fiには入口さえ見せたくない、という使い方を
+ * できるようにするため。
+ */
+function Tailscaleを許しているか() {
+    try {
+        return JSON.parse(fs.readFileSync(他の端末設定, 'utf8')).Tailscale使う === true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * この端末につながっているTailscaleのアドレス（100.64.0.0/10）を探す。
+ * Tailscaleが入っていない・つないでいないときは null。
+ */
+function tailscaleアドレス() {
+    const 一覧 = Object.values(os.networkInterfaces()).flat();
+    for (const n of 一覧) {
+        if (n && n.family === 'IPv4' && !n.internal) {
+            const m = n.address.match(/^100\.(\d{1,3})\./);
+            if (m && Number(m[1]) >= 64 && Number(m[1]) <= 127) return n.address;
+        }
+    }
+    return null;
+}
+
+門番.門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか);
 
 /**
  * 他の端末から使うかどうかの設定。
  * この端末（127.0.0.1）からしか触れない（門番が外を止めるため）。
  */
 app.get('/api/other-devices', (req, res) => {
-    let 設定 = { 使う: false };
+    let 設定 = { 使う: false, Tailscale使う: false };
     try { 設定 = JSON.parse(fs.readFileSync(他の端末設定, 'utf8')); } catch { /* 既定のまま */ }
     const 門 = 門番.設定を読む();
     res.json({
         使う: 設定.使う === true,
+        Tailscale使う: 設定.Tailscale使う === true,
         合言葉を決めてあるか: !!門.合言葉,
         許した端末: (門.端末 || []).map((d) => ({
             名前: d.名前, 許した日: d.許した日, 期限: d.期限,
         })),
         このMacの住所: lanAddresses(),
+        Tailscaleの住所: tailscaleアドレス(),
         入口: PORT,
+        アプリ入口: APP_PORT,
     });
 });
 
 app.post('/api/other-devices', (req, res) => {
-    const 使う = req.body && req.body['使う'] === true;
+    // 送られてきた項目だけを、いまの設定に上書きする。
+    // まるごと書き換えると、片方の設定（LAN/Tailscale）を
+    // 変えたときに、もう片方が黙って消えてしまう。
+    let 今の設定 = { 使う: false, Tailscale使う: false };
+    try { 今の設定 = JSON.parse(fs.readFileSync(他の端末設定, 'utf8')); } catch { /* 既定のまま */ }
+
+    const 使う指定あり = Object.prototype.hasOwnProperty.call(req.body || {}, '使う');
+    const Tailscale指定あり = Object.prototype.hasOwnProperty.call(req.body || {}, 'Tailscale使う');
+    const 使う = 使う指定あり ? req.body['使う'] === true : 今の設定.使う === true;
+    const Tailscale使う = Tailscale指定あり ? req.body['Tailscale使う'] === true : 今の設定.Tailscale使う === true;
     const 言葉 = req.body && req.body['合言葉'];
 
-    if (使う) {
+    if (使う || Tailscale使う) {
         // 合言葉が無いまま開けることは、絶対にしない。
-        // 開いた瞬間、同じWi-Fiの誰でも入れてしまう。
+        // 開いた瞬間、その経路にいる誰でも入れてしまう。
         if (言葉) {
             const r = 門番.合言葉を決める(言葉);
             if (!r.ok) return res.status(400).json(r);
@@ -83,13 +126,17 @@ app.post('/api/other-devices', (req, res) => {
         }
     }
 
-    fs.writeFileSync(他の端末設定, JSON.stringify({ 使う }, null, 2));
+    fs.writeFileSync(他の端末設定, JSON.stringify({ 使う, Tailscale使う }, null, 2));
+
+    const 訳たち = [];
+    if (使う指定あり) 訳たち.push(使う ? '他の端末（同じネットワーク）から使えるようにしました' : '他の端末（同じネットワーク）からは使えないようにしました');
+    if (Tailscale指定あり) 訳たち.push(Tailscale使う ? 'Tailscaleから使えるようにしました' : 'Tailscaleからは使えないようにしました');
+
     res.json({
         ok: true,
         使う,
-        訳: 使う
-            ? '他の端末から使えるようにしました。本体を再起動すると有効になります。'
-            : 'この端末の中だけに戻しました。本体を再起動すると有効になります。',
+        Tailscale使う,
+        訳: (訳たち.join('。') || '設定を保存しました') + '。本体を再起動すると有効になります。',
     });
 });
 
@@ -2360,6 +2407,28 @@ app.listen(PORT, HOST, () => {
 });
 
 /**
+ * Tailscale専用の入口。
+ *
+ * わざと HOST（0.0.0.0 / 127.0.0.1 の切り替え）とは分けてある。
+ * 「同じWi-Fiには入口さえ見せたくないが、Tailscaleでつないだ
+ * 自分の端末だけは許したい」という使い方ができるように、
+ * Tailscaleのアドレスだけに絞って待ち受ける
+ * （0.0.0.0 にすると、Tailscaleを使っていない普通のWi-Fiにも
+ * 同時に開いてしまうため、それはしない）。
+ */
+if (Tailscaleを許しているか()) {
+    const TS_IP = tailscaleアドレス();
+    if (TS_IP) {
+        app.listen(APP_PORT, TS_IP, () => {
+            console.log(`Tailscale経由（自分の端末だけ）: http://${TS_IP}:${APP_PORT}`);
+        });
+    } else {
+        console.warn('[Tailscale] 「Tailscaleから使う」が入になっていますが、'
+            + 'Tailscaleのアドレスが見つかりません。Tailscaleが起動しているか確かめてください。');
+    }
+}
+
+/**
  * HTTPS でも待ち受ける
  *
  * ブラウザはマイク・カメラ・録音を「安全な接続」でしか許可しない。
@@ -2387,6 +2456,16 @@ if (httpsAvailable) {
             });
             console.log('  ※ 初回だけブラウザが警告を出します。「詳細」→「アクセスする」で進んでください');
         });
+
+        // Tailscale経由でも、マイクが使えるようHTTPSを別に開いておく。
+        if (Tailscaleを許しているか()) {
+            const TS_IP = tailscaleアドレス();
+            if (TS_IP) {
+                https.createServer(options, app).listen(HTTPS_PORT, TS_IP, () => {
+                    console.log(`  Tailscale経由（マイク可）: https://${TS_IP}:${HTTPS_PORT}`);
+                });
+            }
+        }
     } catch (e) {
         console.log(`HTTPSを開けませんでした: ${e.message}`);
     }

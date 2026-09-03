@@ -172,6 +172,27 @@ function 自分の端末か(住所) {
     return a === '127.0.0.1' || a === '::1';
 }
 
+/**
+ * この相手は、Tailscale（本人だけの端末をつなぐVPN）の中か。
+ *
+ * Tailscaleは 100.64.0.0/10（100.64.0.0〜100.127.255.255）という
+ * 決まった範囲のアドレスを、つないだ端末に配る。
+ * インターネットには一切出ない、閉じた範囲。
+ *
+ * 普通のLAN（同じLANか）とは別に扱う。
+ * 「他の端末から使う」（同じWi-Fiなら誰でも入口が見える）を
+ * 入にしなくても、Tailscaleでつないだ自分の端末だけは通したい、
+ * という場合に分けて判定できるようにするため。
+ */
+function Tailscaleの中か(住所) {
+    if (!住所) return false;
+    const a = String(住所).replace(/^::ffff:/, '');
+    const m = a.match(/^100\.(\d{1,3})\./);
+    if (!m) return false;
+    const 二つ目 = Number(m[1]);
+    return 二つ目 >= 64 && 二つ目 <= 127;
+}
+
 /* ---------- 印（token） ---------- */
 
 function 印を作る(名前) {
@@ -297,7 +318,7 @@ const この端末だけの口 = [
     '/api/restart-gateway', // 入口を落とせる
 ];
 
-function 門番を置く(app, 他の端末を許しているか) {
+function 門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか) {
     app.use((req, res, next) => {
         const 住所 = (req.socket && req.socket.remoteAddress) || '';
 
@@ -317,15 +338,37 @@ function 門番を置く(app, 他の端末を許しているか) {
                 + '合言葉が合っていても、外からは受け付けません。');
         }
 
-        // 他の端末を許していないなら、外からは一切通さない
-        if (!他の端末を許しているか()) {
-            res.status(403).type('text/plain; charset=utf-8');
-            return res.end('このツールは、この端末の中だけで使う設定になっています。\n'
-                + '他の端末から使うには、本体の設定で「他の端末から使う」を入にしてください。');
-        }
+        /*
+         * どの経路から来たかで、許しているかどうかを分けて見る。
+         *
+         *   ・Tailscale（本人だけの端末をつなぐVPN）の中から来た
+         *     → 「Tailscaleから使う」が入かどうかだけを見る
+         *   ・普通のLAN（同じWi-Fi等）から来た
+         *     → 「他の端末から使う」が入かどうかだけを見る
+         *   ・どちらでもない（インターネット等）
+         *     → 合言葉を聞くまでもなく断る
+         *
+         * 片方だけ入にしていても、もう片方の経路までは開かない。
+         * 「Tailscaleの自分の端末だけ許したい。同じWi-Fiの人には
+         * 入口も見せたくない」という使い方ができるようにするため。
+         */
+        const Tailscale経由 = Tailscaleの中か(住所);
+        const 普通のLAN経由 = !Tailscale経由 && 同じLANか(住所);
 
-        // 外のインターネットからは、合言葉を聞くまでもなく断る
-        if (!同じLANか(住所)) {
+        if (Tailscale経由) {
+            if (!(Tailscaleを許しているか && Tailscaleを許しているか())) {
+                res.status(403).type('text/plain; charset=utf-8');
+                return res.end('このツールは、Tailscale経由では使わない設定になっています。\n'
+                    + '使うには、本体の設定で「Tailscaleから使う」を入にしてください。');
+            }
+        } else if (普通のLAN経由) {
+            if (!他の端末を許しているか()) {
+                res.status(403).type('text/plain; charset=utf-8');
+                return res.end('このツールは、この端末の中だけで使う設定になっています。\n'
+                    + '他の端末から使うには、本体の設定で「他の端末から使う」を入にしてください。');
+            }
+        } else {
+            // 外のインターネットからは、合言葉を聞くまでもなく断る
             console.warn(`[門番] LANの外から来ました: ${住所}`);
             res.status(403).type('text/plain; charset=utf-8');
             return res.end('このネットワークからは使えません。');
@@ -380,4 +423,5 @@ module.exports = {
     設定を読む,
     設定を書く,
     同じLANか,
+    Tailscaleの中か,
 };
