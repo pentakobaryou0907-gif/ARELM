@@ -951,6 +951,13 @@
             <div id="brands-page" class="page">
                 <div class="container">
 
+                    <div class="stats-grid compact">
+                        <div class="stat-card"><h3>自社ブランド</h3><p id="brand-stat-own">0</p></div>
+                        <div class="stat-card"><h3>他社・参考ブランド</h3><p id="brand-stat-other">0</p></div>
+                        <div class="stat-card"><h3>古着 出品中</h3><p id="brand-stat-vintage-active">0</p></div>
+                        <div class="stat-card"><h3>古着 売れた利益</h3><p id="brand-stat-vintage-profit">¥0</p></div>
+                    </div>
+
                     <section class="panel-card full-width">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">◈</span>古着ブランドの管理</h3>
@@ -1051,6 +1058,10 @@
                 <div class="container">
                     <h2 class="section-title">SNS連携</h2>
                     <p class="hint">AReGLM 公式アカウント — 投稿文はこのツールの中で作れます。</p>
+                    <div class="stats-grid compact">
+                        <div class="stat-card"><h3>投稿予定数</h3><p id="sns-stat-queue">0</p></div>
+                        <div class="stat-card warn"><h3>未対応の下書き</h3><p id="sns-stat-pending">0</p></div>
+                    </div>
                     <div class="empty-cta">
                         <span>
                             <strong>各SNSの公式APIとは連携しません（審査・規約対応が要るため、意図的に見送っています）。</strong>
@@ -1230,6 +1241,7 @@
                     <div id="suzuri-shop-banner" class="status-banner ok"></div>
                     <div class="hub-stats stats-grid compact">
                         <div class="stat-card"><h3>商品</h3><p id="hub-total-products">0</p></div>
+                        <div class="stat-card warn"><h3>要補充</h3><p id="hub-low-stock">0</p></div>
                         <div class="stat-card"><h3>売上</h3><p id="hub-total-sales">¥0</p></div>
                     </div>
                     <div class="inventory-controls">

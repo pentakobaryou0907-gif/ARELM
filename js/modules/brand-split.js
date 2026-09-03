@@ -85,6 +85,12 @@ function renderBrandSplit() {
     数を出す('other', 組.other.length);
     数を出す('unknown', 組.unknown.length);
 
+    // ページ上部のミニ統計カード（3-1）
+    if (typeof setText === 'function') {
+        setText('brand-stat-own', 組.own.length);
+        setText('brand-stat-other', 組.other.length);
+    }
+
     // 未分類が無いときは、そのタブを出さない。
     // 空のタブがあると、押しても何もなくて戸惑うため。
     const 未タブ = document.querySelector('[data-brand-side="unknown"]');

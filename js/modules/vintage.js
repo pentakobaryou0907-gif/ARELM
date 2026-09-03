@@ -127,14 +127,21 @@ function renderVintage() {
         箱.appendChild(tr);
     });
 
+    const 出品中 = 一覧.filter((v) => !v.売れた);
+    const 売れた = 一覧.filter((v) => v.売れた);
+    const 利 = 売れた.reduce((n, v) => n + 利益(v), 0);
+
     const 合 = document.getElementById('vintage-summary');
     if (合) {
-        const 出品中 = 一覧.filter((v) => !v.売れた);
-        const 売れた = 一覧.filter((v) => v.売れた);
-        const 利 = 売れた.reduce((n, v) => n + 利益(v), 0);
         const 寝ている = 出品中.reduce((n, v) => n + (v.仕入値 || 0), 0);
         合.textContent = `出品中 ${出品中.length}点（仕入 ¥${寝ている.toLocaleString('ja-JP')}）`
             + ` ／ 売れた ${売れた.length}点（利益 ¥${利.toLocaleString('ja-JP')}）`;
+    }
+
+    // ブランドページ上部のミニ統計カード（3-1）
+    if (typeof setText === 'function') {
+        setText('brand-stat-vintage-active', 出品中.length);
+        setText('brand-stat-vintage-profit', `¥${利.toLocaleString('ja-JP')}`);
     }
 }
 
