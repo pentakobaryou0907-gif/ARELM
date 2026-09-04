@@ -91,7 +91,9 @@ async function 保管庫にしまう(file, 覚え書き) {
     const 棚 = await 棚を使う(true);
     return new Promise((返す) => {
         const r = 棚.add(もの);
-        r.onsuccess = () => 返す({ ok: true, 訳: `しまいました:「${file.name}」` });
+        // id も返す。しまった直後に、その項目を別の場所（SNS投稿キューなど）
+        // から指し示したいことがあるため（探し直させない）。
+        r.onsuccess = () => 返す({ ok: true, 訳: `しまいました:「${file.name}」`, id: もの.id });
         r.onerror = () => 返す({ ok: false, 訳: 'しまえませんでした: ' + (r.error?.message || '') });
     });
 }

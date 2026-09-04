@@ -14,13 +14,17 @@ function initSns() {
     document.getElementById('sns-post-carousel-ai-btn')?.addEventListener('click', generateCarouselStoryboard);
     document.getElementById('sns-open-remote-btn')?.addEventListener('click', SNSを遠隔操作で開く);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
+    document.getElementById('sns-video-platform')?.addEventListener('change', renderSnsVideoGuide);
+    document.getElementById('sns-video-jump-btn')?.addEventListener('click', SNS動画をメディアスタジオで組み立てる);
     if (typeof init転換率 === 'function') init転換率();
     populateSnsPlatformSelect();
     populateSnsProductSelect();
     投稿形式が変わった();
+    populateSnsVideoPlatformSelect();
     loadSnsData();
     renderSnsStrategyGuide();
     renderSnsPlatformData();
+    renderSnsVideoGuide();
 }
 
 /**
@@ -575,6 +579,79 @@ function renderSnsPlatformData() {
     ).join('');
 }
 
+/**
+ * SNSごとの、動画まわりの一般的な目安。
+ *
+ * 「アルゴリズムを教えてくれる」ものではない。正直に、根拠のあるものだけ並べる:
+ *   ・比率: 各SNSが公式ヘルプなどで案内している、広く知られた仕様
+ *   ・ハッシュタグ目安: このアプリがすでに使っている数（server/ai/SNS文章.py）
+ * 「◯秒がバズる」のような検証できない数字は書かない。
+ * 「あなた自身にとって何が効くか」は、この下の実績データ（SNS成績を分析する）から出す。
+ */
+const AREGLM_SNS_VIDEO_GUIDE = {
+    instagram: { 比率: '縦 9:16（リール）／ 正方形1:1・4:5（フィード）', 尺の考え方: '短いほど最後まで見てもらいやすい、とよく言われますが断定はできません', ハッシュタグ目安: '2〜4個' },
+    tiktok: { 比率: '縦 9:16', 尺の考え方: '短いほど最後まで見てもらいやすい、とよく言われますが断定はできません', ハッシュタグ目安: '2〜4個' },
+    youtube: { 比率: 'ショート＝縦9:16／通常動画＝横16:9', 尺の考え方: 'ショートは短尺向き、通常動画は内容次第です', ハッシュタグ目安: '2〜4個' },
+    facebook: { 比率: '正方形1:1・4:5、または横16:9', 尺の考え方: '特別な目安はありません', ハッシュタグ目安: '2〜4個' },
+    pinterest: { 比率: '縦2:3が推奨されています', 尺の考え方: '静止画・短い動画のどちらも使われます', ハッシュタグ目安: '2〜4個' },
+};
+
+function populateSnsVideoPlatformSelect() {
+    const sel = document.getElementById('sns-video-platform');
+    if (!sel || !AREGLM_PROFILE) return;
+    sel.innerHTML = Object.entries(AREGLM_PROFILE.sns)
+        .map(([id, s]) => `<option value="${id}">${AReGLM_SECURITY.escapeAttr(s.name)}</option>`)
+        .join('');
+}
+
+/** プラットフォーム別の目安表示＋（あれば）自分の実績からの気づき */
+function renderSnsVideoGuide() {
+    const box = document.getElementById('sns-video-guide');
+    const 気づき欄 = document.getElementById('sns-video-insight');
+    if (!box) return;
+
+    const 選択 = document.getElementById('sns-video-platform')?.value || 'instagram';
+    const 目安 = AREGLM_SNS_VIDEO_GUIDE[選択] || {
+        比率: '（この媒体の目安はまだ登録していません。迷ったら縦9:16が無難です）',
+        尺の考え方: '特別な目安はありません',
+        ハッシュタグ目安: '2〜4個',
+    };
+
+    box.innerHTML = `<dl>
+        <dt>比率</dt><dd>${AReGLM_SECURITY.sanitizeHtml(目安.比率)}</dd>
+        <dt>尺の考え方</dt><dd>${AReGLM_SECURITY.sanitizeHtml(目安.尺の考え方)}</dd>
+        <dt>ハッシュタグ目安</dt><dd>${AReGLM_SECURITY.sanitizeHtml(目安.ハッシュタグ目安)}</dd>
+    </dl>`;
+
+    if (!気づき欄) return;
+    if (typeof SNS成績を分析する !== 'function') {
+        気づき欄.textContent = '';
+        return;
+    }
+    const 分析 = SNS成績を分析する('すべて');
+    if (!分析.足りる || !分析.時間帯) {
+        気づき欄.textContent = 'あなた自身の時間帯別の傾向は、まだ分かりません（「成績を見る」で3件たまると出てきます）。';
+        return;
+    }
+    const 一番 = 分析.時間帯.並び[0];
+    気づき欄.textContent = `あなたの記録では、${一番.名}に出すと反応率が高い傾向があります（${一番.件数}件のデータから）。`;
+}
+
+/**
+ * SNSページから、動画組み立て（メディアスタジオ）へジャンプする。
+ * 選んだプラットフォームに合わせて、書き出しサイズをあらかじめ合わせておく。
+ */
+function SNS動画をメディアスタジオで組み立てる() {
+    const 選択 = document.getElementById('sns-video-platform')?.value || 'instagram';
+    const 縦向き = ['instagram', 'tiktok'].includes(選択);
+    if (typeof switchPage === 'function') switchPage('studio');
+    setTimeout(() => {
+        const sizeSel = document.getElementById('media-video-size');
+        if (sizeSel) sizeSel.value = 選択 === 'youtube' ? '1920x1080' : (縦向き ? '1080x1920' : '1080x1080');
+        document.getElementById('media-lib-refresh-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+}
+
 function populateSnsPlatformSelect() {
     const sel = document.getElementById('sns-platform');
     if (!sel || !AREGLM_PROFILE) return;
@@ -661,7 +738,7 @@ function renderSnsQueue() {
             return `<tr>
             <td><a href="${AReGLM_SECURITY.escapeAttr(link)}" target="_blank" rel="noopener">${AReGLM_SECURITY.sanitizeHtml(profile?.name || q.platform)}</a></td>
             <td><span class="sns-format-badge ${fmt.badgeClass}">${AReGLM_SECURITY.sanitizeHtml(fmt.label)}</span></td>
-            <td>${AReGLM_SECURITY.sanitizeHtml((q.caption || '').slice(0, 50))}…</td>
+            <td>${q.動画保管庫id ? '<span title="動画が添付されています">🎬</span> ' : ''}${AReGLM_SECURITY.sanitizeHtml((q.caption || '').slice(0, 50))}…</td>
             <td><span class="status-badge">${AReGLM_SECURITY.sanitizeHtml(q.status)}</span></td>
             <td>${new Date(q.scheduledAt || q.createdAt).toLocaleString('ja-JP')}</td>
             <td><button class="btn btn-sm btn-danger" onclick="removeSnsQueue('${q.id}')">取消</button></td>
@@ -921,3 +998,6 @@ window.renderSnsStrategyGuide = renderSnsStrategyGuide;
 window.renderSnsPlatformData = renderSnsPlatformData;
 window.initSnsPlatformManage = initSnsPlatformManage;
 window.AREGLM_SNS_POST_FORMATS = AREGLM_SNS_POST_FORMATS;
+window.renderSnsVideoGuide = renderSnsVideoGuide;
+window.populateSnsVideoPlatformSelect = populateSnsVideoPlatformSelect;
+window.SNS動画をメディアスタジオで組み立てる = SNS動画をメディアスタジオで組み立てる;

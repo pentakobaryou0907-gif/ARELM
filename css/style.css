@@ -2616,6 +2616,71 @@ textarea::placeholder {
     white-space: nowrap;
 }
 
+.media-slide-video {
+    width: 96px;
+    height: 96px;
+    display: grid;
+    place-items: center;
+    font-size: 1.6rem;
+    border-radius: 6px;
+    background: rgba(127, 127, 127, 0.12);
+    border: 1px solid var(--areglm-border, #ddd);
+}
+
+/* 保管庫から動画組み立て素材・音源を選ぶピッカー */
+.media-lib-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.media-lib-item {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.5rem;
+    border: 1px solid var(--areglm-border, #ddd);
+    border-radius: 8px;
+    background: var(--areglm-surface, #fafafa);
+}
+
+.media-lib-item img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.media-lib-item-icon {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    place-items: center;
+    font-size: 1.6rem;
+    border-radius: 6px;
+    background: rgba(127, 127, 127, 0.12);
+}
+
+.media-lib-item-name {
+    font-size: 0.72rem;
+    color: var(--areglm-text-muted, #666);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.media-audio-lib-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.media-queue-form {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--areglm-border, #ddd);
+}
+
 .auto-badge {
     font-size: 0.75rem;
     padding: 0.2rem 0.65rem;

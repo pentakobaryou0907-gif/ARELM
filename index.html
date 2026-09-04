@@ -1229,6 +1229,22 @@
                                 <button type="button" id="sns-auto-promo-btn" class="btn btn-accent">自動宣伝（全自動ON時）</button>
                             </form>
                         </section>
+                        <section class="panel-card">
+                            <h3><span class="sec-icon">🎬</span>投稿動画の目安</h3>
+                            <p class="hint">
+                                <strong>実際のランキングの仕組み（アルゴリズム）そのものは分かりません。</strong>
+                                ここにあるのは、各SNSが公式に案内している一般的な仕様と、
+                                <strong>あなた自身の投稿実績</strong>だけです。音源・素材から動画を組み立てるのは、
+                                商品開発ページの「メディアスタジオ」で行います。
+                            </p>
+                            <div class="form-group">
+                                <label for="sns-video-platform">プラットフォーム</label>
+                                <select id="sns-video-platform"></select>
+                            </div>
+                            <div id="sns-video-guide" class="sns-data-card"></div>
+                            <p id="sns-video-insight" class="hint"></p>
+                            <button type="button" id="sns-video-jump-btn" class="btn btn-sm btn-primary">🎬 メディアスタジオで組み立てる</button>
+                        </section>
                         <section class="panel-card full-width">
                         <h3><span class="sec-icon">📱</span>出先から投稿する</h3>
                         <p class="hint">
@@ -1933,6 +1949,40 @@
                             </div>
                             <p id="media-estimate" class="hint"></p>
                             <div id="media-slides" class="media-slides"></div>
+
+                            <h4 class="media-sub">保管庫の素材を追加（2D画像・動画）</h4>
+                            <p class="hint">
+                                すでに書き出し済みの動画（3Dレンダリングのターンテーブル動画なども含む）も、
+                                ここでは「動画」としてそのまま並べられます。<strong>この端末に3Dを描画する機能自体はありません。</strong>
+                            </p>
+                            <div class="media-controls">
+                                <button type="button" id="media-lib-refresh-btn" class="btn btn-secondary btn-sm">保管庫を読み込む</button>
+                            </div>
+                            <div id="media-lib-picker" class="media-lib-picker"></div>
+
+                            <h4 class="media-sub">音源（BGM）</h4>
+                            <p class="hint">音源は動画の長さに合わせて、短ければ繰り返し・長ければ途中で止めます。1つだけ設定できます。</p>
+                            <div class="media-controls">
+                                <label>ファイルから選ぶ <input type="file" id="media-audio-file" accept="audio/*"></label>
+                                <button type="button" id="media-audio-lib-refresh-btn" class="btn btn-secondary btn-sm">保管庫の音声を見る</button>
+                                <button type="button" id="media-audio-clear" class="btn btn-secondary btn-sm">音源を外す</button>
+                            </div>
+                            <div id="media-audio-lib-picker" class="media-lib-picker media-audio-lib-picker"></div>
+                            <p id="media-audio-status" class="hint"></p>
+
+                            <div id="media-video-queue-form" class="media-queue-form" hidden>
+                                <h4 class="media-sub">この動画をSNS投稿キューに追加</h4>
+                                <p id="media-video-queue-note" class="hint"></p>
+                                <div class="form-group">
+                                    <label for="media-video-platform">プラットフォーム</label>
+                                    <select id="media-video-platform"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="media-video-caption">キャプション</label>
+                                    <textarea id="media-video-caption" rows="3" placeholder="投稿文…"></textarea>
+                                </div>
+                                <button type="button" id="media-video-queue-add-btn" class="btn btn-primary btn-sm">SNS投稿キューに追加</button>
+                            </div>
 
                             <h4 class="media-sub">画面録画・録音・スクリーンショット</h4>
                             <div class="media-controls">

@@ -309,6 +309,22 @@ function 下書きを出す(箱, x) {
         札.appendChild(注);
     }
 
+    /**
+     * 動画が添付された下書きについて、正直に書いておく。
+     *
+     * メディアスタジオで組み立てた動画は保管庫に保存されているが、
+     * それをSNSアプリ側の投稿画面に自動で添付する手段は無い
+     * （server/パソコンを操る.js の「できる操作」に、ファイル選択
+     * ダイアログを操作するものが無いため）。無いものを「できる」とは書かない。
+     */
+    if (x.動画保管庫id) {
+        const 動画注記 = document.createElement('small');
+        動画注記.className = 'remote-warn';
+        動画注記.textContent = `🎬 動画が添付されています（保管庫: ${x.動画名 || x.動画保管庫id}）。`
+            + 'SNSアプリ側で投稿するときは、その動画を選んで添付してください（自動添付はできません）。';
+        札.appendChild(動画注記);
+    }
+
     const 決まり = 決まりを探す(場所) || SNSたち.Instagram;
     if (文.length > 決まり.字数) {
         const 注 = document.createElement('small');
