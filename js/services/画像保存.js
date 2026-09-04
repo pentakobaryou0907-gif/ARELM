@@ -42,8 +42,17 @@ function DBを開く() {
     return DBの約束;
 }
 
-/** 画像（data URL）を保存し、後で引ける番号を返す */
-async function 画像を保存する(dataUrl) {
+/**
+ * 画像（data URL）を保存し、後で引ける番号を返す。
+ *
+ * js/modules/camera.js にも同名の関数（撮った写真をこの端末へ保存する、
+ * 引数なし・ボタン直結）があり、どちらもトップレベルのグローバル関数
+ * だったため、名前だけを見ると衝突していた。呼び出す側は必ず
+ * AReGLM_IMAGES.画像を保存する(...) の形で使っているため実害は無かったが、
+ * 素の名前も分けておく（外から見える名前 AReGLM_IMAGES.画像を保存する は
+ * そのまま変えない）。
+ */
+async function 画像データを保存する(dataUrl) {
     const id = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const db = await DBを開く();
     await new Promise((resolve, reject) => {
@@ -86,4 +95,4 @@ async function 画像を消す(id) {
     }
 }
 
-window.AReGLM_IMAGES = { 画像を保存する, 画像を読む, 画像を消す };
+window.AReGLM_IMAGES = { 画像を保存する: 画像データを保存する, 画像を読む, 画像を消す };
