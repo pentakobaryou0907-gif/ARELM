@@ -789,12 +789,18 @@ function handleSnsPost(e) {
     const shop = AREGLM_PROFILE.suzuriShop;
     const fullCaption = caption.includes(shop) ? caption : `${caption}\n\n🛍 ${shop}`;
 
+    // Instagram公式API（Graph API）でそのまま投稿したい場合の画像URL（任意）。
+    // 公式APIの仕様上、インターネット上で開けるURLである必要があるため、
+    // ここで受け取った値をそのまま持たせておき、下書きカード側で使う。
+    const imageUrl = (document.getElementById('sns-image-url')?.value || '').trim();
+
     const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
     queue.push({
         id: 'sns_' + Date.now(),
         platform,
         format,
         caption: fullCaption,
+        imageUrl: imageUrl || undefined,
         videoNote: videoNote || undefined,
         carouselNote: carouselNote || undefined,
         sticker: sticker || undefined,

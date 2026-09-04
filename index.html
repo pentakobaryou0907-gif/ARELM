@@ -1214,6 +1214,17 @@
                                     <label for="sns-caption">キャプション</label>
                                     <textarea id="sns-caption" rows="4" required placeholder="投稿文…"></textarea>
                                 </div>
+                                <div class="form-group">
+                                    <label for="sns-image-url">画像URL（Instagram公式APIでそのまま投稿する場合・任意）</label>
+                                    <input type="url" id="sns-image-url" placeholder="例: https://suzuri.jp/.../商品画像.jpg">
+                                    <p class="hint">
+                                        入れると「遠隔操作」の下書きカードに「Instagram公式APIで投稿する」ボタンが出ます
+                                        （設定でInstagram連携が済んでいる場合）。公式APIの仕様上、
+                                        <strong>インターネット上の誰かが開けるURL</strong>である必要があります
+                                        （SUZURI商品ページの画像URLなど）。この端末だけに置いた画像はそのままでは使えません。
+                                        現時点はフィード投稿（1枚）のみ対応です。
+                                    </p>
+                                </div>
                                 <div class="form-group sns-format-field" id="sns-post-reel-wrap" hidden>
                                     <label for="sns-post-video-note">動画の構成メモ（カット割り・使う素材など）</label>
                                     <textarea id="sns-post-video-note" rows="5" placeholder="例: カット1: 着用ショット→カット2: 素材アップ→カット3: 歩いている様子"></textarea>

@@ -356,6 +356,48 @@ function 下書きを出す(箱, x) {
         並び.appendChild(共有);
     }
 
+    // Instagram公式Graph APIで、この下書きをそのまま投稿するボタン。
+    // 画像URL（インターネット上で開けるもの）が入っていて、かつ連携済みのときだけ出す。
+    // 2段階にしている: 1回目でコンテナ作成（Meta側にまだ公開されない下準備）、
+    // 2回目の押下で初めて本当に公開する。「公開ボタンは本人が最終確認して押す」という
+    // このツールの決まりに沿うため、1クリックで即公開はしない。
+    if (x.platform === 'instagram' && x.imageUrl && window.AReGLM_INSTAGRAM) {
+        AReGLM_INSTAGRAM.isConnected().then((つながっているか) => {
+            if (!つながっているか) return;
+            const igボタン = document.createElement('button');
+            igボタン.type = 'button';
+            igボタン.className = 'btn btn-sm btn-accent';
+            igボタン.textContent = '📷 Instagram公式APIで投稿する';
+            let containerId = null;
+            igボタン.addEventListener('click', async () => {
+                igボタン.disabled = true;
+                try {
+                    if (!containerId) {
+                        igボタン.textContent = '下準備しています…';
+                        containerId = await AReGLM_INSTAGRAM.createMediaContainer(x.imageUrl, 文);
+                        await AReGLM_INSTAGRAM._コンテナ完了を待つ(containerId);
+                        igボタン.textContent = '✅ 公開する（最終確認）';
+                        showNotification('下準備ができました。もう一度押すと、実際にInstagramへ公開します。', 'success');
+                    } else {
+                        igボタン.textContent = '公開しています…';
+                        await AReGLM_INSTAGRAM.publish(containerId);
+                        showNotification('Instagramへ公開しました', 'success');
+                        if (typeof removeSnsQueue === 'function' && x.id) removeSnsQueue(x.id);
+                        札.remove();
+                        return;
+                    }
+                } catch (err) {
+                    showNotification('Instagram公式APIでの投稿に失敗しました: ' + err.message, 'error');
+                    igボタン.textContent = '📷 Instagram公式APIで投稿する';
+                    containerId = null;
+                } finally {
+                    igボタン.disabled = false;
+                }
+            });
+            並び.appendChild(igボタン);
+        });
+    }
+
     札.appendChild(並び);
     箱.appendChild(札);
 }
