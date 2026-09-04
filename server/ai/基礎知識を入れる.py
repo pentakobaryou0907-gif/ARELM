@@ -23,6 +23,7 @@ from knowledge import KnowledgeBase      # noqa: E402
 from semantics import SemanticModel      # noqa: E402
 import rules                              # noqa: E402
 
+import _import_fix                        # noqa: E402,F401  日本語ファイル名のimportがNFC/NFDの食い違いで失敗しないようにする
 import 基礎知識_会話                       # noqa: E402
 import 基礎知識_アパレル                    # noqa: E402
 import 基礎知識_経営                       # noqa: E402

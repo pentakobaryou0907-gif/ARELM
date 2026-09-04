@@ -32,6 +32,7 @@
 
 import json
 
+import _import_fix  # noqa: F401  日本語ファイル名のimportがNFC/NFDの食い違いで失敗しないようにする
 import ローカルLLM
 import エージェント定義
 

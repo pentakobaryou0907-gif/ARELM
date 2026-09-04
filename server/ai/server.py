@@ -31,10 +31,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # すぐ下で `import 自分で覚える` のように、日本語名のモジュールを
 # そのまま import している。Syncthing同期（Mac⇄Windows）のたびに
 # 日本語ファイル名が分解済み(NFD)へ戻り、Pythonのimportが見つけられなく
-# なることがあるため、使う直前にここで直しておく。詳細は nfc_fix.py。
+# なることがあるため、使う直前にここで直しておく（ファイル名自体をNFCへ
+# 戻す・詳細はnfc_fix.py）。_import_fix はその保険として、通常のimportが
+# 失敗したときだけ働く、より下の階層での二重の備え（ファイル名を書き換え
+# なくても、その場でNFC正規化して探し直す）。
 from nfc_fix import 日本語ファイル名をNFCに直す  # noqa: E402
 日本語ファイル名をNFCに直す()
-
+import _import_fix                         # noqa: E402,F401  上の直しが効かなかった場合の保険
 import analyzer                            # noqa: E402
 from chat_engine import ChatEngine         # noqa: E402
 from generator import Generator, PhraseLearner  # noqa: E402
