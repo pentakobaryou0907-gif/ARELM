@@ -7563,6 +7563,30 @@ html[data-theme] .chat-bubble.user {
     font-size: 0.72rem;
 }
 .lib-kinds .lib-count:empty { display: none; }
+.lib-categories { margin-top: 0.4rem; }
+
+.lib-tag-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.4rem 0;
+}
+.lib-tag-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.78rem;
+}
+.lib-tag-form select,
+.lib-tag-form input {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.4rem;
+    border: 1px solid var(--field-border, var(--card-border));
+    border-radius: 6px;
+    background: var(--field-bg, var(--card-bg));
+    color: inherit;
+}
 
 .lib-list {
     display: grid;

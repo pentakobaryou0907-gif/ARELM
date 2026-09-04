@@ -1681,12 +1681,42 @@
                         <p class="hint">写真・動画・資料をこのツールの中に置けます。<strong>すべてこの端末の中だけに保存され、外部へは一切送りません。</strong></p>
                         <div id="library-summary" class="hint"></div>
 
+                        <div class="lib-tag-form hint">
+                            <label>分類（任意）
+                                <select id="library-category">
+                                    <option value="">（未分類＝資料）</option>
+                                    <option value="プロジェクト">プロジェクト</option>
+                                    <option value="素材">素材</option>
+                                    <option value="商品">商品</option>
+                                    <option value="投稿">投稿</option>
+                                    <option value="経理">経理</option>
+                                    <option value="ログ">ログ</option>
+                                </select>
+                            </label>
+                            <label>商品番号（任意）
+                                <input type="text" id="library-product-no" placeholder="例: TDR-021" size="10">
+                            </label>
+                            <label>用途（任意）
+                                <input type="text" id="library-purpose" placeholder="例: design" size="10">
+                            </label>
+                            <span class="hint">※ここで入れておくと、次に選ぶファイルにタグが付き、取り出すときに「商品番号_用途_日付」の名前で書き出せます</span>
+                        </div>
+
                         <div class="hub-tabs lib-kinds">
                             <button type="button" class="hub-tab-btn active" data-lib-kind="すべて">すべて <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-kind="画像">画像 <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-kind="動画">動画 <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-kind="PDF">PDF <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-kind="資料">資料 <em class="lib-count"></em></button>
+                        </div>
+                        <div class="hub-tabs lib-categories">
+                            <button type="button" class="hub-tab-btn active" data-lib-category="すべて">分類:すべて <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="プロジェクト">プロジェクト <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="素材">素材 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="商品">商品 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="投稿">投稿 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="経理">経理 <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="ログ">ログ <em class="lib-count"></em></button>
                         </div>
 
                         <div id="library-list" class="lib-list"></div>

@@ -14,7 +14,30 @@
  *   文字に変換して持つと1.3倍に膨らむので、そのまま持つ。
  *
  * すべてこの端末の中だけに保存する。外部へは一切送らない。
+ *
+ * 仕様書（8.1/8.2）との対応:
+ *   構想書は /Projects /Assets /Products /Posts /Finance /Logs という
+ *   フォルダ分けと、「商品番号_用途_日付」という名前の付け方を求めている。
+ *   このツールはOSのフォルダではなく1つの保管庫（IndexedDB）に何でも
+ *   入れる作りなので、フォルダの代わりに「分類」というタグを付けて
+ *   絞り込めるようにする。名前の付け方は、商品番号・用途を入れておくと
+ *   標準ファイル名（例: TDR-021_design_2026-09-04.png）を組み立てて
+ *   取り出せるようにする（元のファイル名や中身は変えない＝非破壊）。
+ *   「消さずに不要ボックスへ」という8.1の決まりは trash.js が担当済み。
  */
+
+/** 8.1の標準フォルダに対応する「分類」タグ一覧 */
+const 保管庫の分類一覧 = ['資料', 'プロジェクト', '素材', '商品', '投稿', '経理', 'ログ'];
+
+/** 8.2の命名規則「商品番号_用途_日付」を組み立てる（表示・書き出し用。元ファイルは変えない） */
+function 標準ファイル名を作る(商品番号, 用途, 日付文字列, 元の名前) {
+    const 拡張子 = (元の名前 || '').includes('.') ? '.' + 元の名前.split('.').pop() : '';
+    const 日付 = (日付文字列 ? new Date(日付文字列) : new Date());
+    const 日付部 = 日付.toISOString().slice(0, 10);
+    const 部品 = [商品番号, 用途, 日付部].map((s) => (s || '').trim()).filter(Boolean);
+    if (!部品.length) return '';
+    return 部品.join('_') + 拡張子;
+}
 
 const 保管庫の名 = 'areglm_library';
 const 保管庫の版 = 1;
@@ -62,7 +85,7 @@ function 種類を見る(file) {
  * 同じ名前・同じ大きさのものは入れない。
  * 同じ写真が何枚も溜まると、探すのが難しくなるため。
  */
-async function 保管庫にしまう(file, 覚え書き) {
+async function 保管庫にしまう(file, 覚え書き, 追加情報) {
     if (!file) return { ok: false, 訳: 'ファイルがありません' };
 
     // 重複の確認を先に済ませる。
@@ -77,10 +100,19 @@ async function 保管庫にしまう(file, 覚え書き) {
         return { ok: false, 訳: `同じものがすでにあります:「${file.name}」` };
     }
 
+    // 分類・商品番号・用途は任意（8.1/8.2対応）。指定が無ければ従来どおり「資料」扱い。
+    const 情 = 追加情報 || {};
+    const 分類 = 保管庫の分類一覧.includes(情.分類) ? 情.分類 : '資料';
+    const 商品番号 = (情.商品番号 || '').trim();
+    const 用途 = (情.用途 || '').trim();
+
     const もの = {
         id: 'lib_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         名前: file.name,
         種類: 種類を見る(file),
+        分類,
+        商品番号,
+        用途,
         形式: file.type || '不明',
         大きさ: file.size,
         中身: file,
@@ -145,22 +177,27 @@ async function 保管庫から出す(id) {
     });
 }
 
-/** 端末に書き出す */
+/** 端末に書き出す。商品番号・用途が入っていれば、8.2の標準名で書き出す（中身は変えない） */
 async function 保管庫から書き出す(id) {
     const もの = await 保管庫から取る(id);
     if (!もの) return;
 
+    const 標準名 = (もの.商品番号 || もの.用途)
+        ? 標準ファイル名を作る(もの.商品番号, もの.用途, もの.入れた日, もの.名前)
+        : '';
+
     const a = document.createElement('a');
     a.href = URL.createObjectURL(もの.中身);
-    a.download = もの.名前;
+    a.download = 標準名 || もの.名前;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 /* ---------- 画面 ---------- */
 
-/** いま絞り込んでいる種類 */
+/** いま絞り込んでいる種類・分類 */
 let 保管庫の絞り = 'すべて';
+let 保管庫の分類絞り = 'すべて';
 
 function 大きさの言い方(n) {
     if (n < 1024) return n + ' B';
@@ -173,9 +210,12 @@ async function renderLibrary() {
     if (!箱) return;
 
     const 全部 = await 一覧を読む();
-    const 出す = 保管庫の絞り === 'すべて'
+    let 出す = 保管庫の絞り === 'すべて'
         ? 全部
         : 全部.filter((x) => x.種類 === 保管庫の絞り);
+    if (保管庫の分類絞り !== 'すべて') {
+        出す = 出す.filter((x) => (x.分類 || '資料') === 保管庫の分類絞り);
+    }
 
     // 使っている量を出す。入れすぎに気づけるようにするため。
     const 合 = document.getElementById('library-summary');
@@ -198,6 +238,17 @@ async function renderLibrary() {
         const 印 = b.querySelector('.lib-count');
         if (印) 印.textContent = n ? String(n) : '';
         b.classList.toggle('active', k === 保管庫の絞り);
+    });
+
+    // 分類（8.1のフォルダ相当）ごとの数をタブに出す
+    const 分類ごと = {};
+    全部.forEach((x) => { const c = x.分類 || '資料'; 分類ごと[c] = (分類ごと[c] || 0) + 1; });
+    document.querySelectorAll('[data-lib-category]').forEach((b) => {
+        const k = b.dataset.libCategory;
+        const n = k === 'すべて' ? 全部.length : (分類ごと[k] || 0);
+        const 印 = b.querySelector('.lib-count');
+        if (印) 印.textContent = n ? String(n) : '';
+        b.classList.toggle('active', k === 保管庫の分類絞り);
     });
 
     箱.innerHTML = '';
@@ -235,7 +286,9 @@ async function renderLibrary() {
 
         const 情 = document.createElement('div');
         情.className = 'lib-info';
-        情.textContent = `${x.種類} ／ ${大きさの言い方(x.大きさ)} ／ `
+        const 分類表示 = (x.分類 && x.分類 !== '資料') ? `📁${x.分類} ／ ` : '';
+        const 商品番号表示 = x.商品番号 ? `${x.商品番号} ／ ` : '';
+        情.textContent = `${分類表示}${商品番号表示}${x.種類} ／ ${大きさの言い方(x.大きさ)} ／ `
             + new Date(x.入れた日).toLocaleDateString('ja-JP');
 
         const 操 = document.createElement('div');
@@ -271,10 +324,17 @@ function initLibrary() {
         const ファイルたち = [...(e.target.files || [])];
         if (!ファイルたち.length) return;
 
+        // 8.1/8.2対応の任意入力（未入力なら従来どおり無タグで入る）
+        const 追加情報 = {
+            分類: document.getElementById('library-category')?.value || '',
+            商品番号: document.getElementById('library-product-no')?.value || '',
+            用途: document.getElementById('library-purpose')?.value || '',
+        };
+
         let 入った = 0;
         let 断り = [];
         for (const f of ファイルたち) {
-            const r = await 保管庫にしまう(f);
+            const r = await 保管庫にしまう(f, '', 追加情報);
             if (r.ok) 入った++;
             else 断り.push(r.訳);
         }
@@ -298,6 +358,13 @@ function initLibrary() {
         });
     });
 
+    document.querySelectorAll('[data-lib-category]').forEach((b) => {
+        b.addEventListener('click', () => {
+            保管庫の分類絞り = b.dataset.libCategory;
+            renderLibrary();
+        });
+    });
+
     renderLibrary();
 }
 
@@ -305,3 +372,5 @@ window.initLibrary = initLibrary;
 window.renderLibrary = renderLibrary;
 window.保管庫にしまう = 保管庫にしまう;
 window.一覧を読む = 一覧を読む;
+window.標準ファイル名を作る = 標準ファイル名を作る;
+window.保管庫の分類一覧 = 保管庫の分類一覧;
