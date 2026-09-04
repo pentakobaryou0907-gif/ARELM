@@ -525,16 +525,53 @@ function addVideoUrl() {
     }
 }
 
-function openGooglePhotosPicker() {
-    const cfg = getApiConfig();
-    const clientId = cfg.google_client_id;
-    if (!clientId) {
+/**
+ * Googleフォトから写真を選んで、チャットへ画像添付する。
+ *
+ * 連携済み（設定 → Google連携でログイン済み）なら、Google公式の
+ * Photos Picker画面を開いて本人に選んでもらい、選んだ分だけ画像として
+ * 取り込む。未連携ならローカルのファイル選択にフォールバックする
+ * （これまでと同じ、機能が落ちるだけで壊れない形）。
+ */
+async function openGooglePhotosPicker() {
+    const btn = document.getElementById('chat-google-photos-btn');
+    if (!(await AReGLM_GOOGLE_OAUTH.isConnected())) {
         document.getElementById('chat-file-input')?.click();
-        showNotification('Google Client ID未設定のため、ローカルファイルを選択します', 'info');
+        showNotification('Google未連携のため、ローカルファイルを選択します（設定 → Google連携でログインすると、Googleフォトから直接選べます）', 'info');
         return;
     }
-    showNotification('Google Pickerは設定のClient IDでOAuth連携後に利用できます。今は📎で画像を添付してください。', 'info');
-    document.getElementById('chat-file-input')?.click();
+
+    const 元のラベル = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = '選択中…'; }
+
+    try {
+        const 選ばれた一覧 = await AReGLM_GOOGLE_PHOTOS.pick();
+        if (!選ばれた一覧.length) {
+            showNotification('写真は選ばれませんでした', 'info');
+            return;
+        }
+
+        let 成功 = 0;
+        for (const item of 選ばれた一覧) {
+            try {
+                const dataUrl = await AReGLM_GOOGLE_PHOTOS.downloadAsDataUrl(item);
+                chatAttachments.push({
+                    type: 'image',
+                    name: item.mediaFile?.filename || `Googleフォト_${成功 + 1}`,
+                    data: dataUrl,
+                });
+                成功 += 1;
+            } catch (e) {
+                showNotification(`1枚取得できませんでした: ${e.message}`, 'error');
+            }
+        }
+        renderChatAttachments();
+        if (成功) showNotification(`Googleフォトから${成功}枚を添付しました`, 'success');
+    } catch (e) {
+        showNotification(`Googleフォトを開けませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 元のラベル; }
+    }
 }
 
 function handleChatUrl() {

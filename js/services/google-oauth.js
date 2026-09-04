@@ -21,14 +21,16 @@
  *   中継するだけ（Notion・Obsidian連携と同じ考え方）。
  *
  * 要求する権限（スコープ）:
- *   今はGmail送信・Driveバックアップの2つだけ。カレンダーは、実際の
- *   予定の追加・削除の実装ができた時点で、このスコープに追加すればよい
+ *   Gmail送信・Driveバックアップ・Google Photosピッカー（本人が選んだ
+ *   写真だけに届く、読み取り専用）の3つ。カレンダーは、実際の予定の
+ *   追加・削除の実装ができた時点で、このスコープに追加すればよい
  *   （Googleの「段階的な認可」の仕組みで、再ログイン1回で済む）。
  */
 const AReGLM_GOOGLE_OAUTH = {
     SCOPES: [
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
     ],
 
     _accessToken: null,

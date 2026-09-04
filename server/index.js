@@ -1426,6 +1426,32 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-09-03',
     },
     {
+        // Googleフォト連携（チャットへの写真添付）用。Google公式の
+        // Photos Picker API（本人が毎回ピッカー画面で選んだ写真だけに
+        // 届く。ライブラリを丸ごとは見えない、Google側の権限モデル）。
+        host: 'photospicker.googleapis.com',
+        name: 'Google Photos Picker API',
+        provider: 'Google（公式）',
+        terms: 'https://developers.google.com/photos/picker/guides/get-started-picker',
+        無料か: true,
+        無料の中身: '無料枠あり（課金対象ではない読み取り専用API／2026年9月時点）',
+        確かめた日: '2026-09-05',
+    },
+    {
+        // 上のPicker APIが返す、選んだ写真の実データを取りに行く先。
+        // 固定のAPIホストではなく、Google写真のCDN（本人がGoogleへ
+        // ログインしていないと開けない、署名付きの一時URL）。
+        // ここだけはホスト名の末尾一致で判定する
+        // （/api/google-photos-download 側で個別に確認）。
+        host: 'lh3.googleusercontent.com',
+        name: 'Google Photos（画像データ本体）',
+        provider: 'Google（公式）',
+        terms: 'https://developers.google.com/photos/picker/guides/get-started-picker',
+        無料か: true,
+        無料の中身: '認証済みの本人にだけ返る、選んだ写真そのもの（課金対象ではない）',
+        確かめた日: '2026-09-05',
+    },
+    {
         // Notion連携用。統合トークンは、Notion側で本人が明示的に
         // 共有したページ・データベースにしか届かない（Notion自身の
         // 権限モデルによる制限）。ここでの許可は「送信先ホストとして
@@ -2296,6 +2322,73 @@ app.post('/api/drive-proxy', async (req, res) => {
         let data;
         try { data = JSON.parse(text); } catch { data = { raw: text }; }
         res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Google Photos連携（チャットへの写真添付）
+ *
+ * photospicker.mediaitems.readonly スコープのみを要求する前提のプロキシ。
+ * セッション作成・状態確認・選ばれた写真一覧の取得を中継する
+ * （Notion・Gmail・Drive連携と同じ、method・path・bodyをそのまま渡す形）。
+ */
+app.post('/api/google-photos-proxy', async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    const { method, path, body } = req.body || {};
+    if (!method || !path || !/^\/[\w./%?=-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const upstream = await safeFetch(`https://photospicker.googleapis.com${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: (method === 'GET' || method === 'HEAD' || body == null) ? undefined : JSON.stringify(body)
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Google Photosで選んだ写真の実データを取ってくる。
+ *
+ * Picker APIが返す baseUrl は固定のAPIホストではなく、Googleの画像CDN
+ * （lh3.googleusercontent.com）上の一時URL。ここだけは決まったパスではなく
+ * 「本人が選んだ写真のURLかどうか」をホスト名で確認してから中継する
+ * （それ以外のホストへは safeFetch がそもそも例外で止める）。
+ */
+app.post('/api/google-photos-download', async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    const { url } = req.body || {};
+    let 検査済み;
+    try {
+        検査済み = new URL(url);
+    } catch {
+        return res.status(400).json({ error: 'urlの形が不正です' });
+    }
+    if (検査済み.protocol !== 'https:' || !検査済み.hostname.endsWith('.googleusercontent.com')) {
+        return res.status(400).json({ error: 'Google写真のURL以外は取得できません' });
+    }
+    try {
+        const upstream = await safeFetch(検査済み.toString(), {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!upstream.ok) {
+            return res.status(upstream.status).json({ error: `画像を取得できませんでした（HTTP ${upstream.status}）` });
+        }
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        res.type(upstream.headers.get('content-type') || 'application/octet-stream').send(buf);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
