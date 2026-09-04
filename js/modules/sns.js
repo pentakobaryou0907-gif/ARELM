@@ -640,9 +640,15 @@ const AREGLM_SNS_POST_FORMATS = {
 };
 
 function renderSnsQueue() {
+    const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
+
+    // ページ上部のミニ統計カード（3-1）: 投稿予定数＝キュー全体、
+    // 未対応の下書き＝まだ手を付けていない（status: pending）もの。
+    setText('sns-stat-queue', queue.length);
+    setText('sns-stat-pending', queue.filter((q) => q.status === 'pending').length);
+
     const tbody = document.getElementById('sns-queue-tbody');
     if (!tbody) return;
-    const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
     if (!queue.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">キューは空です</td></tr>';
         return;

@@ -289,6 +289,10 @@ function updateEcStats() {
     setHubText('hub-total-products', products.length);
     setHubText('hub-total-sales', `¥${sales.reduce((s, x) => s + (x.total || 0), 0).toLocaleString('ja-JP')}`);
 
+    // 要補充件数（3-1）: ホームの計算式（数量が発注点以下）と合わせる。
+    const lowStock = products.filter((p) => p.quantity <= (p.reorderLevel || 5)).length;
+    setHubText('hub-low-stock', lowStock);
+
     // ここだけは SUZURI のものを数える。グッズ制作の欄なので。
     setHubText('hub-studio-products', getSuzuriProductsOnly().length);
 }
