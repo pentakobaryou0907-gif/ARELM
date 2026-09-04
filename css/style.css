@@ -20,6 +20,59 @@
     --areglm-muted: #64748b;
     --areglm-border: #e2e8f0;
     --areglm-warn: #f59e0b;
+
+    /* ==========================================================
+       配色トークン（役割ごとに3種のアクセント + カード/入力欄の共通見た目）
+
+       目的: 画面ごとにバラバラだった差し色・カードの角丸/余白/影・
+       入力欄の背景を、ここに集約した変数だけで表す。
+
+       役割は3つだけに絞る:
+         primary  … 通常の操作（ボタン・選択中タブなど）
+                    → 時間帯テーマの差し色（--tone-accent）にそのまま乗る
+         danger   … 警告・危険・削除など、取り消しにくい操作
+         success  … 完了・成功・有効になっている状態
+       warning は danger 寄りだが「まだ致命的ではない注意」を表す
+       ものとして danger とは別に用意する（既存の --areglm-warn を採用）。
+
+       時間帯（朝・昼・夕方・夜・深夜）が変わっても、警告・危険・成功の
+       「意味の色」までは変えない。変わるのは背景の濃さだけにして、
+       どの時間帯でも同じ意味の色と分かるようにする。
+       ========================================================== */
+    --role-primary: var(--tone-accent, var(--areglm-accent));
+    --role-primary-ink: #ffffff;
+
+    --role-danger: #dc2626;
+    --role-danger-bg: rgba(220, 38, 38, 0.09);
+    --role-danger-border: rgba(220, 38, 38, 0.35);
+
+    --role-success: #16a34a;
+    --role-success-bg: rgba(22, 163, 74, 0.1);
+    --role-success-border: rgba(22, 163, 74, 0.35);
+
+    --role-warning: var(--areglm-warn);
+    --role-warning-bg: rgba(245, 158, 11, 0.1);
+    --role-warning-border: rgba(245, 158, 11, 0.35);
+
+    /* ---------- カードの共通見た目 ----------
+       主役級のカード（panel-card / stat-card など、ページの主な内容を
+       載せる大きめのカード）と、一覧の行のような控えめなカードとで
+       2段階だけに絞る。 */
+    --card-bg:        var(--tone-card,  var(--areglm-surface, #ffffff));
+    --card-border:    var(--tone-line,  var(--areglm-border, #e2e8f0));
+    --card-radius:    12px;
+    --card-radius-sm: 10px;
+    --card-padding:    1.25rem;
+    --card-padding-sm: 0.85rem 1rem;
+    --card-shadow:    0 2px 10px rgba(15, 23, 42, 0.08);
+    --card-shadow-sm: none;
+
+    /* ---------- 入力欄／読み取り専用欄 ----------
+       書き込める欄は少し浮き上がった色に、読み取り専用（disabled /
+       readonly）は地の色に沈めて、触れないことが一目で分かるようにする。 */
+    --field-bg:          var(--tone-card2, #f8f9fa);
+    --field-bg-readonly: var(--tone-bg, #eef1f4);
+    --field-border:      var(--tone-line, var(--areglm-border, #e2e8f0));
 }
 
 body {
@@ -121,8 +174,8 @@ body {
 }
 
 .btn-primary {
-    background: var(--areglm-accent);
-    color: white;
+    background: var(--role-primary);
+    color: var(--role-primary-ink);
 }
 
 .btn-primary:hover {
@@ -130,9 +183,12 @@ body {
     transform: translateY(-2px);
 }
 
+/* btn-accent は btn-primary とほぼ同じ「通常操作」の役割なのに
+   別の色（グラデーション）を持っていた。役割としては同じ primary
+   に揃え、見た目の違いは形（グラデーション）だけに絞る。 */
 .btn-accent {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: white;
+    background: linear-gradient(135deg, var(--role-primary), var(--areglm-accent-hover));
+    color: var(--role-primary-ink);
 }
 
 .btn-accent:hover {
@@ -150,30 +206,30 @@ body {
 }
 
 .btn-success {
-    background: #28a745;
+    background: var(--role-success);
     color: white;
 }
 
 .btn-success:hover {
-    background: #218838;
+    background: #15803d;
 }
 
 .btn-warning {
-    background: #ffc107;
+    background: var(--role-warning);
     color: #212529;
 }
 
 .btn-warning:hover {
-    background: #e0a800;
+    background: #d97706;
 }
 
 .btn-danger {
-    background: #dc3545;
+    background: var(--role-danger);
     color: white;
 }
 
 .btn-danger:hover {
-    background: #c82333;
+    background: #b91c1c;
 }
 
 /* ヘッダー */
@@ -260,10 +316,10 @@ section {
 }
 
 .stat-card {
-    background: white;
+    background: var(--card-bg);
     padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
     text-align: center;
     transition: transform 0.3s ease;
 }
@@ -336,10 +392,10 @@ section {
 }
 
 .panel-card {
-    background: var(--areglm-surface);
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    background: var(--card-bg);
+    padding: var(--card-padding);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
 }
 
 .panel-card.full-width {
@@ -609,16 +665,16 @@ section {
 }
 
 .platform-card {
-    background: white;
+    background: var(--card-bg);
     padding: 1rem;
-    border-radius: 10px;
-    border: 1px solid var(--areglm-border);
+    border-radius: var(--card-radius-sm);
+    border: 1px solid var(--card-border);
     text-align: center;
 }
 
 .platform-card.connected {
-    border-color: #86efac;
-    background: #f0fdf4;
+    border-color: var(--role-success-border);
+    background: var(--role-success-bg);
 }
 
 .platform-card h4 {
@@ -771,11 +827,11 @@ section {
 }
 
 .brand-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    box-shadow: var(--card-shadow);
     transition: all 0.3s ease;
 }
 
@@ -920,11 +976,25 @@ section {
 .form-group textarea {
     width: 100%;
     padding: 0.75rem;
-    border: 2px solid #e1e5e9;
+    border: 2px solid var(--field-border);
     border-radius: 8px;
     font-size: 1rem;
+    background: var(--field-bg);
     color: #1a1a1a;
     transition: border-color 0.3s ease;
+}
+
+/* 読み取り専用（disabled / readonly）は、書き込める欄と見分けが
+   つくよう、地の色に近い --field-bg-readonly に沈め、触れないことが
+   カーソルからも分かるようにする。 */
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled,
+.form-group input[readonly],
+.form-group textarea[readonly] {
+    background: var(--field-bg-readonly);
+    color: var(--tone-ink-dim, #888);
+    cursor: not-allowed;
 }
 
 /*
@@ -947,7 +1017,7 @@ textarea::placeholder {
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--role-primary);
 }
 
 /* 売上管理 */
@@ -1216,9 +1286,9 @@ textarea::placeholder {
 
 .feature-card {
     padding: 1rem 0.5rem;
-    border: 2px solid var(--areglm-border);
-    border-radius: 12px;
-    background: #fff;
+    border: 2px solid var(--card-border);
+    border-radius: var(--card-radius);
+    background: var(--card-bg);
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85rem;
@@ -1228,12 +1298,12 @@ textarea::placeholder {
 .feature-card span {
     display: block;
     font-size: 1.25rem;
-    color: var(--areglm-accent);
+    color: var(--role-primary);
     margin-bottom: 0.25rem;
 }
 
 .feature-card:hover {
-    border-color: var(--areglm-accent);
+    border-color: var(--role-primary);
 }
 
 .stats-compact .stat-card {
@@ -1309,9 +1379,9 @@ textarea::placeholder {
 
 .dev-card {
     padding: 1rem;
-    border: 1px solid var(--areglm-border);
-    border-radius: 10px;
-    background: #fafafa;
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    background: var(--card-bg);
 }
 
 /* 「データがありません」の見た目が、書き方（.empty / .empty-activity /
@@ -1632,19 +1702,19 @@ textarea::placeholder {
 
 /* ブランドカードの改善 */
 .brand-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    box-shadow: var(--card-shadow);
     transition: all 0.3s ease;
-    border: 1px solid #eee;
+    border: 1px solid var(--card-border);
     cursor: pointer;
 }
 
 .brand-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border-color: #667eea;
+    border-color: var(--role-primary);
 }
 
 .brand-card-header {
@@ -2085,10 +2155,10 @@ textarea::placeholder {
 }
 
 .sns-account-card {
-    background: #fff;
+    background: var(--card-bg);
     padding: 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--areglm-border);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
     text-align: center;
 }
 
@@ -2108,13 +2178,13 @@ textarea::placeholder {
 }
 
 .sns-strategy-card {
-    /* 他のカードは var(--areglm-surface) を使っており、テーマ（ダーク等）に
-       合わせて色が変わる。ここだけ #fff 固定だったため、ダークテーマで
-       このカードだけ白いまま浮いて見えていた。 */
-    background: var(--areglm-surface);
+    /* カードの背景・角丸・余白は共通トークン（--card-*）に統一。
+       時間帯テーマの上書き（html[data-theme] .sns-strategy-card）が
+       実際の色を決めるので、ここは素の状態のフォールバックにあたる。 */
+    background: var(--card-bg);
     padding: 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--areglm-border);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
 }
 
 .sns-strategy-card h4 {
@@ -2180,14 +2250,14 @@ textarea::placeholder {
 }
 
 .memo-card {
-    background: var(--areglm-surface, #fafafa);
-    border: 1px solid var(--areglm-border, #ddd);
-    border-radius: 10px;
-    padding: 0.75rem 0.9rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    padding: var(--card-padding-sm);
 }
 
 .memo-card.pinned {
-    border-color: var(--areglm-primary, #333);
+    border-color: var(--role-primary);
     background: var(--areglm-primary-tint, #f4f0ff);
 }
 
@@ -2903,11 +2973,11 @@ textarea::placeholder {
 }
 
 .series-card {
-    border: 1px solid var(--areglm-border, #ddd);
+    border: 1px solid var(--card-border);
     border-left-width: 4px;
-    border-radius: 10px;
-    background: var(--areglm-surface, #fafafa);
-    padding: 0.75rem 0.95rem;
+    border-radius: var(--card-radius-sm);
+    background: var(--card-bg);
+    padding: var(--card-padding-sm);
 }
 
 .series-card.status-planning { border-left-color: #9aa0a6; }
@@ -3600,10 +3670,10 @@ textarea::placeholder {
 }
 
 .sns-data-card {
-    border: 1px solid var(--areglm-border, #ddd);
-    border-radius: 10px;
-    background: var(--areglm-surface, #fafafa);
-    padding: 0.85rem 1rem;
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    background: var(--card-bg);
+    padding: var(--card-padding-sm);
 }
 
 .sns-data-card h4 {
@@ -4607,17 +4677,17 @@ svg {
 }
 
 .welcome-card {
-    padding: 0.85rem 1rem;
-    border: 1px solid var(--areglm-border, #ddd);
-    border-radius: 12px;
-    background: #fff;
+    padding: var(--card-padding-sm);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    background: var(--card-bg);
     font-family: inherit;
     cursor: pointer;
     transition: border-color 0.15s, transform 0.15s;
 }
 
 .welcome-card:hover {
-    border-color: var(--areglm-primary, #333);
+    border-color: var(--role-primary);
     transform: translateY(-2px);
 }
 
@@ -4835,7 +4905,7 @@ html[data-theme="midnight"] img {
    ========================================================== */
 
 .wake-card {
-    border-left: 3px solid var(--areglm-accent, #6366f1);
+    border-left: 3px solid var(--role-primary);
 }
 
 .wake-switch {
@@ -6806,7 +6876,19 @@ html[data-theme] .check-row,
 html[data-theme] .req-row,
 html[data-theme] .rule-item,
 html[data-theme] .trash-item,
-html[data-theme] .wake-mode-item {
+html[data-theme] .wake-mode-item,
+html[data-theme] .dev-card,
+html[data-theme] .lib-card,
+html[data-theme] .bsplit-card,
+html[data-theme] .platform-card,
+html[data-theme] .series-card,
+html[data-theme] .sns-account-card,
+html[data-theme] .sns-data-card,
+html[data-theme] .sns-strategy-card,
+html[data-theme] .task-manage-card,
+html[data-theme] .weekly-report-card,
+html[data-theme] .welcome-card,
+html[data-theme] .wake-card {
     background: var(--tone-card) !important;
     border-color: var(--tone-line) !important;
     color: var(--tone-ink);
@@ -6823,9 +6905,22 @@ html[data-theme] .composer-box,
 html[data-theme] input,
 html[data-theme] textarea,
 html[data-theme] select {
-    background: var(--tone-card2) !important;
+    background: var(--field-bg) !important;
     border-color: var(--tone-line) !important;
     color: var(--tone-ink) !important;
+}
+
+/* 読み取り専用（disabled / readonly）は、時間帯テーマの上でも
+   書き込める欄より沈んだ色にして、触れないことを見分けられるようにする。
+   属性セレクタの分、上の入力欄ルールより詳しさが勝るのでこれで上書きできる。 */
+html[data-theme] input:disabled,
+html[data-theme] textarea:disabled,
+html[data-theme] select:disabled,
+html[data-theme] input[readonly],
+html[data-theme] textarea[readonly] {
+    background: var(--field-bg-readonly) !important;
+    color: var(--tone-ink-dim) !important;
+    cursor: not-allowed;
 }
 
 html[data-theme] .hint,
@@ -7222,10 +7317,10 @@ html[data-theme] .chat-bubble.user {
 .bsplit-card {
     display: grid;
     gap: 0.3rem;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid var(--tone-line, var(--areglm-border));
-    border-radius: 10px;
-    background: var(--tone-card, #fff);
+    padding: var(--card-padding-sm);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    background: var(--card-bg);
 }
 
 .bsplit-head {
@@ -7341,9 +7436,9 @@ html[data-theme] .chat-bubble.user {
     display: grid;
     gap: 0.25rem;
     padding: 0.6rem;
-    border: 1px solid var(--tone-line, var(--areglm-border));
-    border-radius: 10px;
-    background: var(--tone-card, #fff);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    background: var(--card-bg);
     min-width: 0;
 }
 
@@ -8704,8 +8799,11 @@ html[data-theme] .chat-bubble.user {
     border-radius: 6px; font-size: 0.74rem; word-break: break-all;
     background: var(--tone-bg, rgba(128,128,128,0.08));
 }
-.btn-warn { background: var(--areglm-warn); color: #fff; }
-.btn-danger { background: #dc2626; color: #fff; }
+/* .btn-warning（同じ役割で別名）と背景は同じ役割トークンを使うが、
+   文字色は白のままだと --role-warning の明るさではコントラスト不足に
+   なるため、.btn-warning に合わせて濃い文字色にする。 */
+.btn-warn { background: var(--role-warning); color: #212529; }
+.btn-danger { background: var(--role-danger); color: #fff; }
 #remote-screen input[type=text] { flex: 1; min-width: 12rem; }
 
 /* 遠隔操作とタスク（Canvaの図のとおり） */
@@ -9200,14 +9298,11 @@ html[data-theme] .chat-bubble.user {
     margin-top: 0.6rem;
 }
 .weekly-report-card {
-    /* --areglm-surface-2 は定義されておらず、フォールバックの
-       rgba(0,0,0,0.03) はダークテーマの背景（ほぼ黒）に対しては
-       ほとんど見分けが付かなかった。他のカードと同じ、テーマごとに
-       色が変わる --areglm-surface に合わせる。 */
-    background: var(--areglm-surface);
-    border: 1px solid var(--areglm-border);
-    border-radius: 10px;
-    padding: 0.9rem 1rem;
+    /* カードの背景・角丸・余白は共通トークン（--card-*）に統一。 */
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius-sm);
+    padding: var(--card-padding-sm);
 }
 .weekly-report-card h4 {
     display: flex;
@@ -9504,10 +9599,10 @@ html[data-theme] .chat-bubble.user {
     margin-top: 0.8rem;
 }
 .task-manage-card {
-    background: var(--areglm-surface, #fff);
-    border: 1px solid var(--areglm-border, #e2e8f0);
-    border-radius: 12px;
-    padding: 0.8rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding-sm);
     font-size: 0.86rem;
 }
 .task-manage-card .bg-task-head {
