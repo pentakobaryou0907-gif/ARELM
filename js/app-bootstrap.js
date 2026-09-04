@@ -185,6 +185,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // APIキーの保存（この端末の中に暗号化保存。外部には送らない）
     initClaudeKeyInput();
     initSuzuriKeyInput();
+    initInstagramKeyInput();
     initGeminiKeyInput();
     initGroqKeyInput();
     initHuggingfaceKeyInput();
@@ -329,6 +330,57 @@ function initSuzuriKeyInput() {
         await 表示を直す();
         showNotification('SUZURI APIトークンを暗号化して保存しました', 'success');
         if (typeof renderSuzuriStatus === 'function') renderSuzuriStatus();
+        AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
+        AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
+
+/**
+ * Instagram連携（公式Graph API）のトークン・ユーザーID入力欄。
+ *
+ * SUZURIと同じ、専用の保存ボタンで直接暗号化保存する方式。
+ * 非公式の自動操作は使わない方針のため、この2つが揃わない限り
+ * js/services/instagram-api.js は何もできない（意図的な二重の関門）。
+ */
+function initInstagramKeyInput() {
+    const トークン欄 = document.getElementById('instagram-api-token');
+    const id欄 = document.getElementById('instagram-ig-user-id');
+    const 保存 = document.getElementById('instagram-api-token-save');
+    const 状態 = document.getElementById('instagram-api-token-status');
+    if (!トークン欄 || !id欄 || !保存) return;
+
+    const 表示を直す = async () => {
+        const 設定済み = await AReGLM_INSTAGRAM?.isConnected();
+        トークン欄.placeholder = 設定済み ? '•••• 設定済み' : 'アクセストークン';
+        id欄.value = localStorage.getItem('areglm_instagram_ig_user_id') || '';
+        if (状態) {
+            状態.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいトークンを入れて保存）'
+                : 'まだ設定されていません。';
+        }
+    };
+
+    保存.addEventListener('click', async () => {
+        const トークン = トークン欄.value.trim();
+        const igUserId = id欄.value.trim();
+        if (!トークン || !igUserId) {
+            showNotification('アクセストークンとInstagramユーザーIDの両方を入れてください', 'error');
+            return;
+        }
+
+        await AReGLM_SECURITY.saveApiKeySecure('instagram', 'access_token', トークン);
+        localStorage.setItem('areglm_instagram_ig_user_id', igUserId);
+
+        const cfg = getApiConfig();
+        if (!cfg.instagram) cfg.instagram = {};
+        cfg.instagram.api = { connected: true, updatedAt: new Date().toISOString() };
+        saveApiConfig(cfg);
+
+        トークン欄.value = '';
+        await 表示を直す();
+        showNotification('Instagram連携の情報を暗号化して保存しました', 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
     });

@@ -1452,6 +1452,18 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-09-05',
     },
     {
+        // Instagram投稿（公式Graph API）用。非公式の自動操作は使わない方針。
+        // アクセストークンは、オーナー自身がMeta for Developersで発行した
+        // ものだけを使う（この端末で勝手に取得・共有することはない）。
+        host: 'graph.facebook.com',
+        name: 'Instagram Graph API',
+        provider: 'Meta（公式）',
+        terms: 'https://developers.facebook.com/terms',
+        無料か: true,
+        無料の中身: '投稿・取得は無料枠あり（広告配信等の課金機能は使わない／2026年9月時点）',
+        確かめた日: '2026-09-05',
+    },
+    {
         // Notion連携用。統合トークンは、Notion側で本人が明示的に
         // 共有したページ・データベースにしか届かない（Notion自身の
         // 権限モデルによる制限）。ここでの許可は「送信先ホストとして
@@ -2389,6 +2401,37 @@ app.post('/api/google-photos-download', async (req, res) => {
         }
         const buf = Buffer.from(await upstream.arrayBuffer());
         res.type(upstream.headers.get('content-type') || 'application/octet-stream').send(buf);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Instagram投稿（公式Graph API）
+ *
+ * method・path・bodyをそのまま中継する、他のGoogle/Notion連携と同じ形。
+ * アクセストークンはヘッダーで毎回受け取るだけで、サーバー側では保持しない。
+ * バージョン（v21.0）はここで固定して付け、呼び出し側は
+ * /{ig-user-id}/media のような相対パスだけ渡せばよいようにする。
+ */
+app.post('/api/instagram-proxy', async (req, res) => {
+    const token = req.headers['x-instagram-access-token'];
+    if (!token) return res.status(401).json({ error: 'Instagramのアクセストークンが必要です' });
+    const { method, path, body } = req.body || {};
+    if (!method || !path || !/^\/[\w./%?=&-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const 区切り = path.includes('?') ? '&' : '?';
+        const upstream = await safeFetch(`https://graph.facebook.com/v21.0${path}${区切り}access_token=${encodeURIComponent(token)}`, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: (method === 'GET' || method === 'HEAD' || body == null) ? undefined : JSON.stringify(body)
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

@@ -2468,6 +2468,44 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">📷</span>Instagram連携（公式Graph API・下準備）</h3>
+                        <p class="hint">
+                            非公式の自動操作は使わない方針のため、Instagramへの投稿は
+                            Meta公式の「Instagram Graph API」だけを使います。<strong>既定は未設定です。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">Meta for Developers</a>
+                            でアプリを作り「Instagram Graph API」製品を追加、投稿先のInstagramを
+                            プロアカウント化してFacebookページに連携し、そのページ経由でアクセストークンを
+                            発行してください（自分のアカウントをアプリの管理者/テスターに加えれば、
+                            審査を待たずに使えます）。発行したトークンと、投稿先のInstagramユーザーID
+                            （Graph APIの /me/accounts → instagram_business_account で調べられます）を
+                            下に入れてください。
+                        </p>
+                        <p class="hint">
+                            <strong>今の時点でできること：</strong>連携の保存・接続状態の確認までです。
+                            実際の投稿（画像URLを渡しての下書き作成→公開）を画面から呼び出す導線は、
+                            次の段階で用意します。また公式APIの仕様上、投稿する画像は
+                            <strong>インターネット上の誰かが開けるURL</strong>である必要があります
+                            （Meta側のサーバーが取りに来るため）。この端末だけに置いた画像は、
+                            そのままでは使えません。
+                        </p>
+                        <div class="form-group">
+                            <label for="instagram-api-token">アクセストークン</label>
+                            <input type="password" id="instagram-api-token" placeholder="Instagram/Facebook アクセストークン" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="instagram-ig-user-id">InstagramユーザーID</label>
+                            <input type="text" id="instagram-ig-user-id" placeholder="例: 17841400000000000" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="instagram-api-token-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <p id="instagram-api-token-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📝</span>Notion連携</h3>
                         <p class="hint">
                             記録（週次レポートなど）をNotionのデータベースへ送れるようにします。
@@ -2974,6 +3012,7 @@
     <script src="js/services/local-first.js" defer></script>
     <script src="js/services/ai-engine.js" defer></script>
     <script src="js/services/suzuri-api.js" defer></script>
+    <script src="js/services/instagram-api.js" defer></script>
     <script src="js/services/notion-api.js" defer></script>
     <script src="js/services/obsidian-api.js" defer></script>
     <script src="js/services/google-oauth.js" defer></script>
