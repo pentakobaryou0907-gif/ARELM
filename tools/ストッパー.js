@@ -699,7 +699,11 @@ function 見るファイルを集める(限定) {
                 const 次 = path.join(道, x.name);
                 if (x.isDirectory()) 潜る(次);
                 else if (/\.(js|py|sh|command|css)$/.test(x.name)) {
-                    出.push(path.relative(本体, 次));
+                    // macOSは日本語ファイル名を分解済み(NFD)で返すことがあるが、
+                    // この下の各決まりが道を見るときの正規表現（/ストッパー/ 等）は
+                    // 合成済み(NFC)で書かれている。揃えておかないと、
+                    // 「自分自身は見ない」といった自己除外が静かに効かなくなる。
+                    出.push(path.relative(本体, 次).normalize('NFC'));
                 }
             });
         })(実);
@@ -709,7 +713,7 @@ function 見るファイルを集める(限定) {
     if (fs.existsSync(ai)) {
         fs.readdirSync(ai).forEach((f) => {
             if (/\.py$/.test(f)) {
-                const 道 = path.relative(本体, path.join(ai, f));
+                const 道 = path.relative(本体, path.join(ai, f)).normalize('NFC');
                 if (!出.includes(道)) 出.push(道);
             }
         });
