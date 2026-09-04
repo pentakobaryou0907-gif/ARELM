@@ -1670,6 +1670,7 @@ proxyToAiEngine('POST', '/code-review');
 proxyToAiEngine('POST', '/translate');
 proxyToAiEngine('POST', '/agent-route');
 proxyToAiEngine('POST', '/agent-task/submit');
+proxyToAiEngine('POST', '/agent-chain/submit');
 proxyToAiEngine('GET', '/agent-task/list');
 proxyToAiEngine('POST', '/agent-task/cancel');
 proxyToAiEngine('POST', '/agent-task/retry');

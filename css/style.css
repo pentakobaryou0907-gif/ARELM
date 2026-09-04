@@ -9424,6 +9424,17 @@ html[data-theme] .chat-bubble.user {
     border-top: 1px dashed rgba(255, 255, 255, 0.15);
     color: #b8c4d4;
 }
+/* オーケストレーター（連携作業）の、手順ごとの進み具合 */
+.bg-task-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem;
+    margin-top: 0.3rem;
+    font-size: 0.74rem;
+    color: #9fb0c3;
+}
+.bg-task-step-arrow { opacity: 0.5; }
 
 /* ページ一覧の左サイドバー化（広い画面向け）
    スマホ幅の下部タブバーと同じ要素（.bottom-nav）を使い回し、
@@ -9518,4 +9529,31 @@ html[data-theme] .chat-bubble.user {
 }
 .task-manage-card .guard-row {
     margin-top: 0.5rem;
+}
+.task-manage-card .bg-task-steps {
+    color: var(--tone-ink-dim, var(--areglm-muted, #888));
+}
+
+/* オーケストレーター（作業状況ページの、担当を選んで連携させるカード） */
+.agent-chain-picker, .agent-chain-steps, .agent-chain-recipes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.agent-chain-steps { min-height: 2.4rem; align-items: center; }
+.chip-btn {
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--areglm-border, #e2e8f0);
+    background: var(--areglm-surface, #fff);
+    color: var(--areglm-ink, var(--areglm-text, inherit));
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.chip-btn:hover { border-color: var(--areglm-accent, #6366f1); }
+.chip-btn-active {
+    background: var(--areglm-accent, #6366f1);
+    color: #fff;
+    border-color: var(--areglm-accent, #6366f1);
 }

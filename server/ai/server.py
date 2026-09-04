@@ -722,6 +722,25 @@ class Handler(BaseHTTPRequestHandler):
                 task = バックグラウンド作業.追加する(内容, agent=data.get('agent') or None)
                 return self._send(200, {'ok': True, 'task': task})
 
+            # ---- マルチエージェント化 拡張2: オーケストレーター（複数担当の連携作業） ----
+            if self.path == '/agent-chain/submit':
+                import バックグラウンド作業
+
+                目的 = (data.get('目的') or '').strip()
+                if not 目的:
+                    return self._send(400, {'error': '目的が必要です'})
+                verdict = rules.check(目的)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, 'error': verdict['reason']})
+                手順 = data.get('手順')
+                if not isinstance(手順, list) or not 手順:
+                    return self._send(400, {'error': '手順（担当の並び）が必要です'})
+                try:
+                    task = バックグラウンド作業.連携作業を追加する(目的, 手順)
+                except ValueError as e:
+                    return self._send(400, {'error': str(e)})
+                return self._send(200, {'ok': True, 'task': task})
+
             # ---- 作業状況の管理: 取り消し・やり直し・削除 ----
             if self.path == '/agent-task/cancel':
                 import バックグラウンド作業

@@ -2073,6 +2073,36 @@
                         「裏で〜して」と頼んだ作業が、ここに並びます。待機中の作業は取り消せ、
                         失敗した作業はやり直せます。
                     </p>
+
+                    <section class="panel-card full-width" id="agent-chain-card">
+                        <h3><span class="sec-icon">🔗</span>オーケストレーター（担当を順番に連携させる）</h3>
+                        <p class="hint">
+                            1人の担当に丸ごと聞くのではなく、専門ごとに順番へ回します。
+                            前の担当の答えを、次の担当がそのまま引き継いで続きを作ります。
+                            実際の投稿・アップロード等は行いません（できるのは下書きまでです）。
+                        </p>
+                        <div class="form-group">
+                            <label for="agent-chain-goal">全体の目的</label>
+                            <textarea id="agent-chain-goal" rows="3" placeholder="例: 新しいデニムパンツの商品を考えて、投稿文まで作って"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>よくある流れ</label>
+                            <div class="agent-chain-recipes" id="agent-chain-recipes">
+                                <button type="button" class="btn btn-sm btn-secondary" data-recipe="studio,inventory,sns">商品開発 → 在庫登録 → 投稿文</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-recipe="brands,studio,sns">ブランド調査 → 商品の方向性 → 投稿文</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>担当を選ぶ（進めたい順にクリック）</label>
+                            <div id="agent-chain-picker" class="agent-chain-picker"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>手順（押すと外せます）</label>
+                            <div id="agent-chain-steps" class="agent-chain-steps"></div>
+                        </div>
+                        <button type="button" id="agent-chain-run-btn" class="btn btn-primary">🔗 この手順で進める</button>
+                    </section>
+
                     <div class="hub-tabs" id="task-status-tabs">
                         <button type="button" class="hub-tab-btn active" data-task-status="すべて">すべて</button>
                         <button type="button" class="hub-tab-btn" data-task-status="待機中">待機中</button>
