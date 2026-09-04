@@ -18,6 +18,14 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# test_chat_engine() が `from chat_engine import ChatEngine` する際、
+# chat_engine.py 自身が `import 自分で覚える` 等の日本語名モジュールを
+# importする。Syncthing同期でこれらのファイル名が分解済み(NFD)に戻り、
+# ModuleNotFoundError でテストが落ちることがあるため、先に直しておく。
+# 詳細は nfc_fix.py。
+from nfc_fix import 日本語ファイル名をNFCに直す                # noqa: E402
+日本語ファイル名をNFCに直す()
+
 from fuzzy import best_match, levenshtein, normalize_loose   # noqa: E402
 from knowledge import KnowledgeBase                          # noqa: E402
 from learner import OnlineLearner                            # noqa: E402

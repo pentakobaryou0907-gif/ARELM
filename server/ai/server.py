@@ -28,6 +28,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# すぐ下で `import 自分で覚える` のように、日本語名のモジュールを
+# そのまま import している。Syncthing同期（Mac⇄Windows）のたびに
+# 日本語ファイル名が分解済み(NFD)へ戻り、Pythonのimportが見つけられなく
+# なることがあるため、使う直前にここで直しておく。詳細は nfc_fix.py。
+from nfc_fix import 日本語ファイル名をNFCに直す  # noqa: E402
+日本語ファイル名をNFCに直す()
+
 import analyzer                            # noqa: E402
 from chat_engine import ChatEngine         # noqa: E402
 from generator import Generator, PhraseLearner  # noqa: E402
