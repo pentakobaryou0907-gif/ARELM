@@ -596,6 +596,21 @@ class Handler(BaseHTTPRequestHandler):
                     data.get('型') or 'キャプション')
                 return self._send(200, 結果)
 
+            if self.path == '/sns/carousel':
+                # カルーセル投稿（複数枚スライド）の構成（フック＋各スライドの見出し・本文）を作る。
+                import SNS文章
+                商品情報 = (data.get('商品情報') or '').strip()
+                if not 商品情報:
+                    return self._send(400, {'ok': False, '訳': '商品情報が必要です'})
+
+                verdict = rules.check(商品情報)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, '訳': verdict['reason'], 'フック': '', 'スライド': []})
+
+                結果 = SNS文章.カルーセル構成を作る(
+                    商品情報, data.get('トーン') or 'カジュアル', int(data.get('枚数') or 5))
+                return self._send(200, 結果)
+
             if self.path == '/brand-memory':
                 # ブランドの記録を1件足す（記録テーブルへの手入力・自動保存の両方から使う）
                 import ブランドの記憶

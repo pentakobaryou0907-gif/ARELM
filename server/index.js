@@ -740,6 +740,21 @@ app.post('/api/sns/generate', async (req, res) => {
     }
 });
 
+/** カルーセル投稿（複数枚スライド）の構成（フック＋各スライド）を作る（ローカルLLM） */
+app.post('/api/sns/carousel', async (req, res) => {
+    try {
+        const r = await fetch(`http://127.0.0.1:${AI_ENGINE_PORT}/sns/carousel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body || {}),
+            signal: AbortSignal.timeout(130000),
+        });
+        res.status(r.status).json(await r.json());
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: 'AIエンジンに繋がりませんでした: ' + e.message });
+    }
+});
+
 /**
  * AI受付（最小版）― お客様からの問い合わせに、返信の下書きを作る
  *

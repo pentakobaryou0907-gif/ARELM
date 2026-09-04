@@ -11,6 +11,7 @@ function initSns() {
     document.getElementById('sns-gen-type')?.addEventListener('change', 投稿文の型が変わった);
     document.getElementById('sns-post-format')?.addEventListener('change', 投稿形式が変わった);
     document.getElementById('sns-post-reel-ai-btn')?.addEventListener('click', generateReelStoryboard);
+    document.getElementById('sns-post-carousel-ai-btn')?.addEventListener('click', generateCarouselStoryboard);
     document.getElementById('sns-open-remote-btn')?.addEventListener('click', SNSを遠隔操作で開く);
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     if (typeof init転換率 === 'function') init転換率();
@@ -34,6 +35,7 @@ function 投稿形式が変わった() {
     const 形式 = document.getElementById('sns-post-format')?.value || 'feed';
     const 表示 = {
         'sns-post-reel-wrap': 形式 === 'reel',
+        'sns-post-carousel-wrap': 形式 === 'carousel',
         'sns-post-story-wrap': 形式 === 'story',
         'sns-post-shopping-wrap': 形式 === 'shopping',
     };
@@ -409,6 +411,60 @@ async function generateReelStoryboard() {
 }
 
 /**
+ * カルーセル投稿（複数枚スライド）の構成を、いま書いてあるキャプションをもとにAIで考える。
+ *
+ * SNSページの「①商品レビュー」テンプレートが前提にしている形式だが、
+ * これまで作る手段が無かった（server/ai/SNS文章.py のカルーセル構成を作る は
+ * どこからも呼ばれていなかった）。ここで /api/sns/carousel につないで使えるようにする。
+ *
+ * 結果は「スライド構成」欄にそのまま入る（追記ではなく置き換え）。
+ */
+async function generateCarouselStoryboard() {
+    const btn = document.getElementById('sns-post-carousel-ai-btn');
+    const hint = document.getElementById('sns-post-carousel-ai-hint');
+    const noteBox = document.getElementById('sns-post-carousel-note');
+    const captionBox = document.getElementById('sns-caption');
+    const slidesSel = document.getElementById('sns-post-carousel-slides');
+    if (!noteBox) return;
+
+    const 元 = (captionBox?.value || '').trim();
+    if (!元) {
+        showNotification('先にキャプション欄に、商品や内容の説明を書いてください（それをもとに構成を考えます）', 'error');
+        return;
+    }
+
+    const 枚数 = Number(slidesSel?.value) || 4;
+
+    if (btn) btn.disabled = true;
+    if (hint) hint.hidden = false;
+
+    try {
+        const r = await fetch('/api/sns/carousel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 商品情報: 元, トーン: document.getElementById('sns-gen-tone')?.value || 'カジュアル', 枚数 }),
+        }).then((y) => y.json());
+
+        if (!r.ok) {
+            showNotification(r.訳 || '構成を作れませんでした', 'error');
+            return;
+        }
+
+        const 行たち = [`【フック】${r['フック'] || ''}`];
+        (r['スライド'] || []).forEach((s, i) => {
+            行たち.push(`【${i + 1}枚目】${s.見出し || ''}／${s.本文 || ''}`);
+        });
+        noteBox.value = 行たち.join('\n');
+        showNotification('構成メモを入れました。内容を見て、必要なら書き直してください', 'success');
+    } catch (e) {
+        showNotification(`つながりませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (hint) hint.hidden = true;
+    }
+}
+
+/**
  * 自主研究「アパレルブランドにおいてSNS投稿の内容の違いが購買意欲に与える影響」
  * （20123019 小林遼汰／2025年7月16日版）の検証手法STEP3で選定された3投稿系統。
  *
@@ -577,6 +633,7 @@ function renderSnsAccounts() {
  */
 const AREGLM_SNS_POST_FORMATS = {
     feed: { label: '🖼 フィード', 型: '写真', badgeClass: '' },
+    carousel: { label: '🎠 カルーセル', 型: '複数枚', badgeClass: 'fmt-carousel' },
     reel: { label: '🎬 リール', 型: '動画', badgeClass: 'fmt-reel' },
     story: { label: '⭐ ストーリーズ', 型: 'ストーリー', badgeClass: 'fmt-story' },
     shopping: { label: '🛍 ショッピング', 型: 'ショッピング', badgeClass: 'fmt-shopping' },
@@ -622,9 +679,10 @@ function handleSnsPost(e) {
 
     // 形式ごとの追加項目。空欄なら保存しない（キューの表示・分析を汚さないため）。
     const videoNote = format === 'reel' ? (document.getElementById('sns-post-video-note')?.value || '').trim() : '';
+    const carouselNote = format === 'carousel' ? (document.getElementById('sns-post-carousel-note')?.value || '').trim() : '';
     const sticker = format === 'story' ? (document.getElementById('sns-post-sticker')?.value || '').trim() : '';
 
-    for (const extra of [videoNote, sticker]) {
+    for (const extra of [videoNote, carouselNote, sticker]) {
         if (!extra) continue;
         const extraPolicy = AReGLM_CONTENT_POLICY.validate(extra);
         if (!extraPolicy.ok) {
@@ -655,6 +713,7 @@ function handleSnsPost(e) {
         format,
         caption: fullCaption,
         videoNote: videoNote || undefined,
+        carouselNote: carouselNote || undefined,
         sticker: sticker || undefined,
         taggedProducts: taggedProducts.length ? taggedProducts : undefined,
         profileUrl: AREGLM_PROFILE.sns[platform]?.url,

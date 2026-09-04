@@ -1148,8 +1148,8 @@
                         <section class="panel-card">
                             <h3>投稿作成</h3>
                             <p class="hint">
-                                Instagramの主な投稿形式（フィード写真・リール・ストーリーズ・ショッピング投稿）ごとに、
-                                必要な項目をここでまとめて用意できます。実際にログインして投稿する操作は、
+                                Instagramの主な投稿形式（フィード写真・カルーセル・リール・ストーリーズ・ショッピング投稿）
+                                ごとに、必要な項目をここでまとめて用意できます。実際にログインして投稿する操作は、
                                 引き続き「遠隔操作」から行ってください。
                             </p>
                             <form id="sns-post-form">
@@ -1167,6 +1167,7 @@
                                     <label for="sns-post-format">投稿形式</label>
                                     <select id="sns-post-format">
                                         <option value="feed">🖼 フィード投稿（写真）</option>
+                                        <option value="carousel">🎠 カルーセル（複数枚投稿）</option>
                                         <option value="reel">🎬 リール（動画）</option>
                                         <option value="story">⭐ ストーリーズ</option>
                                         <option value="shopping">🛍 ショッピング投稿（商品タグ付き）</option>
@@ -1188,6 +1189,20 @@
                                         <button type="button" id="sns-post-reel-ai-btn" class="btn btn-sm btn-secondary">🎬 AIで構成を考える（キャプションをもとに）</button>
                                     </div>
                                     <p class="hint" id="sns-post-reel-ai-hint" hidden>考えています…</p>
+                                </div>
+                                <div class="form-group sns-format-field" id="sns-post-carousel-wrap" hidden>
+                                    <label for="sns-post-carousel-note">スライド構成（1枚目のフック・各スライドの見出しと本文）</label>
+                                    <textarea id="sns-post-carousel-note" rows="6" placeholder="例: 【フック】このデニム、実は3年履いてもへたれません&#10;【1枚目】素材／12オンスの厚手デニムを使用&#10;【2枚目】シルエット／すっきり見えるテーパード"></textarea>
+                                    <div class="sns-reel-ai-row">
+                                        <select id="sns-post-carousel-slides">
+                                            <option value="3">フック＋2枚</option>
+                                            <option value="4" selected>フック＋3枚</option>
+                                            <option value="5">フック＋4枚</option>
+                                            <option value="6">フック＋5枚</option>
+                                        </select>
+                                        <button type="button" id="sns-post-carousel-ai-btn" class="btn btn-sm btn-secondary">🎠 AIで構成を考える（キャプションをもとに）</button>
+                                    </div>
+                                    <p class="hint" id="sns-post-carousel-ai-hint" hidden>考えています…</p>
                                 </div>
                                 <div class="form-group sns-format-field" id="sns-post-story-wrap" hidden>
                                     <label for="sns-post-sticker">ステッカー案（投票・質問など・任意）</label>

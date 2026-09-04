@@ -8812,6 +8812,7 @@ html[data-theme] .chat-bubble.user {
 .sns-format-badge.fmt-reel { background: #fdeeee; color: #b64545; }
 .sns-format-badge.fmt-story { background: #fff6e0; color: #9a7300; }
 .sns-format-badge.fmt-shopping { background: #eafaf0; color: #1f8a52; }
+.sns-format-badge.fmt-carousel { background: #f0eaff; color: #6a3fb0; }
 .sns-reel-ai-row {
     display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap; align-items: center;
 }

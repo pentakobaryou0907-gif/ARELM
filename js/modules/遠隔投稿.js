@@ -289,6 +289,13 @@ function 下書きを出す(箱, x) {
         注.textContent = `🎬 動画の構成メモ: ${x.videoNote}`;
         札.appendChild(注);
     }
+    if (x.carouselNote) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.style.whiteSpace = 'pre-wrap';
+        注.textContent = `🎠 スライド構成: ${x.carouselNote}`;
+        札.appendChild(注);
+    }
     if (x.sticker) {
         const 注 = document.createElement('p');
         注.className = 'hint';
