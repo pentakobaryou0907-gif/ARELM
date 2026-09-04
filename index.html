@@ -163,6 +163,28 @@
                         <button type="button" class="btn btn-primary btn-sm" data-goto="inventory">商品を登録する →</button>
                     </div>
 
+                    <section data-home-group="today" class="panel-card full-width" id="monitor-dashboard-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">📡</span>作業の状況</h3>
+                            <button type="button" id="monitor-dashboard-refresh" class="btn-icon" title="更新" aria-label="更新">↻</button>
+                        </div>
+                        <p class="hint">全ての作業（裏で進めているもの・確認待ちのもの・止まっているもの）を、ここ一か所でまとめて見られます。</p>
+                        <div class="monitor-groups">
+                            <div class="monitor-group">
+                                <h4>🔄 進行中 <em id="monitor-progress-count" class="monitor-count"></em></h4>
+                                <ul id="monitor-progress-list" class="monitor-list"></ul>
+                            </div>
+                            <div class="monitor-group">
+                                <h4>⏸ 確認待ち <em id="monitor-waiting-count" class="monitor-count"></em></h4>
+                                <ul id="monitor-waiting-list" class="monitor-list"></ul>
+                            </div>
+                            <div class="monitor-group">
+                                <h4>🛑 止まっている <em id="monitor-stuck-count" class="monitor-count"></em></h4>
+                                <ul id="monitor-stuck-list" class="monitor-list"></ul>
+                            </div>
+                        </div>
+                    </section>
+
                     <section data-home-group="today" class="panel-card">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">⏱</span>タイマー</h3>
@@ -3119,6 +3141,7 @@
     <script src="js/modules/音声のやり取り記録.js" defer></script>
     <script src="js/modules/ページ内目次.js" defer></script>
     <script src="js/modules/バックグラウンド作業.js" defer></script>
+    <script src="js/modules/監視ダッシュボード.js" defer></script>
     <script src="js/modules/外部ノート連携設定.js" defer></script>
     <script src="js/modules/Google連携設定.js" defer></script>
     <script src="js/modules/エージェント定義.js" defer></script>
