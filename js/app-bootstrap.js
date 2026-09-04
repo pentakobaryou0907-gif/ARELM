@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initSnsPlatformManage === 'function') initSnsPlatformManage();
     if (typeof initInventoryHub === 'function') initInventoryHub();
     if (typeof initProductDev === 'function') initProductDev();
+    if (typeof initOemDeck === 'function') initOemDeck();
     if (typeof initBackup === 'function') initBackup();
     if (typeof initDesignStudio === 'function') initDesignStudio();
     if (typeof initCustomers === 'function') initCustomers();

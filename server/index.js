@@ -22,7 +22,10 @@ const LEARNING_FILE = path.join(DATA_DIR, 'learning.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-app.use(express.json({ limit: '20mb' }));
+// テックパックスライド作成では、複数商品ぶんのデザイン画像（data URL）を
+// まとめて1回のリクエストで送るため、20mbでは商品数が増えるとすぐ超える。
+// 50mbに広げて、その代わり本文はJSONのみ（実行ファイル等は乗らない）。
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false }));   // 合言葉の入力を受け取るため
 
 /**
@@ -1703,6 +1706,53 @@ proxyToAiEngine('POST', '/similarity/check');
 proxyToAiEngine('POST', '/similarity/duplicates');
 proxyToAiEngine('POST', '/semantics/similar');
 proxyToAiEngine('POST', '/semantics/rebuild');
+proxyToAiEngine('POST', '/design/learn-media');
+proxyToAiEngine('POST', '/design/suggest');
+proxyToAiEngine('POST', '/techpack-deck/build');
+
+/**
+ * チャットで添付した動画を、デザイン学習にかけられるよう一時保存する。
+ *
+ * 動画は画像と違って大きくなりがちなので、data URL(base64)ではなく
+ * このエンドポイントでいったんこの端末のディスクへ受け取り、
+ * ファイルパスだけを /api/ai-local/design/learn-media に渡す
+ * （/api/extract-document-text と同じ、生バイナリを直接受ける方式）。
+ *
+ * 保存先はこの端末の中だけ。外部へは一切送らない。
+ */
+const 一時動画の置き場 = path.join(DATA_DIR, 'tmp_uploads');
+app.post('/api/design/upload-media', express.raw({ type: '*/*', limit: '200mb' }), (req, res) => {
+    if (!req.body || !req.body.length) {
+        return res.status(400).json({ ok: false, 訳: 'ファイルが届いていません' });
+    }
+    try {
+        if (!fs.existsSync(一時動画の置き場)) fs.mkdirSync(一時動画の置き場, { recursive: true });
+        // 拡張子はクエリからのみ受け取り、英数字だけに絞る
+        // （そのままパスに使うので、変な文字を混ぜられないようにする）。
+        const 拡張子 = String(req.query.ext || 'mp4').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'mp4';
+        const ファイル名 = `動画_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${拡張子}`;
+        const 保存先 = path.join(一時動画の置き場, ファイル名);
+        fs.writeFileSync(保存先, req.body);
+        res.json({ ok: true, path: 保存先 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: '保存できませんでした: ' + e.message });
+    }
+});
+
+/** 作ったテックパックスライド（.pptx）をダウンロードさせる */
+app.get('/api/techpack-deck/download/:file', (req, res) => {
+    // ファイル名は techpack_ で始まる英数字＋.pptx のみ許可する
+    // （../ 等を混ぜてこの端末の他のファイルを読ませないため）。
+    const file = String(req.params.file || '');
+    if (!/^techpack_[a-zA-Z0-9]+\.pptx$/.test(file)) {
+        return res.status(400).json({ ok: false, 訳: 'ファイル名が正しくありません' });
+    }
+    const 絶対path = path.join(DATA_DIR, 'techpack_decks', file);
+    if (!fs.existsSync(絶対path)) {
+        return res.status(404).json({ ok: false, 訳: 'ファイルが見つかりません' });
+    }
+    res.download(絶対path, file);
+});
 
 app.get('/api/health', (_, res) => {
     res.json({ ok: true, service: 'AReGLM API Gateway' });

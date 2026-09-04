@@ -372,12 +372,13 @@ function handleChatFiles(e) {
             return;
         }
 
-        // 読み方を知らない形式（動画等）は、中身は読まず名前だけ添付する。
-        // 添付ボタン自体は accept="image/*,.pdf,video/*" なので、ここに
-        // 来るのは主に動画。動画の内容理解はまだ実装していない。
-        chatAttachments.push({ type: 'file', name: file.name });
+        // 読み方を知らない形式（動画等）は、会話の本文としては読まず
+        // 名前だけ添付する（AIへの質問にその中身を含める仕組みはまだ無い）。
+        // ただし下の「学習」ボタンから、色・構図の傾向をデザイン学習に
+        // 使うことはできる。そのため File 自体は手放さずに持たせておく。
+        chatAttachments.push({ type: 'file', name: file.name, rawFile: file });
         renderChatAttachments();
-        showNotification(`「${file.name}」は名前だけ添付しました（この形式の中身はまだ読めません）`, 'info');
+        showNotification(`「${file.name}」は名前だけ添付しました（会話の本文には含められませんが、下の🎨学習ボタンでデザインの傾向は学習できます）`, 'info');
     });
     e.target.value = '';
 }
@@ -559,15 +560,81 @@ function renderChatAttachments() {
                 else if (a.失敗) 状態 = `（読み取れませんでした: ${a.失敗}）`;
                 else if (a.本文) 状態 = '（本文を読み取り済み）';
             }
-            return `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}${AReGLM_SECURITY.sanitizeHtml(状態)}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`;
+            // 画像、または中身を保持したままの動画（rawFile）だけ、
+            // その場でデザイン学習にかけられる（オプトイン。押すまで学習しない）。
+            const 学習できる = a.type === 'image' || (a.type === 'file' && a.rawFile);
+            const 学習ボタン = 学習できる
+                ? `<button type="button" class="attach-learn-btn" data-learn-i="${i}" title="この画像/動画の色・構図の傾向をデザイン学習に使う">🎨学習</button>`
+                : '';
+            return `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}${AReGLM_SECURITY.sanitizeHtml(状態)}${学習ボタン}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`;
         })
         .join('');
-    box.querySelectorAll('button').forEach((btn) => {
+    box.querySelectorAll('.attach-learn-btn').forEach((btn) => {
+        btn.onclick = () => 添付からデザインを学習する(chatAttachments[parseInt(btn.dataset.learnI, 10)], btn);
+    });
+    box.querySelectorAll('button[data-i]').forEach((btn) => {
         btn.onclick = () => {
             chatAttachments.splice(parseInt(btn.dataset.i, 10), 1);
             renderChatAttachments();
         };
     });
+}
+
+/**
+ * チャットに添付した画像・動画から、デザインの傾向を学ぶ（オプトイン）。
+ *
+ * 外部の画像認識APIは使わない。この端末のAIエンジン（Pillow/numpyだけの
+ * 単純な色・構図分析、server/ai/デザイン分析.py）で処理する。
+ * 押したときだけ学習し、添付しただけでは何もしない。
+ */
+async function 添付からデザインを学習する(item, btn) {
+    if (!item || !btn) return;
+    const 元のラベル = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '学習中…';
+
+    try {
+        let 種類;
+        let path;
+        let dataUrl;
+
+        if (item.type === 'image') {
+            種類 = 'image';
+            dataUrl = item.data;
+        } else {
+            // 動画は大きくなりがちなので、いったんこの端末のディスクへ保存し
+            // パスだけをAIエンジンへ渡す（/api/extract-document-text と同じ考え方）。
+            種類 = 'video';
+            const 拡張子 = (item.name.split('.').pop() || 'mp4').toLowerCase();
+            const buf = await item.rawFile.arrayBuffer();
+            const up = await fetch(`/api/design/upload-media?ext=${encodeURIComponent(拡張子)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: buf,
+            }).then((r) => r.json());
+            if (!up.ok) throw new Error(up.訳 || '保存できませんでした');
+            path = up.path;
+        }
+
+        const r = await fetch('/api/ai-local/design/learn-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 種類, path, dataUrl, ファイル名: item.name }),
+        }).then((y) => y.json());
+
+        if (r?.ok) {
+            showNotification(`学習しました: ${(r.キーワード || []).join('、') || '(特徴なし)'}`, 'success');
+            btn.textContent = '学習済み';
+        } else {
+            showNotification(r?.訳 || '学習できませんでした', 'error');
+            btn.textContent = 元のラベル;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        showNotification('学習に失敗しました: ' + err.message, 'error');
+        btn.textContent = 元のラベル;
+        btn.disabled = false;
+    }
 }
 
 async function handleChatSubmit(e) {

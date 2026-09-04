@@ -2071,6 +2071,41 @@
                                 </table>
                             </div>
                         </section>
+                        <section class="panel-card full-width">
+                            <div class="panel-header-row">
+                                <h3>Alibaba OEM テックパックスライド</h3>
+                                <button type="button" id="oemdeck-build-btn" class="btn btn-sm btn-primary">PPTXを作成</button>
+                            </div>
+                            <p class="hint">
+                                「1着 = 1スライド」で、デザイン画像とテックパック情報（寸法・素材・原価）をまとめた
+                                商品開発資料（.pptx）を作ります。Canva公式APIには、これを無料で自動組み立てできる
+                                仕組みが無いため、この端末だけで.pptxを完成させます。できたファイルはPowerPoint・
+                                Keynoteでそのまま開けます。Canvaで編集したい場合は、Canva側の「インポート」機能
+                                （無料）でこのファイルを取り込んでください。
+                            </p>
+                            <p class="hint">
+                                追加のたびに、既存商品との類似チェックと、犯罪・違法コンテンツの検証を行います。
+                            </p>
+                            <form id="oemdeck-form" class="oemdeck-form">
+                                <input type="text" id="oemdeck-name" placeholder="商品名" required>
+                                <textarea id="oemdeck-description" rows="2" placeholder="デザインの説明（見た目の特徴など）"></textarea>
+                                <div class="oemdeck-suggest-row">
+                                    <button type="button" id="oemdeck-suggest-btn" class="btn btn-sm btn-secondary">学習した傾向から提案</button>
+                                    <span id="oemdeck-suggest-result" class="hint"></span>
+                                </div>
+                                <label>デザイン画像
+                                    <input type="file" id="oemdeck-image-file" accept="image/png,image/jpeg,image/webp">
+                                </label>
+                                <div id="oemdeck-image-preview" class="material-preview"><span class="hint">未選択（AI生成、または「技術パック」で使った画像を後から追加できます）</span></div>
+                                <input type="text" id="oemdeck-material" placeholder="素材（例: コットン100%）">
+                                <input type="text" id="oemdeck-cost" placeholder="原価目安（例: ¥1,800/枚）">
+                                <input type="text" id="oemdeck-lead" placeholder="納期目安（例: サンプル14日+量産30日）">
+                                <p class="hint">寸法は、上の「技術パック（寸法表）」に同じ商品名で登録した行を自動で使います。</p>
+                                <button type="submit" class="btn btn-primary btn-sm">リストに追加</button>
+                            </form>
+                            <div id="oemdeck-list" class="oemdeck-list"></div>
+                            <div id="oemdeck-result" class="hint"></div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -2911,6 +2946,7 @@
     <script src="js/modules/遠隔投稿.js" defer></script>
     <script src="js/modules/inventory-hub.js" defer></script>
     <script src="js/modules/product-dev.js" defer></script>
+    <script src="js/modules/oem-techpack-deck.js" defer></script>
     <script src="js/modules/商品自動作成.js" defer></script>
     <script src="js/modules/automation.js" defer></script>
     <script src="js/modules/backup.js" defer></script>

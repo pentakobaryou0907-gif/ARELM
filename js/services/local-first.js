@@ -88,13 +88,15 @@ const AReGLM_LOCAL_FIRST = {
     /**
      * 画像を作る。
      *
-     * 正直に書いておく:
-     *   写真のような画像は、自作だけでは作れない。
-     *   それには写真を大量に学習したモデルが要る。
+     * 以前はここで provider:'local' のとき、いきなり SVG の簡易図案
+     * （図案をつくる）へ回していた。この端末には ComfyUI（Flux.2 Klein、
+     * js/services/ai-engine.js の generateImageLocally）が既にあり、
+     * 商品自動作成・AI服デザイン生成の両方が「ComfyUIで作る」つもりで
+     * 呼んでいたのに、実際には一度もComfyUIへ届いていなかった
+     * （SVGの簡易図案止まりで、写真的な画像は作れていなかった）。
      *
-     *   代わりに、図形と文字を組み合わせた図案を作る。
-     *   ロゴの下書き、色の当たり、配置の検討には使える。
-     *   「写真が出てくる」と期待させないよう、そう伝える。
+     * まずこの端末のComfyUIを試し、動いていない・失敗したときだけ
+     * SVGの簡易図案にフォールバックする。
      */
     async generateImage(provider, prompt, options = {}) {
         if (provider && provider !== 'local') {
@@ -103,6 +105,16 @@ const AReGLM_LOCAL_FIRST = {
             }
             return AReGLM_AI_ENGINE.generateImage(provider, prompt, options);
         }
+
+        if (typeof AReGLM_AI_ENGINE !== 'undefined' && typeof AReGLM_AI_ENGINE.generateImageLocally === 'function') {
+            try {
+                const 絵 = await AReGLM_AI_ENGINE.generateImageLocally(prompt);
+                if (絵 && 絵.type === 'image' && 絵.data) return 絵;
+            } catch {
+                // ComfyUIに繋がらない等。下のSVGの簡易図案へ回す。
+            }
+        }
+
         if (typeof 図案をつくる !== 'function') {
             return {
                 type: 'description',
