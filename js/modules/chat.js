@@ -439,17 +439,24 @@ async function 資料として添付する(file, 拡張子) {
 }
 
 /**
- * 添付したURLの本文を取ってきて、AIへの質問に添える。
+ * 添付したURL（動画URLを含む）の本文を取ってきて、AIへの質問に添える。
  *
  * 設定（url-fetch-enabled、既定オフ）がONのときだけ、実際に取りに行く。
  * OFFのまま・取得に失敗したときは、もとの発言だけを返す
  * （URLを添付したこと自体は伝わる。相手のURLは見えているが、中身は読んでいない）。
+ *
+ * 動画URL（YouTube等）について正直に書いておくこと:
+ *   動画そのものをダウンロードして中身（映像・音声）を見る機能ではない。
+ *   取りに行くのは、そのページが公開しているHTML（タイトル・説明文など、
+ *   text/html・text/plain 応答された範囲）だけ。JavaScriptで後から
+ *   描き足される部分までは取れない。「動画を見て理解した」ではなく
+ *   「動画ページに書かれている情報を読んだ」という扱いにする。
  */
 async function URL添付の本文を差し込む(text, attachments) {
     let 質問 = text;
 
-    // --- URL添付（既定オフの設定が必要。設定 → 「URLの本文を読みに行く」） ---
-    const urlたち = (attachments || []).filter((a) => a.type === 'url');
+    // --- URL・動画URL添付（既定オフの設定が必要。設定 → 「URLの本文を読みに行く」） ---
+    const urlたち = (attachments || []).filter((a) => a.type === 'url' || a.type === 'video');
     if (urlたち.length && localStorage.getItem('areglm_url_fetch_enabled') === 'true') {
         const 結果たち = await Promise.all(urlたち.map(async (a) => {
             try {
@@ -461,7 +468,8 @@ async function URL添付の本文を差し込む(text, attachments) {
                 });
                 const d = await res.json();
                 if (!d.ok) return `${a.name}: 読み込めませんでした（${d.reason || '不明な理由'}）`;
-                const 見出し = d.title ? `${d.title}（${a.name}）` : a.name;
+                const 種別 = a.type === 'video' ? '動画ページの情報' : '';
+                const 見出し = d.title ? `${d.title}（${a.name}）${種別 ? `【${種別}】` : ''}` : a.name;
                 return `${見出し}\n${d.text}${d.truncated ? '\n…（長いため途中まで）' : ''}`;
             } catch (e) {
                 return `${a.name}: 読み込めませんでした（${e.message}）`;
@@ -566,11 +574,20 @@ function renderChatAttachments() {
             const 学習ボタン = 学習できる
                 ? `<button type="button" class="attach-learn-btn" data-learn-i="${i}" title="この画像/動画の色・構図の傾向をデザイン学習に使う">🎨学習</button>`
                 : '';
-            return `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}${AReGLM_SECURITY.sanitizeHtml(状態)}${学習ボタン}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`;
+            // URL・動画URL添付は、押したときだけ本文（動画URLはページ情報のみ）を
+            // 取りに行って知識として覚える（オプトイン。設定「URLの本文を読みに行く」が
+            // ONの必要あり。貼っただけ・チャットの一往復だけでは覚えない＝これまでと同じ）。
+            const 覚えるボタン = (a.type === 'url' || a.type === 'video')
+                ? `<button type="button" class="attach-remember-btn" data-remember-i="${i}" title="${a.type === 'video' ? 'この動画ページの情報を取ってきて、知識として覚える（動画の中身そのものは見ません）' : 'このURLの本文を取ってきて、知識として覚える'}">🧠覚える</button>`
+                : '';
+            return `<span class="attach-chip">${AReGLM_SECURITY.sanitizeHtml(a.name)}${AReGLM_SECURITY.sanitizeHtml(状態)}${学習ボタン}${覚えるボタン}<button type="button" data-i="${i}" aria-label="削除">×</button></span>`;
         })
         .join('');
     box.querySelectorAll('.attach-learn-btn').forEach((btn) => {
         btn.onclick = () => 添付からデザインを学習する(chatAttachments[parseInt(btn.dataset.learnI, 10)], btn);
+    });
+    box.querySelectorAll('.attach-remember-btn').forEach((btn) => {
+        btn.onclick = () => URLの本文を覚える(chatAttachments[parseInt(btn.dataset.rememberI, 10)], btn);
     });
     box.querySelectorAll('button[data-i]').forEach((btn) => {
         btn.onclick = () => {
@@ -632,6 +649,74 @@ async function 添付からデザインを学習する(item, btn) {
         }
     } catch (err) {
         showNotification('学習に失敗しました: ' + err.message, 'error');
+        btn.textContent = 元のラベル;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * 添付したURLの本文を取ってきて、この端末の知識として覚える（オプトイン）。
+ *
+ * これまでは「添付したURLの本文をその場の質問に添える」（一往復だけ・
+ * 覚えない）機能しか無かった。ここでは knowledge.add（外部由来は
+ * 必ず「未検証」から始まる）に保存し、次回以降の会話でも参照できる
+ * 知識として残す。
+ *
+ * 設定「URLの本文を読みに行く」（既定オフ）がONでないと、そもそも
+ * URLの中身を取りに行かない（URL添付時の一往復と同じ制約）。
+ */
+async function URLの本文を覚える(item, btn) {
+    if (!item || !btn) return;
+    if (localStorage.getItem('areglm_url_fetch_enabled') !== 'true') {
+        showNotification('設定の「URLの本文を読みに行く」をONにしてから使ってください', 'error');
+        return;
+    }
+
+    const 元のラベル = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '読み込み中…';
+
+    try {
+        const url = item.data || item.name;
+        const 取得 = await fetch('/api/fetch-url-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+            signal: AbortSignal.timeout(17000),
+        }).then((y) => y.json());
+
+        if (!取得.ok) {
+            showNotification(取得.reason || '本文を取得できませんでした', 'error');
+            btn.textContent = 元のラベル;
+            btn.disabled = false;
+            return;
+        }
+
+        btn.textContent = '覚えています…';
+        const 本文 = 取得.title ? `${取得.title}\n${取得.text}` : 取得.text;
+        const r = await fetch('/api/ai-local/knowledge/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: 本文, source: 'external', topic: item.type === 'video' ? '動画ページ' : 'url', note: url }),
+        }).then((y) => y.json());
+
+        if (r?.blocked) {
+            showNotification(r.reason || '内容が決まりに反するため覚えられませんでした', 'error');
+            btn.textContent = 元のラベル;
+            btn.disabled = false;
+            return;
+        }
+        if (!r?.added) {
+            showNotification(r?.reason || '覚えられませんでした', 'error');
+            btn.textContent = 元のラベル;
+            btn.disabled = false;
+            return;
+        }
+
+        showNotification('覚えました（外部由来のため、まずは「未検証」として保存されます）', 'success');
+        btn.textContent = '覚えました';
+    } catch (err) {
+        showNotification('覚えるのに失敗しました: ' + err.message, 'error');
         btn.textContent = 元のラベル;
         btn.disabled = false;
     }

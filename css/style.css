@@ -638,6 +638,22 @@ section {
     cursor: default;
 }
 
+.attach-remember-btn {
+    border: none;
+    background: #16a34a;
+    color: #fff;
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    margin-left: 0.35rem;
+    cursor: pointer;
+}
+
+.attach-remember-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 .creative-panel {
     background: white;
     padding: 1.5rem;
