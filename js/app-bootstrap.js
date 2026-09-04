@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initコード安全点検 === 'function') initコード安全点検();
     if (typeof initFloatingAgent === 'function') initFloatingAgent();
     if (typeof initJarvisMode === 'function') initJarvisMode();
-    initGoogleCalendarSettings();
+    if (typeof initGoogle連携設定 === 'function') initGoogle連携設定();
     if (typeof init週次レポート === 'function') init週次レポート();
     if (typeof init自己修正の安全装置 === 'function') init自己修正の安全装置();
     if (typeof init拍手検知 === 'function') init拍手検知();
@@ -285,52 +285,6 @@ function seedAreglmBrand() {
         createdAt: new Date().toISOString()
     });
     localStorage.setItem('brands', JSON.stringify(brands));
-}
-
-/**
- * Googleカレンダー連携（N-19）の設定欄。
- *
- * ここでできるのは、クライアントIDの保存と、連携の有効・無効の切り替えの
- * 「土台」まで。実際にGoogleへログインして予定を追加・削除する部分
- * （OAuth認証・カレンダーAPIの呼び出し）は、本物のクライアントIDが無いと
- * 作っても試せず、動くふりをするコードは書かない方針のため、
- * オーナー様がGoogle Cloud ConsoleでクライアントIDを取得したあとの
- * 次の作業として残してある。
- */
-function initGoogleCalendarSettings() {
-    const idInput = document.getElementById('gcal-client-id');
-    const saveBtn = document.getElementById('gcal-client-id-save');
-    const enableBox = document.getElementById('gcal-sync-enabled');
-    const status = document.getElementById('gcal-status');
-    if (!idInput || !saveBtn) return;
-
-    const 表示を直す = () => {
-        const 保存済み = localStorage.getItem('areglm_gcal_client_id') || '';
-        idInput.value = 保存済み;
-        if (enableBox) {
-            enableBox.disabled = !保存済み;
-            enableBox.checked = 保存済み ? localStorage.getItem('areglm_gcal_sync_enabled') === 'true' : false;
-        }
-        if (status) {
-            status.textContent = 保存済み
-                ? 'クライアントIDを保存済みです。ただし、実際にGoogleへ接続してタスクを同期する処理はまだ実装されていません（土台の設定欄のみです）。'
-                : '';
-        }
-    };
-
-    saveBtn.addEventListener('click', () => {
-        const v = (idInput.value || '').trim();
-        if (v) localStorage.setItem('areglm_gcal_client_id', v);
-        else localStorage.removeItem('areglm_gcal_client_id');
-        表示を直す();
-        showNotification(v ? 'クライアントIDを保存しました' : 'クライアントIDを消しました', 'success');
-    });
-
-    enableBox?.addEventListener('change', (e) => {
-        localStorage.setItem('areglm_gcal_sync_enabled', e.target.checked ? 'true' : 'false');
-    });
-
-    表示を直す();
 }
 
 /**

@@ -1375,15 +1375,16 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-21',
     },
     {
-        // Googleカレンダー連携（N-19）用。ホスト単位の許可リストのため、
-        // ここを通すと www.googleapis.com 配下の他のGoogle APIも技術的には
-        // 通ってしまう（パスまでは絞れていない）。カレンダー以外を
-        // 呼ぶコードは書かないことで実質的に絞る。
+        // Googleカレンダー・Googleドライブ連携（N-19、Gmail・Drive連携）共用。
+        // ホスト単位の許可リストのため、ここを通すと www.googleapis.com 配下の
+        // 他のGoogle APIも技術的には通ってしまう（パスまでは絞れていない）。
+        // /api/drive-proxy 以外からこのホストを呼ぶコードは書かないことで
+        // 実質的に絞る。
         // 実際に使うには、オーナー自身がGoogle Cloud ConsoleでOAuth
         // クライアントIDを取得し、設定ページで連携をONにする必要がある
         // （コード側の許可だけでは動かない＝二重の関門）。
         host: 'www.googleapis.com',
-        name: 'Google Calendar API',
+        name: 'Google Calendar API / Drive API',
         provider: 'Google（公式）',
         terms: 'https://developers.google.com/calendar/api/terms',
         無料か: true,
@@ -1398,6 +1399,28 @@ const OFFICIAL_API_ALLOWLIST = [
         無料か: true,
         無料の中身: '認証のための通信で、課金対象ではない',
         確かめた日: '2026-08-29',
+    },
+    {
+        // OAuthの認可コード・リフレッシュトークンをアクセストークンに
+        // 交換するための、Google公式のトークン発行エンドポイント。
+        host: 'oauth2.googleapis.com',
+        name: 'Google OAuth（トークン発行）',
+        provider: 'Google（公式）',
+        terms: 'https://developers.google.com/identity/protocols/oauth2',
+        無料か: true,
+        無料の中身: '認証のための通信で、課金対象ではない',
+        確かめた日: '2026-09-03',
+    },
+    {
+        // Gmail連携（週次レポートの送信など）用。gmail.send スコープのみを
+        // 要求しており、受信箱の閲覧・削除はできない（Google側の権限モデル）。
+        host: 'gmail.googleapis.com',
+        name: 'Gmail API',
+        provider: 'Google（公式）',
+        terms: 'https://developers.google.com/gmail/api/terms',
+        無料か: true,
+        無料の中身: '無料枠あり（1ユーザー1日あたり相当な回数まで／2026年9月時点）',
+        確かめた日: '2026-09-03',
     },
     {
         // Notion連携用。統合トークンは、Notion側で本人が明示的に
@@ -2069,6 +2092,162 @@ app.post('/api/obsidian-proxy', async (req, res) => {
             hint: 'Obsidianを起動し、Local REST APIプラグインを有効にしてください',
             detail: e.message
         });
+    }
+});
+
+/**
+ * Google連携（Gmail・Drive・カレンダーの土台）の戻り先（ローカルループバック）
+ *
+ * Googleの「デスクトップアプリ」向けのやり方
+ * （https://developers.google.com/identity/protocols/oauth2/native-app）に合わせ、
+ * 127.0.0.1宛のこの入口へ、認可コードが一度だけ返ってくる。
+ * ここでは中身を保存せず、開いた元のタブへ postMessage で渡すだけ
+ * （トークンへの交換は、クライアントシークレットを持つ画面側から
+ * /api/google-oauth-token を叩いて行う）。
+ */
+function 安全にJSに埋め込む(値) {
+    return JSON.stringify(値 || '')
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026');
+}
+
+app.get('/oauth2callback/google', (req, res) => {
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    const error = typeof req.query.error === 'string' ? req.query.error : '';
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>AReGLM Google連携</title></head>
+<body style="font-family:sans-serif;padding:2em;text-align:center;">
+<p id="msg">処理しています…</p>
+<script>
+(function () {
+    var payload = {
+        type: 'areglm-google-oauth',
+        code: ${安全にJSに埋め込む(code)},
+        state: ${安全にJSに埋め込む(state)},
+        error: ${安全にJSに埋め込む(error)}
+    };
+    var msg = document.getElementById('msg');
+    if (window.opener) {
+        window.opener.postMessage(payload, window.location.origin);
+        msg.textContent = '完了しました。このタブは閉じて構いません。';
+        setTimeout(function () { window.close(); }, 800);
+    } else {
+        msg.textContent = '認証は完了しましたが、元のタブへ自動で伝えられませんでした。このタブを閉じて、AReGLMの画面に戻ってください。';
+    }
+})();
+</script>
+</body></html>`);
+});
+
+/**
+ * Google OAuthのトークン発行（認可コード → トークン／リフレッシュ → 再発行）
+ *
+ * クライアントシークレットはこの端末内で暗号化保存されたものを、
+ * 呼び出しのたびにヘッダーで受け取って中継するだけで、サーバー側では保持しない
+ * （Notion・Obsidian連携と同じ考え方）。
+ */
+app.post('/api/google-oauth-token', async (req, res) => {
+    const clientSecret = req.headers['x-google-client-secret'];
+    const { grant_type, client_id, code, code_verifier, redirect_uri, refresh_token } = req.body || {};
+    if (!clientSecret || !client_id) {
+        return res.status(401).json({ error: 'クライアントID・クライアントシークレットが必要です' });
+    }
+    const params = new URLSearchParams({ client_id, client_secret: clientSecret, grant_type });
+    if (grant_type === 'authorization_code') {
+        if (!code || !code_verifier || !redirect_uri) {
+            return res.status(400).json({ error: 'code・code_verifier・redirect_uri が必要です' });
+        }
+        params.set('code', code);
+        params.set('code_verifier', code_verifier);
+        params.set('redirect_uri', redirect_uri);
+    } else if (grant_type === 'refresh_token') {
+        if (!refresh_token) return res.status(400).json({ error: 'refresh_token が必要です' });
+        params.set('refresh_token', refresh_token);
+    } else {
+        return res.status(400).json({ error: '不正なgrant_typeです' });
+    }
+    try {
+        const upstream = await safeFetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+        const data = await upstream.json();
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Gmail連携（週次レポートの送信など）
+ *
+ * パスと本文をそのまま中継する、Notion連携と同じ形の汎用口。
+ * アクセストークンはヘッダーで毎回受け取るだけで、サーバー側では保持しない。
+ * 送信先ホストは許可リスト（OFFICIAL_API_ALLOWLIST）で固定されており、
+ * それ以外へは safeFetch が例外で止める。
+ */
+app.post('/api/gmail-proxy', async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    const { method, path, body } = req.body || {};
+    if (!method || !path || !/^\/[\w./-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const upstream = await safeFetch(`https://gmail.googleapis.com${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: (method === 'GET' || method === 'HEAD') ? undefined : JSON.stringify(body || {})
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Google Drive連携（資料のバックアップ用）
+ *
+ * drive.file スコープのみを要求する前提のプロキシ（このアプリが作った
+ * ファイルにしか触れない。Drive内の他のファイルは対象外＝Google側の
+ * 権限モデルによる制限）。ファイル本体のアップロード（uploadType=media）は
+ * JSONではなく生の本文を送る必要があるため、body が文字列のときは
+ * そのまま中継する（Obsidian連携と同じやり方）。
+ */
+app.post('/api/drive-proxy', async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    const { method, path, body, contentType } = req.body || {};
+    if (!method || !path || !/^\/[\w./%?=-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const 生のまま = typeof body === 'string';
+        const upstream = await safeFetch(`https://www.googleapis.com${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': contentType || (生のまま ? 'text/plain' : 'application/json')
+            },
+            body: (method === 'GET' || method === 'HEAD' || body == null)
+                ? undefined
+                : (生のまま ? body : JSON.stringify(body))
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

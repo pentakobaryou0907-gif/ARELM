@@ -2296,39 +2296,57 @@
                     </section>
 
                     <section class="panel-card">
-                        <h3><span class="sec-icon">📅</span>外部カレンダー連携（Googleカレンダー）</h3>
+                        <h3><span class="sec-icon">📧</span>Google連携（Gmail・Drive）</h3>
                         <p class="hint">
-                            「計画」タブで期限付きのタスクを追加したとき、同じ内容をGoogleカレンダーにも
-                            自動で追加する連携です。<strong>既定はオフです。</strong>
+                            週次レポートを自分宛にメールで送ったり、資料をGoogle Driveの専用フォルダへ
+                            バックアップしたりできる連携です。<strong>既定はオフです
+                            （クライアント情報を保存し、ログインするまでは一切通信しません）。</strong>
                         </p>
                         <p class="hint">
-                            <strong>この機能を使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
                             <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>
-                            で新しいプロジェクトを作り、Google Calendar APIを有効にして、
-                            「OAuthクライアントID」を発行してください。これはコード修正だけでは
-                            代わりに行えない、Googleアカウント側の設定です。
+                            で新しいプロジェクトを作り、「Gmail API」「Google Drive API」の両方を有効にします。
+                            次に「OAuth同意画面」で、ご自身のGoogleアカウントを「テストユーザー」に追加してください
+                            （このアプリはGoogleの審査を受けていないため、テストユーザーに登録した本人しか
+                            ログインできません）。最後に「認証情報」から新しいOAuthクライアントIDを作成し、
+                            アプリケーションの種類は<strong>必ず「デスクトップアプリ」</strong>を選んでください
+                            （リダイレクトURIの事前登録は不要です。デスクトップアプリ種別は、この端末内で
+                            折り返す127.0.0.1宛の通信を、ポート番号を問わずGoogleが受け付けてくれる仕組み
+                            のためです）。表示されるクライアントID・クライアントシークレットの両方を、
+                            下に入れてください。これはコード修正だけでは代わりに行えない、
+                            Googleアカウント側の設定です。
                         </p>
                         <div class="form-group">
-                            <label for="gcal-client-id">OAuthクライアントID</label>
-                            <input type="text" id="gcal-client-id" placeholder="xxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+                            <label for="google-client-id">OAuthクライアントID</label>
+                            <input type="text" id="google-client-id" placeholder="xxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="google-client-secret">OAuthクライアントシークレット</label>
+                            <input type="password" id="google-client-secret" placeholder="GOCSPX-…" autocomplete="off">
                         </div>
                         <div class="guard-row">
-                            <button type="button" id="gcal-client-id-save" class="btn btn-sm btn-secondary">保存</button>
+                            <button type="button" id="google-client-save-btn" class="btn btn-sm btn-secondary">保存</button>
+                            <button type="button" id="google-connect-btn" class="btn btn-sm btn-secondary" disabled>Googleにログインして連携</button>
+                            <button type="button" id="google-disconnect-btn" class="btn btn-sm btn-secondary" hidden>連携を解除</button>
                         </div>
+                        <p id="google-status" class="hint"></p>
+                        <p class="hint">
+                            連携すると、「週次レポート」の各回に次のボタンが出るようになります
+                            （押したときだけ通信します）：📧 メールで送る（<code>gmail.send</code> 権限のみ。
+                            受信箱の閲覧・削除はできません）、☁️ Driveへバックアップ
+                            （<code>drive.file</code> 権限のみ。このアプリが作ったファイル以外は見えません）。
+                        </p>
                         <label class="wake-browser-opt">
                             <input type="checkbox" id="gcal-sync-enabled" disabled>
                             <span>
-                                <b>タスクをGoogleカレンダーに自動反映する</b>
+                                <b>タスクをGoogleカレンダーに自動反映する（未実装・準備欄）</b>
                                 <small>
-                                    クライアントIDを保存すると選べるようになります。有効にすると、
-                                    期限付きタスクを追加・削除するたびに、この端末からGoogleへログイン確認と
-                                    予定の追加・削除の通信を行います（読み取り専用ではなく書き込みです。
-                                    Googleカレンダー側の予定をAReGLMへ取り込む「逆方向」は、
-                                    より広い権限が要るため、現時点では未対応です）。
+                                    ログイン・トークン管理の土台はGmail・Driveと共用でできていますが、
+                                    カレンダーへの予定の追加・削除そのものは、まだ実装されていません。
+                                    ここは今後のための準備欄です。
                                 </small>
                             </span>
                         </label>
-                        <p id="gcal-status" class="hint"></p>
                     </section>
 
                     <section class="panel-card">
@@ -2861,6 +2879,9 @@
     <script src="js/services/suzuri-api.js" defer></script>
     <script src="js/services/notion-api.js" defer></script>
     <script src="js/services/obsidian-api.js" defer></script>
+    <script src="js/services/google-oauth.js" defer></script>
+    <script src="js/services/gmail-api.js" defer></script>
+    <script src="js/services/drive-api.js" defer></script>
     <script src="js/main.js" defer></script>
     <script src="js/modules/dashboard.js" defer></script>
     <script src="js/modules/memo.js" defer></script>
@@ -2895,6 +2916,7 @@
     <script src="js/modules/ページ内目次.js" defer></script>
     <script src="js/modules/バックグラウンド作業.js" defer></script>
     <script src="js/modules/外部ノート連携設定.js" defer></script>
+    <script src="js/modules/Google連携設定.js" defer></script>
     <script src="js/modules/エージェント定義.js" defer></script>
     <script src="js/modules/Claude連携.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>

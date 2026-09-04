@@ -184,8 +184,8 @@ function レポート一覧を描く() {
             札.appendChild(p);
         }
 
-        // 外部ノート連携: 送り先を設定してあれば、この場でNotion/Obsidianへ送れる。
-        if (window.AReGLM_NOTION || window.AReGLM_OBSIDIAN) {
+        // 外部連携: 送り先を設定してあれば、この場でNotion/Obsidian/Gmail/Driveへ送れる。
+        if (window.AReGLM_NOTION || window.AReGLM_OBSIDIAN || window.AReGLM_GMAIL || window.AReGLM_DRIVE) {
             const 操作行 = document.createElement('div');
             操作行.className = 'guard-row';
             if (window.AReGLM_NOTION) {
@@ -202,6 +202,22 @@ function レポート一覧を描く() {
                 b.className = 'btn btn-sm btn-secondary';
                 b.textContent = '🗂 Obsidianへ保存';
                 b.addEventListener('click', () => レポートをObsidianへ保存(r, b));
+                操作行.appendChild(b);
+            }
+            if (window.AReGLM_GMAIL) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-sm btn-secondary';
+                b.textContent = '📧 メールで送る';
+                b.addEventListener('click', () => レポートをメールで送る(r, b));
+                操作行.appendChild(b);
+            }
+            if (window.AReGLM_DRIVE) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-sm btn-secondary';
+                b.textContent = '☁️ Driveへバックアップ';
+                b.addEventListener('click', () => レポートをDriveへバックアップ(r, b));
                 操作行.appendChild(b);
             }
             札.appendChild(操作行);
@@ -261,6 +277,40 @@ async function レポートをObsidianへ保存(r, btn) {
         showNotification(`Obsidianへ保存できませんでした: ${e.message}`, 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = '🗂 Obsidianへ保存'; }
+    }
+}
+
+/** レポートを、連携したGoogleアカウント自身へメールで送る */
+async function レポートをメールで送る(r, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '送っています…'; }
+    try {
+        const 件名 = `Weekly Report #${r.番号}`;
+        const 本文 = [数字を文にする(r.数字 || {}).join('\n'), r.コメント ? `💬 ${r.コメント}` : '']
+            .filter(Boolean).join('\n\n');
+        await AReGLM_GMAIL.sendToSelf(件名, 本文);
+        showNotification('メールで送りました', 'success');
+    } catch (e) {
+        showNotification(`メールを送れませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📧 メールで送る'; }
+    }
+}
+
+/** レポートを、Google Driveの専用フォルダへテキストファイルとしてバックアップする */
+async function レポートをDriveへバックアップ(r, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'バックアップしています…'; }
+    try {
+        const 本文 = `# Weekly Report #${r.番号}\n\n`
+            + `${new Date(r.作った日).toLocaleString('ja-JP')}\n\n`
+            + 数字を文にする(r.数字 || {}).map((l) => `- ${l}`).join('\n')
+            + (r.コメント ? `\n\n> ${r.コメント}` : '');
+        const 日付文字 = new Date(r.作った日).toISOString().slice(0, 10);
+        await AReGLM_DRIVE.backupText(`週次レポート_${日付文字}_第${r.番号}回.txt`, 本文);
+        showNotification('Driveへバックアップしました', 'success');
+    } catch (e) {
+        showNotification(`Driveへ保存できませんでした: ${e.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '☁️ Driveへバックアップ'; }
     }
 }
 
