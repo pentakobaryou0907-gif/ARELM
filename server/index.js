@@ -1489,6 +1489,22 @@ const OFFICIAL_API_ALLOWLIST = [
         // 許可スイッチも通らないと、実際には呼ばれない（二重の関門）。
         本人が許可した有料: true,
         確かめた日: '2026-08-28',
+    },
+    {
+        // iCloudカレンダー連携用（CalDAV）。「カレンダーはiCloudにして」という
+        // 本人の明示指示（2026-09-05）に基づく。GoogleカレンダーはOAuthアプリ
+        // 登録が要るが、iCloudのCalDAVはApple IDと「Appサイト固有パスワード」
+        // （appleid.apple.com で本人が発行）だけで使える、Appleの公式プロトコル。
+        // ここで送るのはAuthorizationヘッダーのBasic認証だけで、Apple ID用の
+        // 本来のパスワードは一切扱わない（本来のパスワードはこのツールの
+        // 「金融資格情報・パスワードを入力しない」という絶対ルールの対象）。
+        host: 'caldav.icloud.com',
+        name: 'iCloud CalDAV',
+        provider: 'Apple（公式プロトコル）',
+        terms: 'https://www.apple.com/legal/internet-services/icloud/',
+        無料か: true,
+        無料の中身: 'iCloudの標準機能（追加課金なし。iCloudストレージ自体の契約は本人の既存契約に従う）',
+        確かめた日: '2026-09-05',
     }
 ];
 
@@ -2432,6 +2448,49 @@ app.post('/api/instagram-proxy', async (req, res) => {
         let data;
         try { data = JSON.parse(text); } catch { data = { raw: text }; }
         res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * iCloudカレンダー連携（公式CalDAVプロトコル）
+ *
+ * PROPFIND/REPORT/PUT/GET・XMLやiCalendar形式のやり取りをそのまま中継する。
+ * XML自体の組み立て・読み取りはブラウザ側（DOMParserが使える）で行う。
+ * ここではAuthorizationヘッダーの組み立て（Basic認証）だけを担当し、
+ * Apple IDのApp用パスワードはこのリクエストの中でしか使わず、
+ * サーバー側では保持・ログ出力しない。
+ */
+app.post('/api/icloud-caldav-proxy', async (req, res) => {
+    const appleId = req.headers['x-icloud-apple-id'];
+    const appPassword = req.headers['x-icloud-app-password'];
+    if (!appleId || !appPassword) {
+        return res.status(401).json({ error: 'Apple ID・Appサイト固有パスワードが必要です' });
+    }
+    const { method, path, body, depth, contentType } = req.body || {};
+    if (!method || typeof path !== 'string' || !/^[\w./%?=&:-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    if (!/^(PROPFIND|REPORT|PUT|GET|DELETE|OPTIONS|MKCALENDAR)$/.test(method)) {
+        return res.status(400).json({ error: '対応していないメソッドです' });
+    }
+    try {
+        const base64 = Buffer.from(`${appleId}:${appPassword}`).toString('base64');
+        const headers = {
+            Authorization: `Basic ${base64}`,
+            'Content-Type': contentType || 'application/xml; charset=utf-8',
+        };
+        if (depth != null) headers.Depth = String(depth);
+        const upstream = await safeFetch(`https://caldav.icloud.com${path}`, {
+            method,
+            headers,
+            body: (method === 'GET' || method === 'DELETE' || body == null) ? undefined : body,
+        });
+        const text = await upstream.text();
+        res.status(upstream.status)
+            .type(upstream.headers.get('content-type') || 'text/plain')
+            .send(text);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

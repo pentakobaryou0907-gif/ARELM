@@ -3306,9 +3306,17 @@ textarea::placeholder {
 }
 
 .cal-item.event { background: #eef3fb; color: #2b5f9e; }
+.cal-item.icloud { background: #f0eefb; color: #5e4b9e; }
 .cal-item.task { background: #eef3ee; color: #2e7d4f; }
 .cal-item.task.high { background: #fdecea; color: #c0392b; }
 .cal-item.task.done { opacity: 0.5; text-decoration: line-through; }
+
+.event-icloud-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+}
 
 .cal-more {
     font-size: 0.65rem;

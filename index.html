@@ -484,8 +484,12 @@
                         <form id="event-form" class="event-form">
                             <input type="date" id="event-date" required>
                             <input type="text" id="event-title" placeholder="予定（例: 生地屋と打ち合わせ）" required>
+                            <label class="event-icloud-toggle hint">
+                                <input type="checkbox" id="event-icloud-also">iCloudにも追加
+                            </label>
                             <button type="submit" class="btn btn-primary btn-sm">予定を追加</button>
                         </form>
+                        <p id="calendar-icloud-hint" class="hint"></p>
                         <div id="calendar-grid" class="calendar-grid"></div>
                         <h4 class="media-sub">これからの予定</h4>
                         <ul id="calendar-upcoming" class="upcoming-list"></ul>
@@ -2536,6 +2540,37 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">📅</span>iCloudカレンダー連携（公式CalDAV）</h3>
+                        <p class="hint">
+                            「カレンダーはiCloudに」というご指示に沿って、Googleではなく
+                            Apple公式のCalDAVプロトコルでつなぎます。<strong>既定は未設定です。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://appleid.apple.com/account/manage" target="_blank" rel="noopener">appleid.apple.com</a>
+                            の「サインインとセキュリティ」→「Appサイト固有パスワード」で、
+                            <strong>このツール専用の使い捨てパスワード</strong>を新しく発行してください。
+                            <strong>Apple IDの本来のパスワードは、ここには絶対に入れないでください。</strong>
+                            発行されたApple IDとAppサイト固有パスワードを下に入れて「接続する」を押すと、
+                            iCloud上のカレンダー一覧を自動で見つけます。
+                        </p>
+                        <div class="form-group">
+                            <label for="icloud-cal-apple-id">Apple ID（メールアドレス）</label>
+                            <input type="email" id="icloud-cal-apple-id" placeholder="例: your-id@icloud.com" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="icloud-cal-app-password">Appサイト固有パスワード</label>
+                            <input type="password" id="icloud-cal-app-password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="icloud-cal-connect" class="btn btn-sm btn-secondary">接続する（カレンダーを検出）</button>
+                            <button type="button" id="icloud-cal-disconnect" class="btn btn-sm btn-link danger">連携を解除</button>
+                        </div>
+                        <p id="icloud-cal-status" class="hint"></p>
+                        <div id="icloud-cal-list" class="hint"></div>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📝</span>Notion連携</h3>
                         <p class="hint">
                             記録（週次レポートなど）をNotionのデータベースへ送れるようにします。
@@ -3049,6 +3084,7 @@
     <script src="js/services/gmail-api.js" defer></script>
     <script src="js/services/drive-api.js" defer></script>
     <script src="js/services/google-photos-api.js" defer></script>
+    <script src="js/services/icloud-caldav-api.js" defer></script>
     <script src="js/main.js" defer></script>
     <script src="js/modules/dashboard.js" defer></script>
     <script src="js/modules/memo.js" defer></script>

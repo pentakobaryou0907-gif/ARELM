@@ -186,6 +186,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     initClaudeKeyInput();
     initSuzuriKeyInput();
     initInstagramKeyInput();
+    initIcloudCalendarKeyInput();
     initGeminiKeyInput();
     initGroqKeyInput();
     initHuggingfaceKeyInput();
@@ -383,6 +384,78 @@ function initInstagramKeyInput() {
         showNotification('Instagram連携の情報を暗号化して保存しました', 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
+
+/**
+ * iCloudカレンダー連携（公式CalDAV）のApple ID・Appサイト固有パスワード入力欄。
+ *
+ * SUZURI/Instagramと同じ、専用の保存ボタンで直接暗号化保存する方式。
+ * ここでは保存だけでなく「接続する」でその場に discover() を呼び、
+ * 見つかったカレンダー名を表示する（つながっているかその場で分かるように）。
+ */
+function initIcloudCalendarKeyInput() {
+    const idField = document.getElementById('icloud-cal-apple-id');
+    const pwField = document.getElementById('icloud-cal-app-password');
+    const connectBtn = document.getElementById('icloud-cal-connect');
+    const disconnectBtn = document.getElementById('icloud-cal-disconnect');
+    const 状態 = document.getElementById('icloud-cal-status');
+    const 一覧 = document.getElementById('icloud-cal-list');
+    if (!idField || !pwField || !connectBtn) return;
+
+    const 表示を直す = async () => {
+        const 設定済み = await AReGLM_ICLOUD_CAL?.isConnected();
+        idField.value = AReGLM_ICLOUD_CAL?.getAppleId() || '';
+        pwField.placeholder = 設定済み ? '•••• 設定済み' : 'xxxx-xxxx-xxxx-xxxx';
+        if (状態) {
+            状態.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいAppサイト固有パスワードを入れて接続し直す）'
+                : 'まだ設定されていません。';
+        }
+        const カレンダー = AReGLM_ICLOUD_CAL?.getKnownCalendars() || [];
+        if (一覧) {
+            一覧.textContent = カレンダー.length
+                ? '見つかったカレンダー: ' + カレンダー.map((c) => c.name).join('、')
+                : '';
+        }
+    };
+
+    connectBtn.addEventListener('click', async () => {
+        const appleId = idField.value.trim();
+        const appPassword = pwField.value.trim();
+        if (!appleId || !appPassword) {
+            showNotification('Apple IDとAppサイト固有パスワードの両方を入れてください', 'error');
+            return;
+        }
+        localStorage.setItem(AReGLM_ICLOUD_CAL.APPLE_ID_KEY, appleId);
+        await AReGLM_SECURITY.saveApiKeySecure('icloud_calendar', 'app_password', appPassword);
+
+        connectBtn.disabled = true;
+        connectBtn.textContent = '接続を確認しています…';
+        try {
+            const カレンダー = await AReGLM_ICLOUD_CAL.discover();
+            pwField.value = '';
+            await 表示を直す();
+            showNotification(`iCloudに接続しました（カレンダー ${カレンダー.length}件を検出）`, 'success');
+            if (typeof renderCalendar === 'function') renderCalendar();
+        } catch (e) {
+            showNotification('接続できませんでした: ' + e.message, 'error');
+        } finally {
+            connectBtn.disabled = false;
+            connectBtn.textContent = '接続する（カレンダーを検出）';
+        }
+    });
+
+    disconnectBtn?.addEventListener('click', async () => {
+        if (!confirm('iCloudカレンダー連携を解除しますか？')) return;
+        await AReGLM_ICLOUD_CAL.disconnect();
+        idField.value = '';
+        pwField.value = '';
+        await 表示を直す();
+        showNotification('iCloudカレンダー連携を解除しました', 'success');
+        if (typeof renderCalendar === 'function') renderCalendar();
     });
 
     表示を直す();
