@@ -152,6 +152,9 @@ async function 投稿文の型が変わった() {
     const dm枠 = document.getElementById('sns-gen-dm-wrap');
     if (dm枠) dm枠.hidden = 型 !== 'DM下書き';
 
+    const 舞台裏枠 = document.getElementById('sns-gen-backstage-mode-wrap');
+    if (舞台裏枠) 舞台裏枠.hidden = 型 !== '舞台裏デモ';
+
     const 枠 = document.getElementById('sns-gen-photo-wrap');
     if (!枠) return;
     枠.hidden = 型 !== '工程公開';
@@ -240,6 +243,22 @@ async function generateSnsCaptions(追加か = false) {
         商品情報 = `【DMの目的】${目的}\n\n${商品情報}`;
     }
 
+    if (型 === '舞台裏デモ') {
+        // 台本と同じく「今の状況」を添え、さらに「完成品ではなく制作中を見せる」と明示する。
+        const 舞台裏サブモード = document.querySelector('input[name="sns-backstage-mode"]:checked')?.value || '台本';
+        const 状況 = typeof reportTodayStatus === 'function' ? reportTodayStatus() : '';
+        商品情報 = `${商品情報}${状況 ? `\n\n【今の状況】\n${状況}` : ''}`;
+
+        if (舞台裏サブモード === 'スライド') {
+            // 写真スライド動画用の構成（フック＋各枚の見出し・本文）は、
+            // カルーセル用に既にある /api/sns/carousel をそのまま使う。「舞台裏」の
+            // 切り口にするため、商品情報にテーマを明示してから渡す。
+            商品情報 = `${商品情報}\n\n【今回のテーマ】この投稿は「舞台裏デモ」です。完成品の魅力ではなく、作っている工程・試行錯誤・裏側のリアルな瞬間を見せる構成にしてください。`;
+            await generateBackstageSlides(box, btn, 商品情報, toneSel?.value);
+            return;
+        }
+    }
+
     // 「必ず入れたい一言」は、どの型にも共通で使える（指定が無ければ何もしない）。
     const 必須 = (document.getElementById('sns-gen-must-include')?.value || '').trim();
     if (必須) {
@@ -252,7 +271,7 @@ async function generateSnsCaptions(追加か = false) {
     }
 
     // パターン数は、型ごとの標準値を土台にしつつ、指定があればそちらを使う。
-    const 既定件数 = (型 === '工程公開' || 型 === 'ストーリーズ' || 型 === 'DM下書き') ? 2 : 3;
+    const 既定件数 = (型 === '工程公開' || 型 === 'ストーリーズ' || 型 === 'DM下書き' || 型 === '舞台裏デモ') ? 2 : 3;
     const 件数 = Number(countSel?.value) || 既定件数;
 
     const 読込id = 'sns-gen-loading-' + Date.now();
@@ -321,6 +340,80 @@ async function generateSnsCaptions(追加か = false) {
     }
 }
 
+/** 「舞台裏デモ」のスライド形式 ― フック＋各枚の構成を作り、メディアスタジオへ渡すボタンを出す */
+async function generateBackstageSlides(box, btn, 商品情報, トーン) {
+    box.innerHTML = '<li class="sns-gen-loading" id="sns-gen-loading-line">作っています…（この端末のAIなので少し時間がかかります・0秒）</li>';
+    if (btn) btn.disabled = true;
+
+    const 開始時刻 = Date.now();
+    const 経過表示 = setInterval(() => {
+        const 行 = document.getElementById('sns-gen-loading-line');
+        if (!行) { clearInterval(経過表示); return; }
+        const 秒 = Math.floor((Date.now() - 開始時刻) / 1000);
+        行.textContent = `作っています…（この端末のAIなので少し時間がかかります・${秒}秒）`;
+    }, 1000);
+
+    try {
+        const r = await fetch('/api/sns/carousel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 商品情報, トーン: トーン || 'カジュアル', 枚数: 5 }),
+        }).then((y) => y.json());
+
+        box.innerHTML = '';
+
+        if (!r.ok) {
+            const 行 = document.createElement('li');
+            行.className = 'sns-gen-loading';
+            行.textContent = r.訳 || '作れませんでした';
+            box.appendChild(行);
+
+            const 再試行 = document.createElement('button');
+            再試行.type = 'button';
+            再試行.className = 'btn btn-sm btn-secondary';
+            再試行.textContent = 'もう一度試す';
+            再試行.style.marginTop = '0.5rem';
+            再試行.addEventListener('click', () => generateSnsCaptions());
+            box.appendChild(再試行);
+            return;
+        }
+
+        const li = document.createElement('li');
+        li.className = 'sns-gen-item';
+
+        const フック行 = document.createElement('p');
+        フック行.innerHTML = `<strong>フック（1枚目）:</strong> ${AReGLM_SECURITY.sanitizeHtml(r['フック'] || '')}`;
+        li.appendChild(フック行);
+
+        (r['スライド'] || []).forEach((s, i) => {
+            const 行 = document.createElement('p');
+            行.textContent = `${i + 2}枚目: ${s['見出し'] || ''}${s['本文'] ? '　' + s['本文'] : ''}`;
+            li.appendChild(行);
+        });
+
+        const 使うボタン = document.createElement('button');
+        使うボタン.type = 'button';
+        使うボタン.className = 'btn btn-sm btn-primary';
+        使うボタン.textContent = '🎬 メディアスタジオで動画にする';
+        使うボタン.addEventListener('click', () => {
+            if (typeof window.applyMediaStudioBackstage === 'function') {
+                window.applyMediaStudioBackstage({ mode: 'スライド', フック: r['フック'] || '', スライド: r['スライド'] || [] });
+            }
+            if (typeof switchPage === 'function') switchPage('studio');
+            setTimeout(() => {
+                document.getElementById('media-studio-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        });
+        li.appendChild(使うボタン);
+        box.appendChild(li);
+    } catch (e) {
+        box.innerHTML = `<li class="sns-gen-loading">つながりませんでした: ${AReGLM_SECURITY.sanitizeHtml(e.message)}</li>`;
+    } finally {
+        clearInterval(経過表示);
+        if (btn) btn.disabled = false;
+    }
+}
+
 /**
  * AIが作った1パターンぶんの<li>を作る。
  *
@@ -380,6 +473,24 @@ function sns生成結果の行を作る(文, i, 型) {
     }
 
     li.appendChild(ボタン);
+
+    if (型 === '舞台裏デモ') {
+        const 録画ボタン = document.createElement('button');
+        録画ボタン.type = 'button';
+        録画ボタン.className = 'btn btn-sm btn-primary';
+        録画ボタン.textContent = '🎬 メディアスタジオで録画する';
+        録画ボタン.addEventListener('click', () => {
+            if (typeof window.applyMediaStudioBackstage === 'function') {
+                window.applyMediaStudioBackstage({ mode: '台本', text: 文 });
+            }
+            if (typeof switchPage === 'function') switchPage('studio');
+            setTimeout(() => {
+                document.getElementById('media-studio-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        });
+        li.appendChild(録画ボタン);
+    }
+
     return li;
 }
 

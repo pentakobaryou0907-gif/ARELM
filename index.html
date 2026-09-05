@@ -1115,7 +1115,16 @@
                                     <option value="工程公開">📸 工程公開（写真つき投稿用・2パターン）</option>
                                     <option value="ストーリーズ">⭐ ストーリーズ文（短文＋ステッカー案）</option>
                                     <option value="DM下書き">✉️ DM下書き（目的を選んで作成）</option>
+                                    <option value="舞台裏デモ">🎬 舞台裏デモ（作っている様子を録画・動画にする）</option>
                                 </select>
+                            </div>
+                            <div class="form-group" id="sns-gen-backstage-mode-wrap" hidden>
+                                <label>舞台裏デモの形式</label>
+                                <div class="guard-row">
+                                    <label><input type="radio" name="sns-backstage-mode" value="台本" checked> 🎥 台本（画面録画・カメラで撮る用）</label>
+                                    <label><input type="radio" name="sns-backstage-mode" value="スライド"> 🖼 写真スライド動画用の構成（工程写真をつなげる）</label>
+                                </div>
+                                <p class="hint">作った台本・構成は、この画面から「開発」タブのメディアスタジオへそのまま渡せます。</p>
                             </div>
                             <div class="form-group">
                                 <label for="sns-gen-product">商品</label>
@@ -2005,14 +2014,24 @@
                                 </div>
                             </div>
                         </section>
-                        <section class="panel-card full-width">
+                        <section class="panel-card full-width" id="media-studio-section">
                             <div class="panel-header-row">
                                 <h3>メディアスタジオ <small class="hint">（動画・録画・録音 · すべてこの端末内で処理）</small></h3>
                                 <span id="media-status" class="hint"></span>
                             </div>
 
+                            <div id="media-backstage-panel" class="media-backstage-panel" hidden>
+                                <div class="panel-header-row">
+                                    <h4 class="media-sub">🎬 舞台裏デモの台本（SNSタブから受け取り）</h4>
+                                    <button type="button" id="media-backstage-close" class="btn btn-sm btn-secondary">閉じる</button>
+                                </div>
+                                <p class="hint">録画・撮影しながら、この台詞を読み上げてください。</p>
+                                <p id="media-backstage-text" class="media-backstage-text"></p>
+                            </div>
+                            <p id="media-backstage-slide-hint" class="hint media-backstage-slide-hint" hidden></p>
+
                             <h4 class="media-sub">宣伝動画をつくる</h4>
-                            <p class="hint">画像を並べるだけで動画ファイル（.webm）になります。長さの上限はありません。電子透かしは入りません。</p>
+                            <p class="hint">画像を並べるだけで動画ファイル（.webm）になります。長さの上限はありません。電子透かしは入りません。各スライドのテロップ（重ねる文字）は、サムネイル下の欄で追加・編集できます。</p>
                             <div class="media-controls">
                                 <label>画像を追加 <input type="file" id="media-slide-add" accept="image/*" multiple></label>
                                 <label>サイズ
@@ -2064,9 +2083,11 @@
                                 <button type="button" id="media-video-queue-add-btn" class="btn btn-primary btn-sm">SNS投稿キューに追加</button>
                             </div>
 
-                            <h4 class="media-sub">画面録画・録音・スクリーンショット</h4>
+                            <h4 class="media-sub">画面録画・カメラ録画・録音・スクリーンショット</h4>
+                            <video id="media-camera-preview" class="media-camera-preview" autoplay muted playsinline hidden></video>
                             <div class="media-controls">
                                 <button type="button" id="media-screen-btn" class="btn btn-secondary btn-sm">画面を録画</button>
+                                <button type="button" id="media-camera-btn" class="btn btn-secondary btn-sm">📷 カメラで録画（顔出し）</button>
                                 <button type="button" id="media-audio-btn" class="btn btn-secondary btn-sm">録音する</button>
                                 <button type="button" id="media-stop-btn" class="btn btn-danger btn-sm" disabled>停止して保存</button>
                                 <button type="button" id="media-shot-btn" class="btn btn-secondary btn-sm">スクリーンショット</button>

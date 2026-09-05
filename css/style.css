@@ -2690,6 +2690,50 @@ textarea::placeholder {
     border: 1px solid var(--areglm-border, #ddd);
 }
 
+.media-slide-caption {
+    width: 96px;
+    margin-top: 0.25rem;
+    font-size: 0.68rem;
+    padding: 0.2rem 0.3rem;
+    border: 1px solid var(--areglm-border);
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.media-backstage-panel {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px dashed var(--areglm-accent);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.media-backstage-text {
+    white-space: pre-wrap;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin: 0.4rem 0 0;
+}
+
+.media-backstage-slide-hint {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px dashed var(--areglm-accent);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.75rem;
+    white-space: pre-wrap;
+}
+
+.media-camera-preview {
+    width: 240px;
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--areglm-border);
+    margin: 0.4rem 0;
+    background: #000;
+}
+
 /* 保管庫から動画組み立て素材・音源を選ぶピッカー */
 .media-lib-picker {
     display: grid;

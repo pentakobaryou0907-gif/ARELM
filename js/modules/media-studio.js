@@ -1,5 +1,5 @@
 /**
- * メディアスタジオ — 動画制作・画面録画・録音・スクリーンショット
+ * メディアスタジオ — 動画制作・画面録画・カメラ録画・録音・スクリーンショット
  *
  * すべてブラウザ標準機能のみで動作し、外部サービスへは一切送信しない。
  *  - 動画制作: canvas.captureStream() + MediaRecorder で実ファイル(.webm)を生成
@@ -8,15 +8,23 @@
  *    ここでは「動画」として扱う。この端末に3Dを描画する機能自体は無い）。
  *    音源は保管庫の音声、またはファイルから選べる（Web Audio API で合成。
  *    ここも外部へは一切送らない）。
- *  - 画面録画: getDisplayMedia()
+ *  - 画面録画・カメラ録画: getDisplayMedia() / getUserMedia({video:true})
  *  - 録音:     getUserMedia({audio:true})
  * 生成物に電子透かしは一切入らない。
+ *
+ * 「舞台裏デモ」連携（SNSタブ→ここ）:
+ *  SNSタブでAIが作った台本・スライド構成を window.applyMediaStudioBackstage() で
+ *  受け取る。台本はテレプロンプター的に表示するだけ、スライド構成は
+ *  画像を追加した順にテロップとして自動で当てはめる（あとから編集も可）。
+ *  すべて同じページ内でのJS間の受け渡しで、外部へは一切送らない。
  */
 
 let mediaRecorder = null;
 let mediaChunks = [];
 let mediaStream = null;
 let videoSlides = [];
+/** 「舞台裏デモ」スライド構成のテロップ候補（画像を追加した順に、先頭から当てはめて消費する） */
+let pendingBackstageCaptions = [];
 
 /** 選んだ音源（BGM）。デコード済みのAudioBufferで持つ（尺の計算・繰り返しに要る） */
 let mediaAudioBuffer = null;
@@ -37,9 +45,14 @@ function initMediaStudio() {
     document.getElementById('media-video-queue-add-btn')?.addEventListener('click', addBuiltVideoToSnsQueue);
 
     document.getElementById('media-screen-btn')?.addEventListener('click', () => startRecording('screen'));
+    document.getElementById('media-camera-btn')?.addEventListener('click', () => startRecording('camera'));
     document.getElementById('media-audio-btn')?.addEventListener('click', () => startRecording('audio'));
     document.getElementById('media-stop-btn')?.addEventListener('click', stopRecording);
     document.getElementById('media-shot-btn')?.addEventListener('click', takeScreenshot);
+    document.getElementById('media-backstage-close')?.addEventListener('click', () => {
+        const panel = document.getElementById('media-backstage-panel');
+        if (panel) panel.hidden = true;
+    });
 
     bindMediaRange('media-duration', 'media-duration-val', (v) => `${v}秒/枚`);
     document.getElementById('media-duration')?.addEventListener('input', updateVideoEstimate);
@@ -49,6 +62,40 @@ function initMediaStudio() {
     renderMediaLibraryPicker();
     renderMediaAudioLibraryPicker();
     populateMediaVideoPlatformSelect();
+}
+
+/**
+ * SNSタブの「舞台裏デモ」から台本・スライド構成を受け取る。
+ * @param {{mode:'台本', text:string} | {mode:'スライド', フック:string, スライド:Array<{見出し:string,本文:string}>}} payload
+ */
+function applyMediaStudioBackstage(payload) {
+    if (!payload) return;
+
+    if (payload.mode === '台本') {
+        const panel = document.getElementById('media-backstage-panel');
+        const textEl = document.getElementById('media-backstage-text');
+        if (panel && textEl) {
+            textEl.textContent = payload.text || '';
+            panel.hidden = false;
+        }
+        setMediaStatus('台本を受け取りました。読み上げながら「画面を録画」か「カメラで録画」を押してください。');
+        return;
+    }
+
+    if (payload.mode === 'スライド') {
+        pendingBackstageCaptions = [
+            payload['フック'] || '',
+            ...(payload['スライド'] || []).map((s) => [s['見出し'], s['本文']].filter(Boolean).join('　')),
+        ].filter(Boolean);
+
+        const hint = document.getElementById('media-backstage-slide-hint');
+        if (hint) {
+            hint.hidden = false;
+            hint.textContent = `🎬 舞台裏デモのスライド構成を受け取りました（${pendingBackstageCaptions.length}枚ぶん）。`
+                + '下の「画像を追加」または保管庫から工程写真を追加した順に、テロップとして自動で当てはめます（あとから編集できます）。';
+        }
+        setMediaStatus('スライド構成を受け取りました。工程写真を追加してください。');
+    }
 }
 
 function bindMediaRange(rangeId, labelId, fmt) {
@@ -73,7 +120,10 @@ function addVideoSlide(e) {
         reader.onload = (ev) => {
             const img = new Image();
             img.onload = () => {
-                videoSlides.push({ kind: 'image', el: img, name: file.name });
+                // 「舞台裏デモ」のスライド構成を受け取っている間は、
+                // 画像を追加した順に自動でテロップを当てはめる。
+                const caption = pendingBackstageCaptions.length ? pendingBackstageCaptions.shift() : '';
+                videoSlides.push({ kind: 'image', el: img, name: file.name, caption });
                 if (--pending === 0) renderVideoSlides();
             };
             img.onerror = () => {
@@ -102,6 +152,10 @@ async function addLibrarySlide(id) {
         return;
     }
 
+    // 「舞台裏デモ」のスライド構成を受け取っている間は、ここで追加する分にも
+    // 順にテロップを当てはめる（画像追加・保管庫追加のどちらでも消費する）。
+    const caption = pendingBackstageCaptions.length ? pendingBackstageCaptions.shift() : '';
+
     if (もの.種類 === '画像') {
         const url = URL.createObjectURL(もの.中身);
         const img = new Image();
@@ -110,7 +164,7 @@ async function addLibrarySlide(id) {
             img.onerror = resolve;
             img.src = url;
         });
-        videoSlides.push({ kind: 'image', el: img, name: もの.名前, libId: id });
+        videoSlides.push({ kind: 'image', el: img, name: もの.名前, libId: id, caption });
     } else if (もの.種類 === '動画') {
         const url = URL.createObjectURL(もの.中身);
         const video = document.createElement('video');
@@ -121,7 +175,7 @@ async function addLibrarySlide(id) {
             video.onloadedmetadata = resolve;
             video.onerror = resolve;
         });
-        videoSlides.push({ kind: 'video', el: video, name: もの.名前, libId: id });
+        videoSlides.push({ kind: 'video', el: video, name: もの.名前, libId: id, caption });
     } else {
         showNotification('画像・動画だけをスライドに追加できます', 'error');
         return;
@@ -210,9 +264,16 @@ function renderVideoSlides() {
             return `<figure class="media-slide">
                 ${中身}
                 <figcaption>${i + 1}. ${AReGLM_SECURITY.sanitizeHtml(s.name)}</figcaption>
+                <textarea class="media-slide-caption" data-slide-index="${i}" rows="2" placeholder="テロップ（任意）">${AReGLM_SECURITY.sanitizeHtml(s.caption || '')}</textarea>
             </figure>`;
         })
         .join('');
+    box.querySelectorAll('.media-slide-caption').forEach((el) => {
+        el.addEventListener('input', () => {
+            const i = Number(el.dataset.slideIndex);
+            if (videoSlides[i]) videoSlides[i].caption = el.value;
+        });
+    });
     updateVideoEstimate();
 }
 
@@ -419,12 +480,12 @@ async function buildVideo() {
 
 /** 1枚のスライドを指定時間ぶん描画する（画像・動画のどちらでも） */
 function renderSlideFor(ctx, canvas, slide, durationMs, fade) {
-    if (slide.kind === 'video') return renderVideoSlideFor(ctx, canvas, slide.el, durationMs, fade);
-    return renderImageSlideFor(ctx, canvas, slide.el, durationMs, fade);
+    if (slide.kind === 'video') return renderVideoSlideFor(ctx, canvas, slide.el, durationMs, fade, slide.caption);
+    return renderImageSlideFor(ctx, canvas, slide.el, durationMs, fade, slide.caption);
 }
 
-/** 1枚の画像を指定時間ぶん描画する（任意でフェード） */
-function renderImageSlideFor(ctx, canvas, img, durationMs, fade) {
+/** 1枚の画像を指定時間ぶん描画する（任意でフェード・テロップ） */
+function renderImageSlideFor(ctx, canvas, img, durationMs, fade, caption) {
     return new Promise((resolve) => {
         const start = performance.now();
         const fadeMs = fade ? Math.min(400, durationMs / 3) : 0;
@@ -450,6 +511,8 @@ function renderImageSlideFor(ctx, canvas, img, durationMs, fade) {
             ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
             ctx.globalAlpha = 1;
 
+            if (caption) drawCaption(ctx, canvas, caption);
+
             requestAnimationFrame(draw);
         };
         requestAnimationFrame(draw);
@@ -463,7 +526,7 @@ function renderImageSlideFor(ctx, canvas, img, durationMs, fade) {
  * クリップがスライドの持ち時間より短ければ繰り返し、
  * 長ければ持ち時間で打ち切る。
  */
-function renderVideoSlideFor(ctx, canvas, video, durationMs, fade) {
+function renderVideoSlideFor(ctx, canvas, video, durationMs, fade, caption) {
     return new Promise((resolve) => {
         video.currentTime = 0;
         video.loop = true;
@@ -504,10 +567,48 @@ function renderVideoSlideFor(ctx, canvas, video, durationMs, fade) {
             ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
             ctx.globalAlpha = 1;
 
+            if (caption) drawCaption(ctx, canvas, caption);
+
             requestAnimationFrame(draw);
         };
         requestAnimationFrame(draw);
     });
+}
+
+/** 画像・動画の下側に、テロップ（帯＋文字）を重ねて描く。長い文は自動で折り返す。 */
+function drawCaption(ctx, canvas, caption) {
+    const fontSize = Math.max(20, Math.round(canvas.width / 24));
+    ctx.font = `bold ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+
+    const maxWidth = canvas.width * 0.86;
+    const 行たち = [];
+    let 現在行 = '';
+    for (const 文字 of caption) {
+        const 候補 = 現在行 + 文字;
+        if (ctx.measureText(候補).width > maxWidth && 現在行) {
+            行たち.push(現在行);
+            現在行 = 文字;
+        } else {
+            現在行 = 候補;
+        }
+    }
+    if (現在行) 行たち.push(現在行);
+    const 表示行 = 行たち.slice(0, 3);
+
+    const lineHeight = fontSize * 1.35;
+    const bandHeight = 表示行.length * lineHeight + fontSize * 0.8;
+    const bandY = canvas.height - bandHeight;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(0, bandY, canvas.width, bandHeight);
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    表示行.forEach((行, i) => {
+        ctx.fillText(行, canvas.width / 2, bandY + fontSize * 0.7 + i * lineHeight);
+    });
+    ctx.textAlign = 'left';
 }
 
 function pickVideoMime() {
@@ -629,6 +730,10 @@ async function startRecording(kind) {
     try {
         if (kind === 'screen') {
             mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } else if (kind === 'camera') {
+            // 舞台裏デモの顔出し録画用。台本を読み上げながら自分の姿を映せるよう、
+            // 録画中はプレビューを画面に出す（音声・映像とも保存先はローカルのみ）。
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         } else {
             mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
@@ -637,11 +742,17 @@ async function startRecording(kind) {
         return;
     }
 
-    const mime = kind === 'screen' ? pickVideoMime() : pickAudioMime();
+    const mime = (kind === 'screen' || kind === 'camera') ? pickVideoMime() : pickAudioMime();
     if (!mime) {
         showNotification('このブラウザは録画・録音の書き出しに対応していません', 'error');
         stopTracks();
         return;
+    }
+
+    const preview = document.getElementById('media-camera-preview');
+    if (kind === 'camera' && preview) {
+        preview.srcObject = mediaStream;
+        preview.hidden = false;
     }
 
     mediaChunks = [];
@@ -651,13 +762,17 @@ async function startRecording(kind) {
     };
     mediaRecorder.onstop = () => {
         const blob = new Blob(mediaChunks, { type: mime });
-        const ext = kind === 'screen' ? 'webm' : mime.includes('ogg') ? 'ogg' : 'webm';
+        const ext = (kind === 'screen' || kind === 'camera') ? 'webm' : mime.includes('ogg') ? 'ogg' : 'webm';
         downloadBlob(blob, `areglm_${kind}_${Date.now()}.${ext}`);
-        setMediaStatus(`${kind === 'screen' ? '画面録画' : '録音'}を保存しました（${(blob.size / 1024 / 1024).toFixed(1)}MB）`);
+        setMediaStatus(`${MEDIA_KIND_LABEL[kind] || kind}を保存しました（${(blob.size / 1024 / 1024).toFixed(1)}MB）`);
         stopTracks();
+        if (preview) {
+            preview.hidden = true;
+            preview.srcObject = null;
+        }
         mediaRecorder = null;
         toggleRecordingUi(false);
-        if (window.logActivity) logActivity(kind === 'screen' ? '画面を録画' : '音声を録音', { category: 'media' });
+        if (window.logActivity) logActivity(`${MEDIA_KIND_LABEL[kind] || kind}を保存`, { category: 'media' });
     };
 
     // ユーザーが共有停止ボタンを押した場合にも確実に止める
@@ -669,8 +784,10 @@ async function startRecording(kind) {
 
     mediaRecorder.start();
     toggleRecordingUi(true);
-    setMediaStatus(kind === 'screen' ? '画面を録画中…' : '録音中…');
+    setMediaStatus(`${MEDIA_KIND_LABEL[kind] || kind}中…`);
 }
+
+const MEDIA_KIND_LABEL = { screen: '画面録画', camera: 'カメラ録画', audio: '録音' };
 
 function pickAudioMime() {
     const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
@@ -689,7 +806,7 @@ function stopTracks() {
 function toggleRecordingUi(recording) {
     const stopBtn = document.getElementById('media-stop-btn');
     if (stopBtn) stopBtn.disabled = !recording;
-    ['media-screen-btn', 'media-audio-btn'].forEach((id) => {
+    ['media-screen-btn', 'media-camera-btn', 'media-audio-btn'].forEach((id) => {
         const b = document.getElementById(id);
         if (b) b.disabled = recording;
     });
@@ -748,3 +865,4 @@ function setMediaStatus(msg) {
 
 window.initMediaStudio = initMediaStudio;
 window.updateVideoEstimate = updateVideoEstimate;
+window.applyMediaStudioBackstage = applyMediaStudioBackstage;
