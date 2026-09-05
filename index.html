@@ -1251,6 +1251,19 @@
                                         <button type="button" id="sns-post-carousel-ai-btn" class="btn btn-sm btn-secondary">🎠 AIで構成を考える（キャプションをもとに）</button>
                                     </div>
                                     <p class="hint" id="sns-post-carousel-ai-hint" hidden>考えています…</p>
+                                    <div id="sns-carousel-wrap" class="sns-carousel-wrap" hidden>
+                                        <p class="hint">上のAI構成を、そのまま画像プレビューにできます（実際にInstagramへ上げる操作はここではしません）。</p>
+                                        <canvas id="sns-carousel-canvas"></canvas>
+                                        <div class="sns-carousel-nav">
+                                            <button type="button" id="sns-carousel-prev" class="btn btn-sm btn-secondary">◀ 前へ</button>
+                                            <span id="sns-carousel-pos" class="hint"></span>
+                                            <button type="button" id="sns-carousel-next" class="btn btn-sm btn-secondary">次へ ▶</button>
+                                        </div>
+                                        <div class="sns-carousel-buttons">
+                                            <button type="button" id="sns-carousel-export-one" class="btn btn-sm btn-secondary">この1枚を書き出す</button>
+                                            <button type="button" id="sns-carousel-export-all" class="btn btn-sm btn-primary">全部書き出す</button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="form-group sns-format-field" id="sns-post-story-wrap" hidden>
                                     <label for="sns-post-sticker">ステッカー案（投票・質問など・任意）</label>

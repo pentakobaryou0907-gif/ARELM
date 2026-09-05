@@ -1,6 +1,12 @@
 /**
  * SNS — AReGLM 公式アカウント連携
  */
+
+/** 画像プレビュー用に持っている、いまのカルーセル構成。{商品名, フック, スライド:[{見出し,本文},...]} */
+let カルーセルの構成 = null;
+/** いまプレビューで見ている枚目（0＝フック） */
+let カルーセルの位置 = 0;
+
 function initSns() {
     document.getElementById('sns-post-form')?.addEventListener('submit', handleSnsPost);
     document.getElementById('sns-auto-promo-btn')?.addEventListener('click', runAutoPromo);
@@ -16,6 +22,16 @@ function initSns() {
     document.getElementById('faq-gen-btn')?.addEventListener('click', draftCustomerReply);
     document.getElementById('sns-video-platform')?.addEventListener('change', renderSnsVideoGuide);
     document.getElementById('sns-video-jump-btn')?.addEventListener('click', SNS動画をメディアスタジオで組み立てる);
+    document.getElementById('sns-carousel-prev')?.addEventListener('click', () => {
+        カルーセルの位置 = Math.max(0, カルーセルの位置 - 1);
+        renderSnsCarouselSlide();
+    });
+    document.getElementById('sns-carousel-next')?.addEventListener('click', () => {
+        カルーセルの位置 = Math.min(カルーセルの全枚数() - 1, カルーセルの位置 + 1);
+        renderSnsCarouselSlide();
+    });
+    document.getElementById('sns-carousel-export-one')?.addEventListener('click', カルーセルの1枚を書き出す);
+    document.getElementById('sns-carousel-export-all')?.addEventListener('click', カルーセルの全部を書き出す);
     if (typeof init転換率 === 'function') init転換率();
     populateSnsPlatformSelect();
     populateSnsProductSelect();
@@ -460,12 +476,178 @@ async function generateCarouselStoryboard() {
         });
         noteBox.value = 行たち.join('\n');
         showNotification('構成メモを入れました。内容を見て、必要なら書き直してください', 'success');
+
+        // 同じ結果を、画像プレビュー（Canvas）でも見られるようにする。
+        // 商品名は、選べていればそれを、無ければキャプションの先頭行を使う。
+        const 商品セレクト = document.getElementById('sns-gen-product');
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        const 選んだ商品 = products[Number(商品セレクト?.value)];
+        カルーセルの構成 = {
+            商品名: 選んだ商品?.name || 元.split('\n')[0].slice(0, 20) || '商品',
+            フック: r['フック'] || '',
+            スライド: r['スライド'] || [],
+        };
+        カルーセルの位置 = 0;
+        const カルーセル枠 = document.getElementById('sns-carousel-wrap');
+        if (カルーセル枠) カルーセル枠.hidden = false;
+        renderSnsCarouselSlide();
     } catch (e) {
         showNotification(`つながりませんでした: ${e.message}`, 'error');
     } finally {
         if (btn) btn.disabled = false;
         if (hint) hint.hidden = true;
     }
+}
+
+/** フック込みの全枚数 */
+function カルーセルの全枚数() {
+    return カルーセルの構成 ? 1 + カルーセルの構成.スライド.length : 0;
+}
+
+/**
+ * いま選んでいる1枚をCanvasに描く。
+ *
+ * 1枚目（フック）だけ地色を反転させ、フィードの中で目に留まりやすくする。
+ * 見出し・本文は、版面の幅に収まるよう自前で折り返す
+ * （Canvasには自動改行が無いため）。
+ */
+function renderSnsCarouselSlide() {
+    const canvas = document.getElementById('sns-carousel-canvas');
+    if (!canvas || !カルーセルの構成) return;
+
+    const w = 600;
+    const h = 750;
+    canvas.width = w;
+    canvas.height = h;
+    const g = canvas.getContext('2d');
+
+    const 全枚数 = カルーセルの全枚数();
+    カルーセルの位置 = Math.max(0, Math.min(カルーセルの位置, 全枚数 - 1));
+    const 位置 = カルーセルの位置;
+    const フックの枚か = 位置 === 0;
+
+    g.fillStyle = フックの枚か ? '#1c1c1e' : '#f4f2ee';
+    g.fillRect(0, 0, w, h);
+
+    g.textAlign = 'center';
+    g.fillStyle = フックの枚か ? '#f4f2ee' : '#1c1c1e';
+
+    if (フックの枚か) {
+        g.font = 'bold 42px "Hiragino Sans", sans-serif';
+        カルーセル文を描く(g, カルーセルの構成.フック, w / 2, h / 2, w * 0.8, 52);
+    } else {
+        const スライド = カルーセルの構成.スライド[位置 - 1] || { 見出し: '', 本文: '' };
+        g.font = 'bold 34px "Hiragino Sans", sans-serif';
+        カルーセル文を描く(g, スライド.見出し, w / 2, h * 0.34, w * 0.82, 44);
+
+        g.font = '22px "Hiragino Sans", sans-serif';
+        カルーセル文を描く(g, スライド.本文, w / 2, h * 0.55, w * 0.78, 32);
+    }
+
+    // 何枚目／全部で何枚かは、フィードで見返すときも分かるよう画像に焼き込む。
+    g.font = '16px "Hiragino Sans", sans-serif';
+    g.fillStyle = フックの枚か ? 'rgba(244,242,238,0.7)' : 'rgba(28,28,30,0.55)';
+    g.fillText(`${位置 + 1} / ${全枚数}`, w / 2, h - 28);
+
+    const 位置表示 = document.getElementById('sns-carousel-pos');
+    if (位置表示) 位置表示.textContent = `${位置 + 1} / ${全枚数} 枚目${フックの枚か ? '（フック）' : ''}`;
+
+    const 前へ = document.getElementById('sns-carousel-prev');
+    const 次へ = document.getElementById('sns-carousel-next');
+    if (前へ) 前へ.disabled = 位置 === 0;
+    if (次へ) 次へ.disabled = 位置 === 全枚数 - 1;
+}
+
+/** 長い文を、指定した幅に収まるよう折り返して中央揃えで描く */
+function カルーセル文を描く(g, 文, cx, cy, 最大幅, 行の高さ) {
+    const 行 = [];
+    let 今の行 = '';
+    for (const 文字 of String(文 || '')) {
+        const 候補 = 今の行 + 文字;
+        if (今の行 && g.measureText(候補).width > 最大幅) {
+            行.push(今の行);
+            今の行 = 文字;
+        } else {
+            今の行 = 候補;
+        }
+    }
+    if (今の行) 行.push(今の行);
+
+    const 開始y = cy - ((行.length - 1) * 行の高さ) / 2;
+    行.forEach((l, i) => g.fillText(l, cx, 開始y + i * 行の高さ));
+}
+
+/**
+ * いま表示している1枚を書き出す。
+ *
+ * @returns {Promise<boolean>} 書き出せたか
+ */
+function カルーセル1枚を書き出して待つ(位置) {
+    return new Promise((resolve) => {
+        const canvas = document.getElementById('sns-carousel-canvas');
+        if (!canvas) { resolve(false); return; }
+        canvas.toBlob((blob) => {
+            if (!blob) { resolve(false); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `カルーセル_${カルーセルの構成?.商品名 || '商品'}_${位置 + 1}.png`;
+            // 消えた要素だとクリックが効かないブラウザがあるため、
+            // 一度DOMに入れてから押し、すぐ外す（mockup.jsと同じ形）。
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            // 画像には何も埋め込まない。指紋だけを手元に控える。
+            window.AReGLM_真贋?.作ったものを控える(canvas.toDataURL('image/png'), {
+                種類: 'カルーセル',
+                名前: `${カルーセルの構成?.商品名 || ''}／${位置 + 1}枚目`,
+            });
+            resolve(true);
+        }, 'image/png');
+    });
+}
+
+/** いま表示している1枚だけを書き出す */
+async function カルーセルの1枚を書き出す() {
+    if (!カルーセルの構成) {
+        showNotification?.('プレビューが見つかりません', 'error');
+        return;
+    }
+    const ok = await カルーセル1枚を書き出して待つ(カルーセルの位置);
+    showNotification?.(ok ? '画像を保存しました' : '画像の書き出しに失敗しました', ok ? 'success' : 'error');
+    if (ok && window.logActivity) logActivity('カルーセル画像を書き出し', { category: 'sns' });
+}
+
+/** フックから最後のスライドまで、順に書き出す */
+async function カルーセルの全部を書き出す() {
+    if (!カルーセルの構成) {
+        showNotification?.('プレビューが見つかりません', 'error');
+        return;
+    }
+    const btn = document.getElementById('sns-carousel-export-all');
+    if (btn) btn.disabled = true;
+
+    const もとの位置 = カルーセルの位置;
+    const 全枚数 = カルーセルの全枚数();
+    let 成功数 = 0;
+
+    for (let i = 0; i < 全枚数; i++) {
+        カルーセルの位置 = i;
+        renderSnsCarouselSlide();
+        // eslint-disable-next-line no-await-in-loop
+        if (await カルーセル1枚を書き出して待つ(i)) 成功数++;
+        // 連続ダウンロードがブラウザに弾かれないよう、少し間を空ける。
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 350));
+    }
+
+    カルーセルの位置 = もとの位置;
+    renderSnsCarouselSlide();
+    if (btn) btn.disabled = false;
+    showNotification?.(`${成功数}/${全枚数}枚を保存しました`, 成功数 === 全枚数 ? 'success' : 'error');
+    if (成功数 && window.logActivity) logActivity(`カルーセル画像を${成功数}枚書き出し`, { category: 'sns' });
 }
 
 /**

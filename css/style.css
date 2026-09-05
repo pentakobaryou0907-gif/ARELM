@@ -9112,6 +9112,17 @@ html[data-theme] .chat-bubble.user {
 .sns-gen-item p { margin: 0; font-size: 0.86rem; white-space: pre-wrap; }
 .sns-gen-loading { font-size: 0.85rem; color: #777; padding: 0.4rem 0; }
 
+/* カルーセル（複数枚スライド）のプレビュー。mockup.js の描画枠と同じ考え方。 */
+.sns-carousel-wrap { display: grid; justify-items: center; gap: 0.5rem; margin-top: 0.8rem; }
+#sns-carousel-canvas {
+    max-width: 100%;
+    max-height: 26rem;
+    border-radius: 8px;
+    border: 1px solid var(--tone-line, var(--areglm-border));
+}
+.sns-carousel-nav { display: flex; align-items: center; gap: 0.6rem; font-size: 0.84rem; }
+.sns-carousel-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+
 .sns-product-tag-list {
     display: grid; gap: 0.3rem; max-height: 10rem; overflow-y: auto;
     border: 1px solid #e2e2ea; border-radius: 8px; padding: 0.5rem 0.7rem;
