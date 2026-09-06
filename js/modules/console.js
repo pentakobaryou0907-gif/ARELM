@@ -144,6 +144,9 @@ const AREGLM_COMMANDS = [
         keywords: ['メモ'],
         label: 'メモを追加',
         needsArg: true,
+        // 「メモ ○○」という言い方は曖昧さが無いので、ローカルLLMの判定
+        // （数秒〜十数秒）を待たずに即実行してよい（ステップ1.5で使う）。
+        高速一致: true,
         run: (arg) => {
             if (!arg) return 'メモの内容を教えてください（例:「メモ 新作の生地を探す」）';
             const memos = JSON.parse(localStorage.getItem('areglm_memos') || '[]');
@@ -158,6 +161,9 @@ const AREGLM_COMMANDS = [
         keywords: ['タスク', 'やること', '予定', 'よてい'],
         label: 'タスクを追加',
         needsArg: true,
+        // 「タスク ○○」という言い方は曖昧さが無いので、ローカルLLMの判定
+        // （数秒〜十数秒）を待たずに即実行してよい（ステップ1.5で使う）。
+        高速一致: true,
         run: (arg) => {
             if (!arg) return 'タスクの内容を教えてください（例:「タスク サンプル発注」）';
             const tasks = JSON.parse(localStorage.getItem('areglm_tasks') || '[]');
@@ -524,6 +530,30 @@ async function runConsoleCommand(text, target) {
     const 入力そのまま = text.trim();
     let matched = AREGLM_COMMANDS.find((c) => c.keywords.some((k) => 入力そのまま === k));
     let corrected = null;
+
+    // 1.5) 「キーワード ＋ 空白 ＋ 続き」の形も、曖昧さが無いものだけ
+    // （高速一致: true を付けたコマンドだけ）即座に拾う。
+    //
+    // なぜ要るのか: ステップ1の「ぴったり同じ」判定は、キーワード単体で
+    // 打ったとき（「メモ」だけ）にしか当たらない。「メモ 生地を注文する」の
+    // ような最も多い言い方は、これまで全部ステップ3のローカルLLM判定
+    // （ローカルLLMの起動状況によっては数秒〜数十秒）に回っていて、
+    // 「指示したのに何も起きない」ように感じられていた。
+    //
+    // 「今日」のような一般的な単語で誤発火した過去の不具合（コメント参照）を
+    // 繰り返さないよう、対象は明示的に「高速一致: true」を付けた、
+    // 動詞的で紛れの無いコマンドだけに絞ってある。
+    if (!matched) {
+        for (const c of AREGLM_COMMANDS) {
+            if (!c.高速一致) continue;
+            const 当たり = c.keywords.find((k) => {
+                if (!入力そのまま.startsWith(k)) return false;
+                const 続き = 入力そのまま.slice(k.length);
+                return 続き.length > 0 && /^[\s　:：、,]/.test(続き);
+            });
+            if (当たり) { matched = c; break; }
+        }
+    }
 
     // 2) 以前「これはこの操作だ」と教えてもらった言い方なら、それを使う
     if (!matched) {

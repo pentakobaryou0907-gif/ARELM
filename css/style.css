@@ -8741,6 +8741,44 @@ html[data-theme] .chat-bubble.user {
 }
 .voice-fold .wake-card { padding: 0 1.1rem 1.1rem; }
 
+/* 設定の連携欄も同じ考え方で折りたたむ ― APIキー欄が並びすぎて
+   「ごちゃごちゃしている」という指摘（2026-09-07）への対応。 */
+.settings-fold { padding: 0; background: transparent; box-shadow: none; border: 1px solid var(--tone-line, var(--areglm-border)); }
+.settings-fold-head {
+    cursor: pointer;
+    padding: 0.9rem 1.1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+}
+.settings-fold-head::-webkit-details-marker { display: none; }
+.settings-fold-head::after {
+    content: '▸';
+    margin-left: auto;
+    opacity: 0.6;
+}
+.settings-fold[open] .settings-fold-head::after { content: '▾'; }
+.settings-fold-head small {
+    font-weight: 400;
+    font-size: 0.76rem;
+    color: var(--tone-ink-dim, var(--areglm-muted));
+}
+.settings-fold[open] .settings-fold-head {
+    border-bottom: 1px solid var(--tone-line, var(--areglm-border));
+    margin-bottom: 0.6rem;
+}
+.settings-fold-body {
+    display: grid;
+    gap: 1rem;
+    padding: 0 1.1rem 1.1rem;
+}
+.settings-fold-body .panel-card {
+    border: 1px solid var(--tone-line, var(--areglm-border));
+}
+
 /* 次にすること ― 一つだけ大きく出す */
 .voice-next {
     display: grid;
