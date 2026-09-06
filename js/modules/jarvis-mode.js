@@ -207,8 +207,30 @@ function 最新のAI発言をJARVISへ映す() {
         clearTimeout(window._jarvis発話タイマー);
         window._jarvis発話タイマー = setTimeout(() => {
             if (!document.getElementById('jarvis-overlay')?.hidden) JARVISの状態(null);
+            // 「続けて聞く」がONなら、話し終わった直後に自分でマイクを開き直す。
+            // 常時待ち受け（マイクを開けっぱなし）はこのツールの方針に反するため
+            // 採用しない。あくまで「1往復ぶんだけ、次もボタンを押さず話せる」
+            // という、既存の押したときだけ聞く仕組みの延長でしかない。
+            if (継続会話が有効か()) JARVISマイクを開き直す();
         }, 秒 * 1000);
     }
+}
+
+/** 「続けて聞く」トグルがONで、JARVISモードが開いたままか */
+function 継続会話が有効か() {
+    const overlay = document.getElementById('jarvis-overlay');
+    if (!overlay || overlay.hidden) return false;
+    return localStorage.getItem('areglm_jarvis_continuous') === 'true';
+}
+
+/** 話し終わった直後に、既存のマイクボタンを押し直す（1往復ぶんだけ聞く） */
+function JARVISマイクを開き直す() {
+    const btn = document.getElementById('mainai-mic-btn');
+    if (!btn || btn.disabled) return;
+    // すでに聞いている・考え中なら、二重に押さない。
+    if (btn.classList.contains('listening')) return;
+    if (document.getElementById('jarvis-hud')?.classList.contains('thinking')) return;
+    btn.click();
 }
 
 /** マイクボタンの見た目（.listening クラス）を見て、HUDの状態に反映する */
@@ -248,6 +270,16 @@ function initJarvisMode() {
     document.getElementById('jarvis-mic-btn')?.addEventListener('click', () => {
         document.getElementById('mainai-mic-btn')?.click();
     });
+
+    // 「続けて聞く」トグル。既定はオフ（マイクは明示的にオンにされたときだけ、
+    // という方針を守るため）。オンにした本人だけが、その場で有効にできる。
+    const 継続トグル = document.getElementById('jarvis-continuous-toggle');
+    if (継続トグル) {
+        継続トグル.checked = localStorage.getItem('areglm_jarvis_continuous') === 'true';
+        継続トグル.addEventListener('change', (e) => {
+            localStorage.setItem('areglm_jarvis_continuous', e.target.checked ? 'true' : 'false');
+        });
+    }
 
     const log = document.getElementById('mainai-log');
     if (log) {

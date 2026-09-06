@@ -9377,6 +9377,20 @@ html[data-theme] .chat-bubble.user {
 }
 .jarvis-mic-status.on { color: #00d4ff; }
 
+.jarvis-continuous-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+.jarvis-continuous-toggle:has(input:checked) {
+    color: #00d4ff;
+    opacity: 1;
+}
+.jarvis-continuous-toggle input { accent-color: #00d4ff; }
+
 .jarvis-hud {
     position: relative;
     width: min(46vw, 300px);

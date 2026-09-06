@@ -73,6 +73,30 @@ const AREGLM_COMMANDS = [
         }
     },
     {
+        id: 'remote-task',
+        keywords: ['パソコンを操作して', 'パソコンで', '代わりにやって', 'かわりにやって', '自動で作業して'],
+        label: 'パソコンを自動で操作する（遠隔操作画面の「自動操作」で実行・安全な操作だけに限定）',
+        needsArg: true,
+        // JARVISモード（#mainai-form）を含む、この会話コマンド経由のどこからでも
+        // 呼べるようにする。実際にどこまで安全か・座標を当てずっぽうに押さないか、
+        // といった線引きは server/ai/リモート作業.py 側にすでにあるので、
+        // ここでは「遠隔操作画面を開いて、その仕組みに目的を渡す」だけをする
+        // （新しい実行経路を作らず、既にある1本の道にそのまま乗せる）。
+        run: (arg) => {
+            if (!arg) return '何をしてほしいか教えてください（例:「パソコンを操作してChromeでSUZURIを開いて」）';
+            if (typeof switchPage !== 'function') return '画面の切り替えの仕組みが読み込まれていません。';
+            switchPage('remote');
+            setTimeout(() => {
+                document.querySelector('[data-remote-tab="auto"]')?.click();
+                const 入力 = document.getElementById('remote-auto-goal');
+                const form = document.getElementById('remote-auto-form');
+                if (入力) 入力.value = arg;
+                if (form) form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }, 100);
+            return `パソコンの操作を始めます。遠隔操作画面で進み具合を見られます: ${arg}`;
+        }
+    },
+    {
         id: 'add-memo',
         keywords: ['メモ'],
         label: 'メモを追加',
