@@ -21,14 +21,22 @@
  *   中継するだけ（Notion・Obsidian連携と同じ考え方）。
  *
  * 要求する権限（スコープ）:
- *   Gmail送信・Driveバックアップ・Google Photosピッカー（本人が選んだ
- *   写真だけに届く、読み取り専用）の3つ。カレンダーは、実際の予定の
- *   追加・削除の実装ができた時点で、このスコープに追加すればよい
+ *   Gmail送信・Gmail受信箱の閲覧（読み取り専用・削除や既読操作は不可）・
+ *   Driveバックアップ・Google Photosピッカー（本人が選んだ写真だけに
+ *   届く、読み取り専用）の4つ。カレンダーは、実際の予定の追加・削除の
+ *   実装ができた時点で、このスコープに追加すればよい
  *   （Googleの「段階的な認可」の仕組みで、再ログイン1回で済む）。
+ *
+ *   gmail.readonly を足したのは「アドバイザー（今日大事な3つ）・
+ *   JARVISモードの朝のブリーフィングに、未読メールの件数・差出人・
+ *   件名だけを含められるように」という本人の明示的な指示による
+ *   （2026-09-07）。本文の全文取得・下書き作成・削除・既読化は
+ *   まだ実装していない（スコープも要求していない）。
  */
 const AReGLM_GOOGLE_OAUTH = {
     SCOPES: [
         'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/drive.file',
         'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
     ],

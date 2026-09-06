@@ -2534,9 +2534,16 @@
                         <p id="google-status" class="hint"></p>
                         <p class="hint">
                             連携すると、「週次レポート」の各回に次のボタンが出るようになります
-                            （押したときだけ通信します）：📧 メールで送る（<code>gmail.send</code> 権限のみ。
-                            受信箱の閲覧・削除はできません）、☁️ Driveへバックアップ
-                            （<code>drive.file</code> 権限のみ。このアプリが作ったファイル以外は見えません）。
+                            （押したときだけ通信します）：📧 メールで送る（<code>gmail.send</code> 権限のみ）、
+                            ☁️ Driveへバックアップ（<code>drive.file</code> 権限のみ。このアプリが作った
+                            ファイル以外は見えません）。
+                        </p>
+                        <p class="hint">
+                            さらに<code>gmail.readonly</code>（閲覧専用）権限も持たせているため、
+                            JARVISモード・アドバイザーから「メールを確認して」と話しかける（または
+                            打ち込む）と、未読メールの<strong>差出人・件名・最初の120字だけ</strong>を
+                            確認できます。本文の全文取得・既読にする・削除・下書き作成はできません
+                            （そのための権限を要求していないため）。
                         </p>
                         <label class="wake-browser-opt">
                             <input type="checkbox" id="gcal-sync-enabled" disabled>

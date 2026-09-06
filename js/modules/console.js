@@ -119,6 +119,27 @@ const AREGLM_COMMANDS = [
         }
     },
     {
+        id: 'gmail-unread',
+        keywords: ['メールを確認して', '受信箱を見せて', 'メールをチェック', '未読メール'],
+        label: 'Gmailの未読メール（差出人・件名だけ）を確認する',
+        run: async () => {
+            if (!window.AReGLM_GOOGLE_OAUTH || !window.AReGLM_GMAIL) {
+                return 'Gmail連携の仕組みが読み込まれていません。';
+            }
+            if (!(await AReGLM_GOOGLE_OAUTH.isConnected())) {
+                return 'Googleと連携していません。設定（⚙）の「Google連携」からログインしてください。';
+            }
+            try {
+                const 一覧 = await AReGLM_GMAIL.未読を読む(8);
+                if (!一覧.length) return '未読メールはありません。';
+                const 行たち = 一覧.map((m, i) => `${i + 1}. ${m.差出人.replace(/<.*>/, '').trim()}／${m.件名}`);
+                return `未読メールが${一覧.length}件あります:\n${行たち.join('\n')}`;
+            } catch (e) {
+                return 'メールを取れませんでした: ' + e.message;
+            }
+        }
+    },
+    {
         id: 'add-memo',
         keywords: ['メモ'],
         label: 'メモを追加',

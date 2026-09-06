@@ -2312,7 +2312,10 @@ app.post('/api/gmail-proxy', async (req, res) => {
     const token = req.headers['x-google-access-token'];
     if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
     const { method, path, body } = req.body || {};
-    if (!method || !path || !/^\/[\w./-]*$/.test(path)) {
+    // 未読一覧・メタデータ取得はクエリ文字列（?q=...&maxResults=...等）を使うため、
+    // 送信専用だった頃の形（スラッシュ区切りだけ）より少し緩める
+    // （drive-proxy と同じ考え方。許すのは記号として意味のある最小限だけ）。
+    if (!method || !path || !/^\/[\w./%?=&-]*$/.test(path)) {
         return res.status(400).json({ error: 'method・path の形が不正です' });
     }
     try {
