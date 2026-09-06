@@ -1384,6 +1384,19 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-21',
     },
     {
+        // JARVISモード等の読み上げを、Mac内蔵の声より自然にしたいという
+        // 要望（2026-09-07）に対応。既定はMac内蔵の声のまま（無料・
+        // 外部送信なし）で、これは「高品質な声を使う」を本人が明示的に
+        // 有効にしたときだけ呼ばれる（設定＋paid-guardの二重の関門）。
+        host: 'api.elevenlabs.io',
+        name: 'ElevenLabs Text-to-Speech API',
+        provider: 'ElevenLabs（公式）',
+        terms: 'https://elevenlabs.io/terms-of-use',
+        無料か: true,
+        無料の中身: '無料枠あり（月あたりの文字数に上限。超えると有料プランが必要／2026年9月時点）',
+        確かめた日: '2026-09-07',
+    },
+    {
         host: 'suzuri.jp',
         name: 'SUZURI API v1',
         provider: 'GMOペパボ（公式）',
@@ -2070,6 +2083,50 @@ app.post('/api/ai/huggingface', async (req, res) => {
             }
         }
         res.json({ image: `data:${ctype};base64,${b64}` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * ElevenLabs Text-to-Speech（高品質な声の読み上げ・任意）
+ *
+ * 既定はMac内蔵の声（js/modules/voice-style.js）のまま。ここは、
+ * 設定でAPIキーを入れ、「高品質な声を使う」を有効にしたときだけ呼ばれる。
+ * 音声データそのものをそのまま中継するだけで、テキストの内容を
+ * このサーバー側で保存・学習することはない。
+ */
+app.post('/api/ai/elevenlabs-tts', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) return res.status(401).json({ error: 'APIキーが必要です' });
+
+    const text = (req.body?.text || '').slice(0, 2000);
+    const voiceId = req.body?.voiceId || '';
+    if (!text) return res.status(400).json({ error: 'text が必要です' });
+    if (!/^[\w-]{1,64}$/.test(voiceId)) {
+        return res.status(400).json({ error: '声のIDの形式が不正です' });
+    }
+
+    try {
+        const upstream = await safeFetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: 'POST',
+            headers: {
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json',
+                Accept: 'audio/mpeg',
+            },
+            body: JSON.stringify({
+                text,
+                model_id: 'eleven_multilingual_v2',
+            }),
+        });
+        if (!upstream.ok) {
+            let err = {};
+            try { err = await upstream.json(); } catch { /* 音声以外の失敗応答はJSONとは限らない */ }
+            return res.status(upstream.status).json(課金の案内を添える('ElevenLabs Text-to-Speech API', upstream.status, err));
+        }
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        res.type('audio/mpeg').send(buf);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

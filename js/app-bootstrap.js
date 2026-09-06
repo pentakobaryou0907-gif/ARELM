@@ -188,6 +188,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     initSuzuriKeyInput();
     initInstagramKeyInput();
     initIcloudCalendarKeyInput();
+    initElevenLabsKeyInput();
     initGeminiKeyInput();
     initGroqKeyInput();
     initHuggingfaceKeyInput();
@@ -385,6 +386,61 @@ function initInstagramKeyInput() {
         showNotification('Instagram連携の情報を暗号化して保存しました', 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
+
+/**
+ * ElevenLabs（高品質な声の読み上げ・任意）のAPIキー・声のID入力欄。
+ *
+ * SUZURI/Instagramと同じ、専用の保存ボタンで直接暗号化保存する方式。
+ * 「高品質な声を使う」トグル・APIキー・声のIDの3つが揃い、さらに
+ * paid-guard.js側の許可もONでない限り、js/services/elevenlabs-api.js
+ * は何もしない（読み上げは常にMac内蔵の声にフォールバックする）。
+ */
+function initElevenLabsKeyInput() {
+    const 鍵欄 = document.getElementById('elevenlabs-api-key');
+    const voice欄 = document.getElementById('elevenlabs-voice-id');
+    const 有効トグル = document.getElementById('elevenlabs-enabled');
+    const 保存 = document.getElementById('elevenlabs-key-save');
+    const 状態 = document.getElementById('elevenlabs-key-status');
+    if (!鍵欄 || !voice欄 || !保存) return;
+
+    const 表示を直す = async () => {
+        const 設定済み = await AReGLM_ELEVENLABS?.isReady();
+        鍵欄.placeholder = 設定済み ? '•••• 設定済み' : 'APIキー';
+        voice欄.value = AReGLM_ELEVENLABS?.getVoiceId() || '';
+        if (有効トグル) 有効トグル.checked = AReGLM_ELEVENLABS?.isEnabled() || false;
+        if (状態) {
+            状態.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいAPIキーを入れて保存）'
+                : 'まだ設定されていません。';
+        }
+    };
+
+    保存.addEventListener('click', async () => {
+        const 鍵 = 鍵欄.value.trim();
+        const voiceId = voice欄.value.trim();
+        if (!鍵 || !voiceId) {
+            showNotification('APIキーと声のIDの両方を入れてください', 'error');
+            return;
+        }
+        await AReGLM_SECURITY.saveApiKeySecure('elevenlabs', 'api_key', 鍵);
+        localStorage.setItem('areglm_elevenlabs_voice_id', voiceId);
+        鍵欄.value = '';
+        await 表示を直す();
+        showNotification('ElevenLabsの情報を暗号化して保存しました', 'success');
+    });
+
+    有効トグル?.addEventListener('change', (e) => {
+        localStorage.setItem('areglm_elevenlabs_enabled', e.target.checked ? 'true' : 'false');
+        // ここでお金がかかる操作の許可までは出さない（許可は「お金がかかる
+        // 機能」の画面で本人が一つずつ能動的に押すのが決まりごと）。
+        // トグルをONにしただけでは、まだ実際には呼ばれない。
+        if (e.target.checked && typeof 使ってよいか === 'function' && !使ってよいか('elevenlabs')) {
+            showNotification('設定の「お金がかかる機能」からも、ElevenLabsの利用を許可してください（二重の確認）', 'info');
+        }
     });
 
     表示を直す();

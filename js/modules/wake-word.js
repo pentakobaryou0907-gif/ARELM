@@ -577,9 +577,14 @@ async function runWakeCommand(command) {
  *
  * 声と話し方は設定から選べる。
  * 選ばれていなければ、これまでどおりの読み方をする。
+ *
+ * 「高品質な声を使う」（ElevenLabs・任意・要APIキー・お金がかかる場合あり）
+ * が設定・paid-guardの両方で許可されていれば、そちらを先に試す。
+ * 失敗したり許可が無ければ、これまでどおりMac内蔵の声で読み上げる
+ * （どちらの経路でも、読み上げそのものを止めることはない）。
  */
-function speakBack(text) {
-    if (!('speechSynthesis' in window) || !text) return;
+async function speakBack(text) {
+    if (!text) return;
 
     const 設定 = typeof 声の設定を読む === 'function'
         ? 声の設定を読む()
@@ -588,6 +593,20 @@ function speakBack(text) {
     // 「声では返さない」と選ばれていたら、黙る。
     // 画面には出ているので、内容が失われるわけではない。
     if (設定.読み上げる === false) return;
+
+    if (window.AReGLM_ELEVENLABS && (await AReGLM_ELEVENLABS.使えるか())) {
+        try {
+            const 再生できた = await AReGLM_ELEVENLABS.speak(text);
+            if (再生できた) return;
+        } catch (e) {
+            // 失敗しても黙らせない。下のMac内蔵の声にそのまま続ける。
+            if (typeof showNotification === 'function') {
+                showNotification('高品質な声での読み上げに失敗したため、通常の声で読み上げます: ' + e.message, 'error');
+            }
+        }
+    }
+
+    if (!('speechSynthesis' in window)) return;
 
     try {
         const u = new SpeechSynthesisUtterance(text.slice(0, 120));
