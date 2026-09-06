@@ -97,6 +97,28 @@ const AREGLM_COMMANDS = [
         }
     },
     {
+        id: 'advisor-today',
+        keywords: ['大事なことを教えて', '今日の優先順位', '今日やるべきこと', '優先順位を教えて', '今日は何からやればいい'],
+        label: '今の状況（在庫・SNS・タスク等）から、今日いちばん大事なことを3つだけ選んでもらう',
+        run: async () => {
+            // 新しく数字を作らず、既にある「今日の状況」（reportTodayStatus）を
+            // そのままAIへ渡す。ここで判断材料を作り替えることはしない。
+            const 状況 = typeof reportTodayStatus === 'function' ? reportTodayStatus() : '';
+            if (!状況) return '今の状況を読み取れませんでした。';
+            try {
+                const r = await fetch('/api/advisor/today', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 状況 }),
+                }).then((y) => y.json());
+                if (!r.ok) return r.訳 || '選べませんでした。';
+                return `今日、大事なことを選びました:\n${r['答え']}`;
+            } catch (e) {
+                return 'つながりませんでした: ' + e.message;
+            }
+        }
+    },
+    {
         id: 'add-memo',
         keywords: ['メモ'],
         label: 'メモを追加',

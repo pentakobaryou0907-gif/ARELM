@@ -758,6 +758,21 @@ app.post('/api/sns/carousel', async (req, res) => {
     }
 });
 
+/** アドバイザー: 今の状況から、今日いちばん大事なことを3つだけ選ぶ */
+app.post('/api/advisor/today', async (req, res) => {
+    try {
+        const r = await fetch(`http://127.0.0.1:${AI_ENGINE_PORT}/advisor/today`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body || {}),
+            signal: AbortSignal.timeout(70000),
+        });
+        res.status(r.status).json(await r.json());
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: 'AIエンジンに繋がりませんでした: ' + e.message });
+    }
+});
+
 /**
  * AI受付（最小版）― お客様からの問い合わせに、返信の下書きを作る
  *

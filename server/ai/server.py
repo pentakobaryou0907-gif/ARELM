@@ -617,6 +617,22 @@ class Handler(BaseHTTPRequestHandler):
                     商品情報, data.get('トーン') or 'カジュアル', int(data.get('枚数') or 5))
                 return self._send(200, 結果)
 
+            if self.path == '/advisor/today':
+                # 今の状況（クライアントが在庫・SNS・タスク等から作った文章）から、
+                # 今日いちばん大事なことを3つだけ選ぶ。JARVISモードの
+                # 起動時ブリーフィングとは別の、もう一段深い「優先順位付け」用。
+                import アドバイザー
+                状況 = (data.get('状況') or '').strip()
+                if not 状況:
+                    return self._send(400, {'ok': False, '訳': '状況が必要です'})
+
+                verdict = rules.check(状況)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, '訳': verdict['reason'], '答え': ''})
+
+                結果 = アドバイザー.今日の優先順位を選ぶ(状況)
+                return self._send(200, 結果)
+
             if self.path == '/brand-memory':
                 # ブランドの記録を1件足す（記録テーブルへの手入力・自動保存の両方から使う）
                 import ブランドの記憶

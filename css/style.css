@@ -9472,6 +9472,29 @@ html[data-theme] .chat-bubble.user {
     width: 100%;
     max-width: 480px;
 }
+
+/* 起動演出（ページを開いている間、最初の1回だけ）。クリック・タップで飛ばせる。 */
+.jarvis-boot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: min(46vw, 300px);
+    cursor: pointer;
+}
+.jarvis-boot[hidden] { display: none; }
+.jarvis-boot-line {
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    color: #4dabf7;
+    text-shadow: 0 0 14px rgba(0, 212, 255, 0.4);
+    animation: jarvis-boot-in 0.4s ease-out;
+}
+@keyframes jarvis-boot-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .jarvis-mic-btn {
     flex: none;
     width: 46px;

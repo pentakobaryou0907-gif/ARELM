@@ -16,6 +16,62 @@
  */
 
 let jarvisマイク監視中 = false;
+/** このセッション（ページを開いている間）で、起動演出を出したかどうか */
+let jarvisブート済み = false;
+
+/**
+ * 起動演出（見た目だけ）。
+ *
+ * 毎回だと開くたびに待たされてうるさいので、このページを開いている間の
+ * 最初の1回だけ出す（リロードすればまた見られる）。中身は正直に、
+ * この端末の中にある本物の状況確認（今日のブリーフィング）を指す
+ * 言い回しにしてある。実際には動いていない演出用の架空の処理名は書かない。
+ */
+const JARVIS_起動行 = [
+    'システムを起動しています…',
+    '在庫・SNS・タスク・裏作業の状況を確認しています…',
+    '接続を確認しています…',
+];
+
+function JARVIS起動演出を再生する(完了したら) {
+    const boot = document.getElementById('jarvis-boot');
+    const hud = document.getElementById('jarvis-hud');
+    const controls = document.querySelector('.jarvis-controls');
+    if (!boot) { 完了したら(); return; }
+
+    jarvisブート済み = true;
+    boot.hidden = false;
+    boot.innerHTML = '';
+    if (hud) hud.style.visibility = 'hidden';
+    if (controls) controls.style.visibility = 'hidden';
+
+    const 終える = () => {
+        boot.hidden = true;
+        boot.innerHTML = '';
+        if (hud) hud.style.visibility = '';
+        if (controls) controls.style.visibility = '';
+        完了したら();
+    };
+
+    // クリック・タップでいつでも飛ばせるようにする（待たされるのが嫌な人のため）。
+    boot.onclick = 終える;
+
+    let i = 0;
+    const 次の行 = () => {
+        if (boot.hidden) return; // 途中で飛ばされていたら、何もしない
+        if (i >= JARVIS_起動行.length) {
+            setTimeout(終える, 500);
+            return;
+        }
+        const 行 = document.createElement('div');
+        行.className = 'jarvis-boot-line';
+        行.textContent = JARVIS_起動行[i];
+        boot.appendChild(行);
+        i++;
+        setTimeout(次の行, 500);
+    };
+    次の行();
+}
 
 /**
  * 業務ハブ：コアの周りに、機能領域ごとのノードを配置する。
@@ -107,6 +163,14 @@ function JARVISモードを開く() {
     overlay.hidden = false;
     document.body.classList.add('jarvis-active');
 
+    if (!jarvisブート済み) {
+        JARVIS起動演出を再生する(JARVISモードを開く_本体);
+    } else {
+        JARVISモードを開く_本体();
+    }
+}
+
+function JARVISモードを開く_本体() {
     時計を更新();
     if (!window._jarvis時計札) {
         window._jarvis時計札 = setInterval(時計を更新, 1000);
