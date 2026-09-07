@@ -200,6 +200,24 @@ const AReGLM_AI_ENGINE = {
             return data.image;
         }
 
+        // この端末の中のComfyUIは無料・外部送信なしだが、この端末のメモリでは
+        // モデルの読み込みだけで容量ぎりぎりになり、1枚に十分〜数十分かかることがある
+        // （2026-09-07、本人からの「遅すぎて画像が作れない」との指摘で確認）。
+        // Hugging Face の鍵が設定・許可済みなら、そちらを先に試して速く済ませる
+        // （無料枠あり・外部へ送る。設定と「お金がかかる機能」の両方の許可が要る＝
+        // 既存の二重の関門はそのまま）。無ければ、これまでどおりComfyUIへ進む。
+        if (typeof 使ってよいか === 'function' && 使ってよいか('huggingface')) {
+            const hfKey = await this.getKey('huggingface');
+            if (hfKey) {
+                try {
+                    return await this.generateImage('huggingface', prompt, options);
+                } catch (e) {
+                    // 失敗しても諦めない。これまでどおりComfyUIへ回す。
+                    console.warn('[画像生成] Hugging Faceで失敗、ComfyUIへ切り替えます:', e.message);
+                }
+            }
+        }
+
         // この端末の中の ComfyUI（無料・完全ローカル）で作る。外部のAPIキーは要らない。
         // ComfyUIが動いていなければ null が返るので、その下の道へ続ける。
         const 絵 = await this.generateImageLocally(prompt);

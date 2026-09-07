@@ -568,6 +568,14 @@ function initQuickLinks() {
     document.querySelectorAll('[data-goto]').forEach((btn) => {
         btn.addEventListener('click', () => {
             if (window.areglmNavigate) window.areglmNavigate(btn.dataset.goto);
+            // 特定の場所（保管庫など、ページの奥に埋もれている節）まで
+            // そのまま連れて行きたいときのための、任意の追加ジャンプ先。
+            const 先 = btn.dataset.gotoScroll;
+            if (先) {
+                setTimeout(() => {
+                    document.getElementById(先)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
+            }
         });
     });
 }
