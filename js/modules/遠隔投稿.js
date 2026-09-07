@@ -398,6 +398,44 @@ function 下書きを出す(箱, x) {
         });
     }
 
+    // Facebook公式Graph APIで、この下書きをそのまま投稿するボタン。
+    // 画像URLが無くても文章だけで投稿できる（Instagramと違う点）。
+    // こちらは1回のAPI呼び出しで済むため、「最終確認」だけ挟む2段階にする。
+    if (x.platform === 'facebook' && window.AReGLM_FACEBOOK) {
+        AReGLM_FACEBOOK.isConnected().then((つながっているか) => {
+            if (!つながっているか) return;
+            const fbボタン = document.createElement('button');
+            fbボタン.type = 'button';
+            fbボタン.className = 'btn btn-sm btn-accent';
+            fbボタン.textContent = '📘 Facebook公式APIで投稿する';
+            let 確認待ち = false;
+            fbボタン.addEventListener('click', async () => {
+                if (!確認待ち) {
+                    確認待ち = true;
+                    fbボタン.textContent = '✅ 公開する（最終確認）';
+                    showNotification('もう一度押すと、実際にFacebookページへ公開します。', 'success');
+                    return;
+                }
+                fbボタン.disabled = true;
+                fbボタン.textContent = '公開しています…';
+                try {
+                    await AReGLM_FACEBOOK.publish(文, x.imageUrl || '');
+                    showNotification('Facebookへ公開しました', 'success');
+                    if (typeof removeSnsQueue === 'function' && x.id) removeSnsQueue(x.id);
+                    札.remove();
+                    return;
+                } catch (err) {
+                    showNotification('Facebook公式APIでの投稿に失敗しました: ' + err.message, 'error');
+                    fbボタン.textContent = '📘 Facebook公式APIで投稿する';
+                    確認待ち = false;
+                } finally {
+                    fbボタン.disabled = false;
+                }
+            });
+            並び.appendChild(fbボタン);
+        });
+    }
+
     札.appendChild(並び);
     箱.appendChild(札);
 }

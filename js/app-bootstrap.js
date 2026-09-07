@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     initClaudeKeyInput();
     initSuzuriKeyInput();
     initInstagramKeyInput();
+    initFacebookKeyInput();
     initIcloudCalendarKeyInput();
     initElevenLabsKeyInput();
     initGeminiKeyInput();
@@ -385,6 +386,54 @@ function initInstagramKeyInput() {
         トークン欄.value = '';
         await 表示を直す();
         showNotification('Instagram連携の情報を暗号化して保存しました', 'success');
+        AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
+        AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
+
+/**
+ * Facebook連携（公式Graph API）のページアクセストークン・ページID入力欄。
+ * Instagramと同じ2つの値が要る形。
+ */
+function initFacebookKeyInput() {
+    const トークン欄 = document.getElementById('facebook-page-token');
+    const id欄 = document.getElementById('facebook-page-id');
+    const 保存 = document.getElementById('facebook-page-token-save');
+    const 状態 = document.getElementById('facebook-page-token-status');
+    if (!トークン欄 || !id欄 || !保存) return;
+
+    const 表示を直す = async () => {
+        const 設定済み = await AReGLM_FACEBOOK?.isConnected();
+        トークン欄.placeholder = 設定済み ? '•••• 設定済み' : 'ページアクセストークン';
+        id欄.value = localStorage.getItem('areglm_facebook_page_id') || '';
+        if (状態) {
+            状態.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいトークンを入れて保存）'
+                : 'まだ設定されていません。';
+        }
+    };
+
+    保存.addEventListener('click', async () => {
+        const トークン = トークン欄.value.trim();
+        const pageId = id欄.value.trim();
+        if (!トークン || !pageId) {
+            showNotification('ページアクセストークンとページIDの両方を入れてください', 'error');
+            return;
+        }
+
+        await AReGLM_SECURITY.saveApiKeySecure('facebook', 'page_access_token', トークン);
+        localStorage.setItem('areglm_facebook_page_id', pageId);
+
+        const cfg = getApiConfig();
+        if (!cfg.facebook) cfg.facebook = {};
+        cfg.facebook.api = { connected: true, updatedAt: new Date().toISOString() };
+        saveApiConfig(cfg);
+
+        トークン欄.value = '';
+        await 表示を直す();
+        showNotification('Facebook連携の情報を暗号化して保存しました', 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
     });

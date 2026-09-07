@@ -2617,6 +2617,33 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">📘</span>Facebook連携（公式Graph API・ページ投稿）</h3>
+                        <p class="hint">
+                            Instagramと同じ仕組み（Meta公式Graph API）で、Facebookページへ単独で
+                            投稿できます。<strong>既定は未設定です。</strong>
+                        </p>
+                        <p class="hint">
+                            <strong>使うには：</strong>上のInstagram連携と同じMeta for Developersアプリで、
+                            「pages_manage_posts」権限を持つページアクセストークンを発行し、
+                            投稿先のページID（ページの「概要」から確認できます）とあわせて下に入れてください。
+                            画像つき投稿の画像URLは、Instagram連携と同じく
+                            <strong>インターネット上の誰かが開けるURL</strong>である必要があります。
+                        </p>
+                        <div class="form-group">
+                            <label for="facebook-page-token">ページアクセストークン</label>
+                            <input type="password" id="facebook-page-token" placeholder="Facebook ページアクセストークン" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="facebook-page-id">ページID</label>
+                            <input type="text" id="facebook-page-id" placeholder="例: 61577637205103" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="facebook-page-token-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <p id="facebook-page-token-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📅</span>iCloudカレンダー連携（公式CalDAV）</h3>
                         <p class="hint">
                             「カレンダーはiCloudに」というご指示に沿って、Googleではなく
@@ -3222,6 +3249,7 @@
     <script src="js/services/ai-engine.js" defer></script>
     <script src="js/services/suzuri-api.js" defer></script>
     <script src="js/services/instagram-api.js" defer></script>
+    <script src="js/services/facebook-api.js" defer></script>
     <script src="js/services/notion-api.js" defer></script>
     <script src="js/services/obsidian-api.js" defer></script>
     <script src="js/services/google-oauth.js" defer></script>
