@@ -39,6 +39,10 @@ const AReGLM_GOOGLE_OAUTH = {
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/drive.file',
         'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
+        // メディアスタジオで組み立てた動画を、そのままYouTubeへ上げられるように
+        // 追加（2026-09-07、本人の指示）。upload権限のみで、チャンネルの
+        // 設定変更・他の動画の削除等はできない。
+        'https://www.googleapis.com/auth/youtube.upload',
     ],
 
     _accessToken: null,

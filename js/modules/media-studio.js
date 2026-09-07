@@ -32,6 +32,8 @@ let mediaAudioName = '';
 
 /** 直前に書き出して保管庫に保存できた動画（SNS投稿キューへ添付するのに使う） */
 let lastBuiltVideo = null;
+/** 直前に書き出した動画そのもの（Blob）。YouTubeへそのままアップロードするのに使う。 */
+let lastBuiltVideoBlob = null;
 
 function initMediaStudio() {
     document.getElementById('media-slide-add')?.addEventListener('change', addVideoSlide);
@@ -43,6 +45,7 @@ function initMediaStudio() {
     document.getElementById('media-audio-lib-refresh-btn')?.addEventListener('click', renderMediaAudioLibraryPicker);
     document.getElementById('media-audio-clear')?.addEventListener('click', clearMediaAudio);
     document.getElementById('media-video-queue-add-btn')?.addEventListener('click', addBuiltVideoToSnsQueue);
+    document.getElementById('media-youtube-upload-btn')?.addEventListener('click', 直前の動画をYouTubeへ上げる);
 
     document.getElementById('media-screen-btn')?.addEventListener('click', () => startRecording('screen'));
     document.getElementById('media-camera-btn')?.addEventListener('click', () => startRecording('camera'));
@@ -475,6 +478,7 @@ async function buildVideo() {
         });
     }
 
+    lastBuiltVideoBlob = blob;
     await 動画を保管庫に保存してキュー準備(blob, mime);
 }
 
@@ -660,6 +664,50 @@ async function 動画を保管庫に保存してキュー準備(blob, mime) {
             ? '動画を保管庫に保存しました。このままSNS投稿キューに追加できます。'
             : `保管庫には保存できませんでした（${保存の訳 || '不明なエラー'}）。`
                 + 'ダウンロードしたファイルを手動で使ってください。動画なしでキャプションだけキューに追加することもできます。';
+    }
+}
+
+/**
+ * 直前に書き出した動画を、YouTube公式Data API v3でそのままアップロードする。
+ * 既定は「限定公開」（本人がリンクを知っていれば見られる）にし、
+ * 誤って全世界公開になることを避ける。
+ */
+async function 直前の動画をYouTubeへ上げる() {
+    const btn = document.getElementById('media-youtube-upload-btn');
+    const 状態 = document.getElementById('media-youtube-upload-status');
+
+    if (!lastBuiltVideoBlob) {
+        showNotification('先に動画を書き出してください', 'error');
+        return;
+    }
+    if (!window.AReGLM_YOUTUBE || !(await AReGLM_YOUTUBE.isReady())) {
+        showNotification('Googleと連携していません → 設定（⚙）のGoogle連携から', 'error');
+        return;
+    }
+
+    const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'AReGLM');
+    if (!policy.ok) {
+        showNotification(policy.message, 'error');
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (状態) 状態.textContent = 'YouTubeへアップロードしています…（動画の大きさによっては数分かかります）';
+
+    try {
+        const タイトル = caption ? caption.split('\n')[0].slice(0, 90) : `AReGLM ${new Date().toLocaleDateString('ja-JP')}`;
+        const 結果 = await AReGLM_YOUTUBE.upload(lastBuiltVideoBlob, タイトル, caption, 'unlisted');
+        if (状態) {
+            状態.innerHTML = `✅ アップロードしました（限定公開）: <a href="${AReGLM_SECURITY.escapeAttr(結果.url)}" target="_blank" rel="noopener">${AReGLM_SECURITY.sanitizeHtml(結果.url)}</a>`;
+        }
+        showNotification('YouTubeへアップロードしました', 'success');
+        if (window.logActivity) logActivity('YouTubeへ動画をアップロード', { category: 'media' });
+    } catch (e) {
+        if (状態) 状態.textContent = 'アップロードできませんでした: ' + e.message;
+        showNotification('YouTubeへのアップロードに失敗しました: ' + e.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 

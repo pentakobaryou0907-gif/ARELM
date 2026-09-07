@@ -2496,6 +2496,65 @@ app.post('/api/drive-proxy', async (req, res) => {
 });
 
 /**
+ * YouTube動画のアップロード（公式Data API v3・再開可能アップロード）
+ *
+ * メディアスタジオで組み立てた動画を、そのままYouTubeへ上げられるように
+ * するための専用口。Googleの「再開可能アップロード」は
+ *   1) メタデータ（タイトル等）だけを渡して、送り先URLを受け取る
+ *   2) そのURLへ動画の中身（バイナリ）をそのまま送る
+ * の2段階になっているため、drive-proxy（JSON中継専用）とは別に用意した。
+ * 動画そのものはこの端末からYouTubeへ直接流すだけで、
+ * サーバー側に保存はしない。
+ */
+app.post('/api/youtube-upload-proxy', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    if (!req.body || !req.body.length) return res.status(400).json({ error: '動画データが届いていません' });
+
+    const title = String(req.query.title || 'AReGLM').slice(0, 100);
+    const description = String(req.query.description || '').slice(0, 5000);
+    const privacyStatus = ['public', 'unlisted', 'private'].includes(req.query.privacy) ? req.query.privacy : 'private';
+    const contentType = req.headers['x-video-content-type'] || 'video/mp4';
+
+    try {
+        // 1) 再開可能アップロードを開始し、送り先URL（Locationヘッダー）を受け取る
+        const 開始 = await safeFetch(
+            'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'X-Upload-Content-Type': contentType,
+                    'X-Upload-Content-Length': String(req.body.length),
+                },
+                body: JSON.stringify({
+                    snippet: { title, description },
+                    status: { privacyStatus },
+                }),
+            });
+        if (!開始.ok) {
+            const 詳細 = await 開始.text();
+            return res.status(開始.status).json({ error: 'アップロード開始に失敗しました: ' + 詳細.slice(0, 300) });
+        }
+        const uploadUrl = 開始.headers.get('location');
+        if (!uploadUrl) return res.status(500).json({ error: 'アップロード先URLを受け取れませんでした' });
+
+        // 2) 動画の中身を、受け取ったURLへそのまま送る
+        const アップ = await safeFetch(uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': contentType, 'Content-Length': String(req.body.length) },
+            body: req.body,
+        });
+        const text = await アップ.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(アップ.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * Google Photos連携（チャットへの写真添付）
  *
  * photospicker.mediaitems.readonly スコープのみを要求する前提のプロキシ。
