@@ -2091,6 +2091,8 @@
                                 <button type="button" id="media-video-queue-add-btn" class="btn btn-primary btn-sm">SNS投稿キューに追加</button>
                                 <button type="button" id="media-youtube-upload-btn" class="btn btn-secondary btn-sm">▶ YouTubeへアップロード（公式API）</button>
                                 <p id="media-youtube-upload-status" class="hint"></p>
+                                <button type="button" id="media-tiktok-upload-btn" class="btn btn-secondary btn-sm">🎵 TikTokへアップロード（公式API）</button>
+                                <p id="media-tiktok-upload-status" class="hint"></p>
                             </div>
 
                             <h4 class="media-sub">画面録画・カメラ録画・録音・スクリーンショット</h4>
@@ -2643,6 +2645,55 @@
                             <button type="button" id="facebook-page-token-save" class="btn btn-sm btn-secondary">保存</button>
                         </div>
                         <p id="facebook-page-token-status" class="hint"></p>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🎵</span>TikTok連携（公式Content Posting API）</h3>
+                        <p class="hint">
+                            <strong>既定は未設定です。</strong>他の連携（Google・Instagram等）と違い、
+                            TikTokはこの端末（127.0.0.1）への折り返しを受け付けてくれません。
+                            リダイレクトURIは<strong>本人が用意した実在のHTTPSページ</strong>である
+                            必要があります（例: GitHub Pagesの空ページ。中身は何でもよく、
+                            認可コードはそのページのURLに ?code=... として現れるだけです）。
+                        </p>
+                        <p class="hint">
+                            <strong>使うには：</strong>
+                            <a href="https://developers.tiktok.com/" target="_blank" rel="noopener">TikTok for Developers</a>
+                            でアプリを作り「Content Posting API」を追加、上のリダイレクトURIを登録して
+                            Client Key・Client Secretを発行してください。下に3つとも入れて保存し、
+                            「TikTokで認可する」を押すと認可画面が開きます。認可後に表示される
+                            ページのURL（またはcodeの値）をコピーし、貼り付け欄に入れて
+                            「このコードで連携する」を押してください。
+                        </p>
+                        <p class="hint">
+                            <strong>正直な注記：</strong>審査を受けていないアプリは、既定で
+                            「自分にだけ見える」投稿しかできない場合があります（TikTok側の仕様）。
+                        </p>
+                        <div class="form-group">
+                            <label for="tiktok-client-key">Client Key</label>
+                            <input type="text" id="tiktok-client-key" placeholder="Client Key" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="tiktok-client-secret">Client Secret</label>
+                            <input type="password" id="tiktok-client-secret" placeholder="Client Secret" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="tiktok-redirect-uri">リダイレクトURI（本人が用意したHTTPSページ）</label>
+                            <input type="text" id="tiktok-redirect-uri" placeholder="https://example.github.io/callback" autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="tiktok-client-save-btn" class="btn btn-sm btn-secondary">保存</button>
+                            <button type="button" id="tiktok-authorize-btn" class="btn btn-sm btn-secondary">TikTokで認可する</button>
+                            <button type="button" id="tiktok-disconnect-btn" class="btn btn-sm btn-link danger" hidden>連携を解除</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="tiktok-code-input">認可後のURL（またはcode）を貼り付け</label>
+                            <input type="text" id="tiktok-code-input" placeholder="https://example.github.io/callback?code=...&state=..." autocomplete="off">
+                        </div>
+                        <div class="guard-row">
+                            <button type="button" id="tiktok-code-submit-btn" class="btn btn-sm btn-primary">このコードで連携する</button>
+                        </div>
+                        <p id="tiktok-status" class="hint"></p>
                     </section>
 
                     <section class="panel-card">
@@ -3253,6 +3304,8 @@
     <script src="js/services/instagram-api.js" defer></script>
     <script src="js/services/facebook-api.js" defer></script>
     <script src="js/services/youtube-api.js" defer></script>
+    <script src="js/services/tiktok-oauth.js" defer></script>
+    <script src="js/services/tiktok-api.js" defer></script>
     <script src="js/services/notion-api.js" defer></script>
     <script src="js/services/obsidian-api.js" defer></script>
     <script src="js/services/google-oauth.js" defer></script>

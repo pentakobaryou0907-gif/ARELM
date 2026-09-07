@@ -46,6 +46,7 @@ function initMediaStudio() {
     document.getElementById('media-audio-clear')?.addEventListener('click', clearMediaAudio);
     document.getElementById('media-video-queue-add-btn')?.addEventListener('click', addBuiltVideoToSnsQueue);
     document.getElementById('media-youtube-upload-btn')?.addEventListener('click', 直前の動画をYouTubeへ上げる);
+    document.getElementById('media-tiktok-upload-btn')?.addEventListener('click', 直前の動画をTikTokへ上げる);
 
     document.getElementById('media-screen-btn')?.addEventListener('click', () => startRecording('screen'));
     document.getElementById('media-camera-btn')?.addEventListener('click', () => startRecording('camera'));
@@ -706,6 +707,47 @@ async function 直前の動画をYouTubeへ上げる() {
     } catch (e) {
         if (状態) 状態.textContent = 'アップロードできませんでした: ' + e.message;
         showNotification('YouTubeへのアップロードに失敗しました: ' + e.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/**
+ * 直前に書き出した動画を、TikTok公式Content Posting APIでアップロードする。
+ * 既定は「自分にだけ見える」にし、誤って公開になることを避ける
+ * （審査を受けていないアプリは既定でこの範囲までという制約もある）。
+ */
+async function 直前の動画をTikTokへ上げる() {
+    const btn = document.getElementById('media-tiktok-upload-btn');
+    const 状態 = document.getElementById('media-tiktok-upload-status');
+
+    if (!lastBuiltVideoBlob) {
+        showNotification('先に動画を書き出してください', 'error');
+        return;
+    }
+    if (!window.AReGLM_TIKTOK || !(await AReGLM_TIKTOK.isConnected())) {
+        showNotification('TikTokと連携していません → 設定（⚙）のTikTok連携から', 'error');
+        return;
+    }
+
+    const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'AReGLM');
+    if (!policy.ok) {
+        showNotification(policy.message, 'error');
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (状態) 状態.textContent = 'TikTokへアップロードしています…';
+
+    try {
+        const publishId = await AReGLM_TIKTOK.publishVideo(lastBuiltVideoBlob, caption, 'SELF_ONLY');
+        if (状態) 状態.textContent = `✅ アップロードしました（自分にだけ見える設定）。処理番号: ${publishId}`;
+        showNotification('TikTokへアップロードしました', 'success');
+        if (window.logActivity) logActivity('TikTokへ動画をアップロード', { category: 'media' });
+    } catch (e) {
+        if (状態) 状態.textContent = 'アップロードできませんでした: ' + e.message;
+        showNotification('TikTokへのアップロードに失敗しました: ' + e.message, 'error');
     } finally {
         if (btn) btn.disabled = false;
     }

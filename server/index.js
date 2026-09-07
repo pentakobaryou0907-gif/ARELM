@@ -1465,6 +1465,22 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-09-03',
     },
     {
+        // TikTok投稿用（Content Posting API）。認可画面（www.tiktok.com）は
+        // ブラウザでの画面遷移だけなので、ここでの許可対象はAPI呼び出し先
+        // （トークン交換・動画アップロード）のホストだけでよい。
+        // 正直な注記: 実際のTikTokアプリでの動作確認は本人の認証情報が
+        // 必要なため未実施。動画アップロードの送り先ホストが
+        // open.tiktokapis.com 以外を返す場合、別途この一覧への追加が必要
+        // になる可能性がある。
+        host: 'open.tiktokapis.com',
+        name: 'TikTok Content Posting API',
+        provider: 'TikTok（公式）',
+        terms: 'https://developers.tiktok.com/doc/login-kit-terms-of-service',
+        無料か: true,
+        無料の中身: '投稿・認可そのものは無料（2026年9月時点）',
+        確かめた日: '2026-09-07',
+    },
+    {
         // Googleフォト連携（チャットへの写真添付）用。Google公式の
         // Photos Picker API（本人が毎回ピッカー画面で選んだ写真だけに
         // 届く。ライブラリを丸ごとは見えない、Google側の権限モデル）。
@@ -2417,6 +2433,92 @@ app.post('/api/google-oauth-token', async (req, res) => {
         });
         const data = await upstream.json();
         res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * TikTok OAuth のトークン交換・更新（Google連携と同じ考え方・同じ形）
+ */
+app.post('/api/tiktok-oauth-token', async (req, res) => {
+    const clientSecret = req.headers['x-tiktok-client-secret'];
+    const { grant_type, client_key, code, code_verifier, redirect_uri, refresh_token } = req.body || {};
+    if (!clientSecret || !client_key) {
+        return res.status(401).json({ error: 'Client Key・Client Secretが必要です' });
+    }
+    const params = new URLSearchParams({ client_key, client_secret: clientSecret, grant_type });
+    if (grant_type === 'authorization_code') {
+        if (!code || !code_verifier || !redirect_uri) {
+            return res.status(400).json({ error: 'code・code_verifier・redirect_uri が必要です' });
+        }
+        params.set('code', code);
+        params.set('code_verifier', code_verifier);
+        params.set('redirect_uri', redirect_uri);
+    } else if (grant_type === 'refresh_token') {
+        if (!refresh_token) return res.status(400).json({ error: 'refresh_token が必要です' });
+        params.set('refresh_token', refresh_token);
+    } else {
+        return res.status(400).json({ error: '不正なgrant_typeです' });
+    }
+    try {
+        const upstream = await safeFetch('https://open.tiktokapis.com/v2/oauth/token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Cache-Control': 'no-cache',
+            },
+            body: params.toString(),
+        });
+        const data = await upstream.json();
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * TikTok Content Posting API の汎用中継（動画アップロード開始・状態確認など）
+ */
+app.post('/api/tiktok-proxy', async (req, res) => {
+    const token = req.headers['x-tiktok-access-token'];
+    if (!token) return res.status(401).json({ error: 'TikTokのアクセストークンが必要です' });
+    const { method, path, body } = req.body || {};
+    if (!method || !path || !/^\/[\w./-]*$/.test(path)) {
+        return res.status(400).json({ error: 'method・path の形が不正です' });
+    }
+    try {
+        const upstream = await safeFetch(`https://open.tiktokapis.com${path}`, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: (method === 'GET' || method === 'HEAD' || body == null) ? undefined : JSON.stringify(body),
+        });
+        const data = await upstream.json();
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/** TikTokへ動画本体をそのまま送る（動画アップロード開始で受け取ったURL宛） */
+app.put('/api/tiktok-video-proxy', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
+    const uploadUrl = req.headers['x-tiktok-upload-url'];
+    if (!uploadUrl) return res.status(400).json({ error: 'アップロード先URLが必要です' });
+    if (!req.body || !req.body.length) return res.status(400).json({ error: '動画データが届いていません' });
+    try {
+        const upstream = await safeFetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': req.headers['x-video-content-type'] || 'video/mp4',
+                'Content-Range': req.headers['x-video-content-range'] || `bytes 0-${req.body.length - 1}/${req.body.length}`,
+            },
+            body: req.body,
+        });
+        const text = await upstream.text();
+        res.status(upstream.status).type('text/plain').send(text);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

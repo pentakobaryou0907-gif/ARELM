@@ -188,6 +188,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     initSuzuriKeyInput();
     initInstagramKeyInput();
     initFacebookKeyInput();
+    initTiktokKeyInput();
     initIcloudCalendarKeyInput();
     initElevenLabsKeyInput();
     initGeminiKeyInput();
@@ -436,6 +437,86 @@ function initFacebookKeyInput() {
         showNotification('Facebook連携の情報を暗号化して保存しました', 'success');
         AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
         AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
+
+/**
+ * TikTok連携。Googleと違い、この端末への自動の折り返しが使えないため、
+ * 「認可画面を開く」→「表示されたURL・codeを貼り付ける」の2段階にしてある。
+ */
+function initTiktokKeyInput() {
+    const keyInput = document.getElementById('tiktok-client-key');
+    const secretInput = document.getElementById('tiktok-client-secret');
+    const redirectInput = document.getElementById('tiktok-redirect-uri');
+    const saveBtn = document.getElementById('tiktok-client-save-btn');
+    const authorizeBtn = document.getElementById('tiktok-authorize-btn');
+    const disconnectBtn = document.getElementById('tiktok-disconnect-btn');
+    const codeInput = document.getElementById('tiktok-code-input');
+    const codeSubmitBtn = document.getElementById('tiktok-code-submit-btn');
+    const status = document.getElementById('tiktok-status');
+    if (!keyInput || !saveBtn) return;
+
+    const 表示を直す = async () => {
+        keyInput.value = AReGLM_TIKTOK_OAUTH?.getClientKey() || '';
+        redirectInput.value = AReGLM_TIKTOK_OAUTH?.getRedirectUri() || '';
+        const secretあり = !!(await AReGLM_SECURITY.loadApiKeySecure('tiktok', 'client_secret'));
+        secretInput.placeholder = secretあり ? '•••• 設定済み' : 'Client Secret';
+        const 連携済み = await AReGLM_TIKTOK_OAUTH?.isConnected();
+        if (disconnectBtn) disconnectBtn.hidden = !連携済み;
+        if (status) {
+            status.textContent = 連携済み
+                ? '連携済みです。'
+                : (secretあり ? 'キーは保存済みです。「TikTokで認可する」に進んでください。' : 'まだ設定されていません。');
+        }
+    };
+
+    saveBtn.addEventListener('click', async () => {
+        const clientKey = keyInput.value.trim();
+        const clientSecret = secretInput.value.trim();
+        const redirectUri = redirectInput.value.trim();
+        if (!clientKey || !redirectUri) {
+            showNotification('Client KeyとリダイレクトURIは必須です', 'error');
+            return;
+        }
+        await AReGLM_TIKTOK_OAUTH.saveClientCredentials(clientKey, clientSecret, redirectUri);
+        secretInput.value = '';
+        await 表示を直す();
+        showNotification('TikTok連携の情報を暗号化して保存しました', 'success');
+    });
+
+    authorizeBtn?.addEventListener('click', async () => {
+        try {
+            const url = await AReGLM_TIKTOK_OAUTH.認可URLを作る();
+            window.open(url, '_blank', 'noopener');
+            showNotification('別タブでTikTokの認可画面を開きました。認可後に表示されるページのURLを、下の欄に貼り付けてください。', 'success');
+        } catch (e) {
+            showNotification(e.message, 'error');
+        }
+    });
+
+    codeSubmitBtn?.addEventListener('click', async () => {
+        const 値 = codeInput.value.trim();
+        if (!値) { showNotification('認可後のURLかcodeを貼り付けてください', 'error'); return; }
+        codeSubmitBtn.disabled = true;
+        try {
+            await AReGLM_TIKTOK_OAUTH.認可コードで連携する(値);
+            codeInput.value = '';
+            await 表示を直す();
+            showNotification('TikTokと連携しました', 'success');
+        } catch (e) {
+            showNotification('連携できませんでした: ' + e.message, 'error');
+        } finally {
+            codeSubmitBtn.disabled = false;
+        }
+    });
+
+    disconnectBtn?.addEventListener('click', async () => {
+        if (!confirm('TikTok連携を解除しますか？')) return;
+        await AReGLM_TIKTOK_OAUTH.disconnect();
+        await 表示を直す();
+        showNotification('TikTok連携を解除しました', 'success');
     });
 
     表示を直す();
