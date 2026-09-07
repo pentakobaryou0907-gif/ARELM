@@ -87,6 +87,15 @@ function initAutomationIntervalSetting() {
         const 直近 = localStorage.getItem('areglm_automation_last');
         last.textContent = 直近 ? `最後に自動実行したのは ${new Date(直近).toLocaleString('ja-JP')}` : '';
     }
+
+    const 目標sel = document.getElementById('auto-promo-daily-target');
+    if (目標sel) {
+        目標sel.value = localStorage.getItem('areglm_auto_promo_daily_target') || '1';
+        目標sel.addEventListener('change', () => {
+            localStorage.setItem('areglm_auto_promo_daily_target', 目標sel.value);
+            showNotification?.(`SNS自動作成の1日の上限を${目標sel.value}件に変更しました`, 'success');
+        });
+    }
 }
 
 function loadDashboardData() {

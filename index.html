@@ -287,6 +287,20 @@
                             </select>
                         </div>
                         <small class="hint" id="automation-interval-last"></small>
+                        <div class="form-group">
+                            <label for="auto-promo-daily-target">SNS自動作成：1日に作る下書きの上限</label>
+                            <select id="auto-promo-daily-target">
+                                <option value="1">1件</option>
+                                <option value="2">2件</option>
+                                <option value="3">3件</option>
+                                <option value="5">5件</option>
+                            </select>
+                            <p class="hint">
+                                実行間隔のたびに作るのではなく、この上限に達したらその日は作るのをやめます
+                                （商品も毎回順番に入れ替わります）。AIが作った下書きは、必ず内容を確認してから
+                                「SNS」ページで投稿してください（自動で投稿されることはありません）。
+                            </p>
+                        </div>
                     </section>
 
                     <section data-home-group="today" class="panel-card home-actions">

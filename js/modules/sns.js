@@ -1129,33 +1129,77 @@ function removeSnsQueue(id) {
  * 自動実行のときは、画面を騒がせず静かに諦める。
  */
 async function runAutoPromo(自動実行か = false) {
-    const products = JSON.parse(localStorage.getItem('products') || '[]').filter((p) => p.source === 'suzuri');
+    // SUZURI連携がまだでも動けるよう、SUZURI由来の商品が無ければ
+    // 登録済みの全商品から選ぶ（同期後はSUZURI由来を優先する）。
+    // 以前はSUZURI由来が0件だと常に無言で諦めていたため、
+    // SUZURI未連携の間は自動作成が実質ずっと空振りしていた。
+    const 全商品 = JSON.parse(localStorage.getItem('products') || '[]');
+    const suzuri商品 = 全商品.filter((p) => p.source === 'suzuri');
+    const products = suzuri商品.length ? suzuri商品 : 全商品;
     if (!products.length) {
         if (!自動実行か) {
-            showNotification('先に在庫ページで「SUZURIから同期」してください', 'info');
+            showNotification('先に在庫ページで商品を登録するか、「SUZURIから同期」してください', 'info');
         }
         return;
     }
 
+    // スケジューリング: 「1日に何件まで」に絞る。
+    // 以前は実行間隔（既定15分）のたびに毎回4件ずつ積み増していたため、
+    // 放っておくと同じ商品の下書きが際限なく重複して溜まっていた。
+    const 本日 = (typeof 今日 === 'function') ? 今日() : new Date().toISOString().slice(0, 10);
+    const 記録キー = 'areglm_auto_promo_daily';
+    let 記録 = {};
+    try { 記録 = JSON.parse(localStorage.getItem(記録キー) || '{}'); } catch { 記録 = {}; }
+    const 今日の件数 = 記録.日付 === 本日 ? (記録.件数 || 0) : 0;
+    const 目標件数 = Number(localStorage.getItem('areglm_auto_promo_daily_target')) || 1;
+    if (自動実行か && 今日の件数 >= 目標件数) return; // 今日の分はもう作った
+
+    // 商品は順番に回す（毎回同じ最初の商品ばかりにならないように）
+    const 前回index = Number(localStorage.getItem('areglm_auto_promo_last_index')) || 0;
+    const index = 前回index % products.length;
+    const p = products[index];
+    localStorage.setItem('areglm_auto_promo_last_index', String(index + 1));
+
     const platforms = Object.keys(AREGLM_PROFILE.sns);
+    const plat = platforms[index % platforms.length];
+
+    // AIで実際に文章を作る（以前は「【AReGLM】商品名＋URL」の固定文だった）。
+    // 失敗しても諦めず、その固定文にフォールバックする。
+    let caption = `【AReGLM】${p.name}\n${p.shopUrl || AREGLM_PROFILE.suzuriShop}`;
+    try {
+        const 商品情報 = [
+            `商品名: ${p.name || ''}`,
+            p.price ? `価格: ¥${p.price}` : '',
+            p.description ? `特徴: ${p.description}` : '',
+        ].filter(Boolean).join('\n');
+        const r = await fetch('/api/sns/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 商品情報, トーン: 'カジュアル', 件数: 1, 型: 'キャプション' }),
+        }).then((y) => y.json());
+        if (r.ok && r['パターン']?.[0]) caption = r['パターン'][0];
+    } catch { /* AIが使えなくても、固定文で下書き自体は作る */ }
+
     const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
-
-    products.slice(0, 4).forEach((p, i) => {
-        const plat = platforms[i % platforms.length];
-        queue.push({
-            id: 'promo_' + Date.now() + i,
-            platform: plat,
-            format: 'feed',
-            caption: `【AReGLM】${p.name}\n${p.shopUrl || AREGLM_PROFILE.suzuriShop}`,
-            profileUrl: AREGLM_PROFILE.sns[plat]?.url,
-            status: 'scheduled',
-            createdAt: new Date().toISOString()
-        });
+    queue.push({
+        id: 'promo_' + Date.now(),
+        platform: plat,
+        format: 'feed',
+        caption,
+        profileUrl: AREGLM_PROFILE.sns[plat]?.url,
+        // 'scheduled' はホームの件数表示（status==='pending'を数える）で
+        // 拾われず、作っても「0件のまま」に見えるズレがあった。
+        status: 'pending',
+        自動作成: true,
+        createdAt: new Date().toISOString()
     });
-
     localStorage.setItem('areglm_sns_queue', JSON.stringify(queue));
+    localStorage.setItem(記録キー, JSON.stringify({ 日付: 本日, 件数: 今日の件数 + 1 }));
+
     loadSnsData();
-    if (!自動実行か) showNotification('全SNS向け宣伝をキューに追加しました', 'success');
+    if (!自動実行か) {
+        showNotification('AIで宣伝の下書きを作りました。内容を確認してから投稿してください（自動で投稿はしません）', 'success');
+    }
 }
 
 async function analyzeTrendsWithAi() {
