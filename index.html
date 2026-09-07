@@ -2840,6 +2840,30 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">☁️</span>外部AI（Cloudflare Workers AI・会話/画像生成）</h3>
+                        <p class="hint">
+                            画像生成が遅い・失敗するときの、もう一つの高速な代わりです。
+                            <strong>既定は未設定です。</strong>1日あたりの無料枠を超えると課金されるため、
+                            上の「お金がかかる機能」でCloudflareを許可しないと鍵があっても呼ばれません。
+                        </p>
+                        <p class="hint">
+                            <strong>使うには、まずオーナー様ご自身の作業が必要です：</strong>
+                            <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflareダッシュボード</a>
+                            で無料アカウントを作り、右側に表示される「Account ID」を控えます。
+                            続けて<a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">APIトークンの発行ページ</a>
+                            で「Workers AI」の権限（読み取り）を持つトークンを発行し、下に入れてください。
+                        </p>
+                        <div class="guard-row">
+                            <input type="text" id="cloudflare-account-id-input"
+                                placeholder="Account ID" autocomplete="off">
+                            <input type="password" id="cloudflare-api-key-input"
+                                placeholder="APIトークン" autocomplete="off">
+                            <button type="button" id="cloudflare-api-key-save" class="btn btn-sm btn-secondary">保存</button>
+                        </div>
+                        <small id="cloudflare-api-key-status" class="hint"></small>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">🧠</span>外部AI（Claude）</h3>
                         <p class="hint">
                             AIチャットの「脳」をClaudeに切り替えて使う場合の設定です。

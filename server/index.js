@@ -1384,6 +1384,17 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-21',
     },
     {
+        // 画像生成が遅い・失敗するというご本人の指摘（2026-09-07）に対応した
+        // 高速な代わりの一つ。会話・画像生成の両方に使える無料枠あり。
+        host: 'api.cloudflare.com',
+        name: 'Cloudflare Workers AI',
+        provider: 'Cloudflare（公式）',
+        terms: 'https://www.cloudflare.com/service-specific-terms-developer-platform/',
+        無料か: true,
+        無料の中身: '1日あたり無料ニューロン数の枠あり（超えると有料プランが必要／2026年9月時点）',
+        確かめた日: '2026-09-07',
+    },
+    {
         // JARVISモード等の読み上げを、Mac内蔵の声より自然にしたいという
         // 要望（2026-09-07）に対応。既定はMac内蔵の声のまま（無料・
         // 外部送信なし）で、これは「高品質な声を使う」を本人が明示的に
@@ -2083,6 +2094,60 @@ app.post('/api/ai/huggingface', async (req, res) => {
             }
         }
         res.json({ image: `data:${ctype};base64,${b64}` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Cloudflare Workers AI（無料枠あり・会話／画像生成）
+ *
+ * account_id・APIトークンの両方が要る（Cloudflareの仕様）。
+ * モデルによって返り方が違う：画像系は画像そのものが返り、
+ * 文章系はJSONで返る。どちらが来ても扱えるようにしておく。
+ */
+app.post('/api/ai/cloudflare', async (req, res) => {
+    const accountId = req.headers['x-cf-account-id'];
+    const apiToken = req.headers['x-cf-api-token'];
+    if (!accountId || !apiToken) return res.status(401).json({ error: 'account_id・APIトークンの両方が必要です' });
+
+    const model = req.body.model || '';
+    // Cloudflareのモデル名は「@cf/所有者/モデル名」の形。それ以外は弾く。
+    if (!/^@cf\/[\w.-]+\/[\w.-]+$/.test(model)) {
+        return res.status(400).json({ error: 'モデル名の形式が不正です' });
+    }
+    if (!/^[\w-]{1,64}$/.test(accountId)) {
+        return res.status(400).json({ error: 'account_id の形式が不正です' });
+    }
+
+    try {
+        const upstream = await safeFetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(req.body.payload || {}),
+            });
+
+        const ctype = upstream.headers.get('content-type') || '';
+        if (ctype.includes('application/json')) {
+            const data = await upstream.json();
+            if (!upstream.ok || data.success === false) {
+                return res.status(upstream.status || 500).json(
+                    課金の案内を添える('Cloudflare Workers AI', upstream.status, data));
+            }
+            return res.json(data);
+        }
+
+        // 画像系モデルは、画像そのものがそのまま返ってくる。
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        if (!upstream.ok) {
+            return res.status(upstream.status).json(
+                課金の案内を添える('Cloudflare Workers AI', upstream.status, { error: 'Cloudflare Workers AI error' }));
+        }
+        res.json({ image: `data:${ctype || 'image/png'};base64,${buf.toString('base64')}` });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

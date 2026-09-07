@@ -200,6 +200,16 @@ const AReGLM_AI_ENGINE = {
             return data.image;
         }
 
+        if (provider === 'cloudflare') {
+            const accountId = localStorage.getItem('areglm_cloudflare_account_id') || '';
+            const token = await this.getKey('cloudflare');
+            if (!accountId || !token) throw new Error('CloudflareのAccount ID・APIトークンを設定してください');
+
+            const data = await AReGLM_API_CLIENT.cloudflare(
+                accountId, token, '@cf/stabilityai/stable-diffusion-xl-base-1.0', { prompt });
+            return data.image;
+        }
+
         // この端末の中のComfyUIは無料・外部送信なしだが、この端末のメモリでは
         // モデルの読み込みだけで容量ぎりぎりになり、1枚に十分〜数十分かかることがある
         // （2026-09-07、本人からの「遅すぎて画像が作れない」との指摘で確認）。
@@ -212,8 +222,19 @@ const AReGLM_AI_ENGINE = {
                 try {
                     return await this.generateImage('huggingface', prompt, options);
                 } catch (e) {
-                    // 失敗しても諦めない。これまでどおりComfyUIへ回す。
-                    console.warn('[画像生成] Hugging Faceで失敗、ComfyUIへ切り替えます:', e.message);
+                    // 失敗しても諦めない。次の道（Cloudflare→ComfyUI）へ回す。
+                    console.warn('[画像生成] Hugging Faceで失敗、次を試します:', e.message);
+                }
+            }
+        }
+        if (typeof 使ってよいか === 'function' && 使ってよいか('cloudflare')) {
+            const cfAccountId = localStorage.getItem('areglm_cloudflare_account_id') || '';
+            const cfToken = await this.getKey('cloudflare');
+            if (cfAccountId && cfToken) {
+                try {
+                    return await this.generateImage('cloudflare', prompt, options);
+                } catch (e) {
+                    console.warn('[画像生成] Cloudflareで失敗、ComfyUIへ切り替えます:', e.message);
                 }
             }
         }

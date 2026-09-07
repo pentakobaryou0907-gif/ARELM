@@ -192,6 +192,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     initGeminiKeyInput();
     initGroqKeyInput();
     initHuggingfaceKeyInput();
+    initCloudflareKeyInput();
     if (typeof init様子 === 'function') init様子();
     initQuickLinks();
 
@@ -563,6 +564,54 @@ function initAiKeyInput(id, label, prefix) {
 function initGeminiKeyInput() { initAiKeyInput('gemini', 'Gemini', 'AIza'); }
 function initGroqKeyInput() { initAiKeyInput('groq', 'Groq', 'gsk_'); }
 function initHuggingfaceKeyInput() { initAiKeyInput('huggingface', 'Hugging Face', 'hf_'); }
+
+/**
+ * Cloudflare Workers AI の Account ID・APIトークン入力欄。
+ * account_id は秘密ではないが localStorage に、APIトークンだけ暗号化して保存する
+ * （Instagram/iCloud等、2つの値が要る連携と同じ形）。
+ */
+function initCloudflareKeyInput() {
+    const accountInput = document.getElementById('cloudflare-account-id-input');
+    const keyInput = document.getElementById('cloudflare-api-key-input');
+    const saveBtn = document.getElementById('cloudflare-api-key-save');
+    const status = document.getElementById('cloudflare-api-key-status');
+    if (!accountInput || !keyInput || !saveBtn) return;
+
+    const 表示を直す = async () => {
+        accountInput.value = localStorage.getItem('areglm_cloudflare_account_id') || '';
+        const 設定済み = !!(await AReGLM_SECURITY.loadApiKeySecure('ai', 'cloudflare'));
+        keyInput.placeholder = 設定済み ? '•••• 設定済み' : 'APIトークン';
+        if (status) {
+            status.textContent = 設定済み
+                ? '設定済みです（変更する場合は新しいトークンを入れて保存）'
+                : 'まだ設定されていません。';
+        }
+    };
+
+    saveBtn.addEventListener('click', async () => {
+        const accountId = accountInput.value.trim();
+        const token = keyInput.value.trim();
+        if (!accountId || !token) {
+            showNotification('Account ID とAPIトークンの両方を入れてください', 'error');
+            return;
+        }
+        localStorage.setItem('areglm_cloudflare_account_id', accountId);
+        await AReGLM_SECURITY.saveApiKeySecure('ai', 'cloudflare', token);
+
+        const cfg = getApiConfig();
+        if (!cfg.ai) cfg.ai = {};
+        cfg.ai.cloudflare = { connected: true, updatedAt: new Date().toISOString() };
+        saveApiConfig(cfg);
+
+        keyInput.value = '';
+        await 表示を直す();
+        showNotification('Cloudflare Workers AI の情報を暗号化して保存しました', 'success');
+        AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
+        AReGLM_API_SELECTOR?.renderStatusList('api-status-summary');
+    });
+
+    表示を直す();
+}
 
 function initQuickLinks() {
     document.querySelectorAll('[data-goto]').forEach((btn) => {

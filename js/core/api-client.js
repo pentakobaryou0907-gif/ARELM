@@ -64,6 +64,18 @@ const AReGLM_API_CLIENT = {
         return data;
     },
 
+    /** Cloudflare Workers AI（無料枠あり）。account_id と apiToken の両方が要る。 */
+    async cloudflare(accountId, apiToken, model, payload) {
+        const r = await fetch('/api/ai/cloudflare', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Cf-Account-Id': accountId, 'X-Cf-Api-Token': apiToken },
+            body: JSON.stringify({ model, payload })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(_課金の案内つきエラー文(data, data.error || `Cloudflare ${r.status}`));
+        return data;
+    },
+
     async suzuriProducts(token) {
         const r = await fetch('/api/suzuri/products', {
             headers: { 'X-Suzuri-Token': token }
