@@ -80,7 +80,8 @@ function init監視ダッシュボード() {
     document.getElementById('monitor-dashboard-refresh')?.addEventListener('click', 監視ダッシュボードを描く);
     // 進行中・止まっている作業はバックグラウンド作業.js が8秒おきに確認しているので、
     // それに便乗する形で少し間隔をあけて更新する（通信を二重にしないため）
-    setInterval(監視ダッシュボードを描く, 15000);
+    // タブを見ていない間は誰も見ていない表示なので、省電力インターバルで休ませる。
+    (window.AReGLM_PERF ? AReGLM_PERF.smartInterval(監視ダッシュボードを描く, 15000) : { id: setInterval(監視ダッシュボードを描く, 15000) });
     監視ダッシュボードを描く();
 }
 

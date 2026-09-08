@@ -92,9 +92,9 @@ function initTheme() {
     applyTheme();
 
     // 時間帯をまたいだら自動で切り替える（1分ごとに確認）
-    setInterval(() => {
-        if (loadThemeMode() === 'auto') applyTheme();
-    }, 60000);
+    // タブを見ていない間は色を切り替えても誰も見ないので、省電力インターバルで休ませる。
+    const 確認 = () => { if (loadThemeMode() === 'auto') applyTheme(); };
+    (window.AReGLM_PERF ? AReGLM_PERF.smartInterval(確認, 60000) : setInterval(確認, 60000));
 
     // 明暗の入れ替え
     const flip = document.getElementById('theme-flip');

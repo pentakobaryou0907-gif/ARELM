@@ -180,11 +180,15 @@ function 映し始める(ボタン, 状態) {
     ボタン.textContent = '⏹ 止める';
     状態.textContent = '映しています';
     一枚映す();
-    映す札 = setInterval(一枚映す, 映し直す間隔);
+    // タブを裏に回している間は誰も見ていない画面を撮り続けるだけになるので、
+    // 省電力インターバルで休ませる（表に戻った瞬間に一枚撮り直す）。
+    映す札 = window.AReGLM_PERF
+        ? AReGLM_PERF.smartInterval(一枚映す, 映し直す間隔)
+        : { id: setInterval(一枚映す, 映し直す間隔), stop: () => clearInterval(映す札.id) };
 }
 
 function 映すのをやめる(ボタン, 状態) {
-    clearInterval(映す札);
+    映す札?.stop();
     映す札 = null;
     ボタン.className = 'btn btn-primary';
     ボタン.textContent = '▶ 映し始める';

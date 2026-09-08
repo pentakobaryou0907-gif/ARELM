@@ -418,7 +418,8 @@ function 現在時刻の表示を始める() {
         });
     };
     書く();
-    setInterval(書く, 60 * 1000);
+    // タブを見ていない間は時計を進めても誰も見ないので、省電力インターバルで休ませる。
+    (window.AReGLM_PERF ? AReGLM_PERF.smartInterval(書く, 60 * 1000) : setInterval(書く, 60 * 1000));
 }
 
 window.initDashboard = initDashboard;

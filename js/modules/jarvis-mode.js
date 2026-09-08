@@ -173,7 +173,11 @@ function JARVISモードを開く() {
 function JARVISモードを開く_本体() {
     時計を更新();
     if (!window._jarvis時計札) {
-        window._jarvis時計札 = setInterval(時計を更新, 1000);
+        // 画面を閉じたら止める（省電力インターバル）。開いている間だけ時を刻めばよく、
+        // 閉じたあとも動き続けていた分がそのまま無駄な消費になっていた。
+        window._jarvis時計札 = window.AReGLM_PERF
+            ? AReGLM_PERF.smartInterval(時計を更新, 1000)
+            : { id: setInterval(時計を更新, 1000), stop: () => clearInterval(window._jarvis時計札.id) };
     }
 
     // レイアウト確定後（overlay表示直後はまだ幅0のことがある）に描く。
@@ -196,6 +200,12 @@ function JARVISモードを閉じる() {
     document.body.classList.remove('jarvis-active');
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
     JARVISの状態(null);
+
+    // 画面を閉じたら時計も止める。次に開いたときに作り直す。
+    if (window._jarvis時計札) {
+        window._jarvis時計札.stop();
+        window._jarvis時計札 = null;
+    }
 }
 
 /** #mainai-form へ実際に投げる（会話の中身は既存のエージェントに丸ごと任せる） */

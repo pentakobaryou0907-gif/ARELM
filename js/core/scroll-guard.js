@@ -146,7 +146,8 @@ function initScrollGuard() {
         setTimeout(確かめる, 100);
     }, { passive: true });
 
-    setInterval(確かめる, 10000);
+    // タブを見ていない間はスクロール位置を直しても誰も見ないので、省電力インターバルで休ませる。
+    (window.AReGLM_PERF ? AReGLM_PERF.smartInterval(確かめる, 10000) : setInterval(確かめる, 10000));
 }
 
 window.initScrollGuard = initScrollGuard;
