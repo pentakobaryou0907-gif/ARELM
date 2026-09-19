@@ -182,10 +182,66 @@ function renderAssistantSuggestions(ctx = {}) {
 
     if (!suggestions.length) {
         box.innerHTML = '<li class="hint">今のところ提案はありません。順調です。</li>';
-        return;
+    } else {
+        box.innerHTML = suggestions.map((s) => `<li>${AReGLM_SECURITY.sanitizeHtml(s)}</li>`).join('');
     }
 
-    box.innerHTML = suggestions.map((s) => `<li>${AReGLM_SECURITY.sanitizeHtml(s)}</li>`).join('');
+    // 「連携したら快適ですよ」という提案は、接続状態の確認が非同期
+    // （鍵は暗号化して保存しているため）なので、こことは別に行い、
+    // 上の一覧の下へ足す。
+    renderExternalServiceSuggestions(ctx);
+}
+
+/**
+ * 「今やっていることに、無料で繋げられる外部サービスがある」提案。
+ *
+ * 課金の可能性がある機能（Claude・Gemini・Groq等）はここでは勧めない
+ * （paid-guard.js が別に扱う）。ここで勧めるのは、公式・無料のAPIだけ。
+ *
+ * 何も無ければ何も足さない（先回り.js と同じ考え方: 毎回何か出す道具は
+ * そのうち読まれなくなる）。
+ */
+async function renderExternalServiceSuggestions(ctx = {}) {
+    const box = document.getElementById('assistant-suggestions');
+    if (!box) return;
+
+    const 提案たち = [];
+
+    // SNSへの投稿が溜まっているのに、1つも公式連携していない
+    const pendingSns = (ctx.snsQueue || []).filter((q) => q.status === 'pending').length;
+    if (pendingSns > 0 && window.AREGLM_PROFILE) {
+        const 未接続 = Object.keys(AREGLM_PROFILE.sns || {})
+            .filter((id) => !getApiConfig().sns?.[id]?.connected);
+        if (未接続.length === Object.keys(AREGLM_PROFILE.sns || {}).length) {
+            提案たち.push(
+                '🔗 SNS投稿の下書きが溜まっていますが、どのSNSとも連携していません。'
+                + '設定 → 外部連携（Instagram・Facebook・TikTok・YouTubeいずれも公式APIで無料）を'
+                + 'つなぐと、ここから直接投稿できるようになります'
+            );
+        }
+    }
+
+    // タスクや予定があるのに、カレンダーと繋がっていない
+    const tasks = JSON.parse(localStorage.getItem('areglm_tasks') || '[]');
+    const events = JSON.parse(localStorage.getItem('areglm_events') || '[]');
+    if ((tasks.length || events.length) && window.AReGLM_ICLOUD_CAL) {
+        const 接続済み = await AReGLM_ICLOUD_CAL.isConnected().catch(() => false);
+        if (!接続済み) {
+            提案たち.push(
+                '📅 タスクや予定を記録していますね。iCloudカレンダーと連携すると'
+                + '（Appサイト固有パスワードで無料）、スマホや他のカレンダーアプリにも同じ予定が届きます'
+            );
+        }
+    }
+
+    if (!提案たち.length) return;
+
+    const 空の案内 = box.querySelector('.hint');
+    if (空の案内) box.innerHTML = '';
+    box.insertAdjacentHTML(
+        'beforeend',
+        提案たち.map((s) => `<li class="assistant-suggest-connect">${AReGLM_SECURITY.sanitizeHtml(s)}</li>`).join('')
+    );
 }
 
 function setText(id, val) {
