@@ -213,9 +213,9 @@ elif [ ! -d "$APP/Contents/Resources/ツール本体" ]; then
     ng "アプリの中にツール本体がありません"
 else
     ok "アプリ（中にツール一式を含む）: $APP"
-    # 見張りは目印のファイルで確かめる。
+    # 見張りは目印のフォルダの中のpidで確かめる（見張り.sh参照）。
     # ファイル名に日本語が入るため、プロセス一覧の文字列では探しにくい。
-    WPID="$HOME/Library/Logs/AReGLM/見張り.pid"
+    WPID="$HOME/Library/Logs/AReGLM/見張り.lock/pid"
     if [ -f "$WPID" ] && kill -0 "$(cat "$WPID" 2>/dev/null)" 2>/dev/null; then
         ok "見張りが動いています（落ちても自分で立て直します）"
     else

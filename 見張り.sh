@@ -16,14 +16,29 @@ set -u
 TOOL="$(cd "$(dirname "$0")" && pwd)"
 LOGDIR="$HOME/Library/Logs/AReGLM"
 mkdir -p "$LOGDIR"
-LOCK="$LOGDIR/見張り.pid"
+# 目印はフォルダにする（mkdirは「作れたか」がOS側で一度に決まるため、
+# 二つの見張りがほぼ同時に立ち上がっても、どちらか一方しか取れない）。
+#
+# 以前は「ファイルがあるか確認してから書く」の2手順だったため、
+# ごく近いタイミングで2つ立ち上がると、どちらも「まだ無い」と
+# 見えてしまい、両方が見張りを始めてしまうことがあった
+# （実際にこの端末で、見張りが4つ・自作AIが3つ重なって動いているのを
+# 見つけたことがある）。
+LOCK="$LOGDIR/見張り.pid"     # 過去のファイル式の名残。後方互換のため一応消す。
+LOCKDIR="$LOGDIR/見張り.lock"
+rm -f "$LOCK" 2>/dev/null
 
-# すでに動いていれば、何もしないで終わる
-if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
-    exit 0
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    # 既に誰かが持っている。その持ち主が本当にまだ生きているか確かめる。
+    if [ -f "$LOCKDIR/pid" ] && kill -0 "$(cat "$LOCKDIR/pid" 2>/dev/null)" 2>/dev/null; then
+        exit 0
+    fi
+    # 前回落ちたときの残骸なら、片付けてから取り直す。
+    rm -rf "$LOCKDIR"
+    mkdir "$LOCKDIR" 2>/dev/null || exit 0   # それでも取れなければ、他に先を越されたとみなして諦める
 fi
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"' EXIT
+echo $$ > "$LOCKDIR/pid"
+trap 'rm -rf "$LOCKDIR"' EXIT
 
 PY_BIN="$(ls /Users/ari/.pyenv/versions/*/bin/python3 2>/dev/null | tail -1)"
 [ -x "$PY_BIN" ] || PY_BIN="$(command -v python3)"
