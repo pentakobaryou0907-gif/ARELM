@@ -798,6 +798,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, {'error': 'id が必要です'})
                 return self._send(200, バックグラウンド作業.消す(id))
 
+            # ---- ローカルLLMを裏で温める（「これから話しかけそうだ」の合図を受けて）----
+            #
+            # すぐ返事をする。読み込み自体は別スレッドに任せ、
+            # 呼んだ側（画面）を待たせない。
+            if self.path == '/warm':
+                threading.Thread(target=ローカルLLM.温めておく, daemon=True).start()
+                return self._send(200, {'ok': True})
+
             if self.path == '/chat':
                 text = (data.get('text') or '').strip()
                 if not text:

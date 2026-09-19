@@ -145,3 +145,40 @@ def 聞く(質問, タイムアウト=None, 最大出力=None):
             return 答え or None
     except (urllib.error.URLError, OSError, TimeoutError, ValueError, json.JSONDecodeError):
         return None
+
+
+def 温めておく():
+    """
+    モデルを、実際に聞かれる前にメモリ（GPU）へ乗せておく。
+
+    以前は起動時（アプリを開いた瞬間）に温めていたが、実際に話しかける
+    かどうかに関わらずPCへ負担をかけることになり撤去した。ところが
+    それだけだと、話しかけてから読み込みが始まるため、最初の一言が
+    30〜90秒近く掛かることがあり、「指示しても何も動かない」ように
+    見えてしまっていた。
+
+    そこでいまは「これから話しかけそうだ」という合図（入力欄に
+    カーソルを置いた・JARVISモードを開いた等）を受けたときにだけ、
+    ここを呼んでもらう形にしている。実際に打ち終わる数秒〜十数秒の間に
+    読み込みを済ませておければ、待たされている感覚を大きく減らせる。
+    話しかけずに離れれば、20分の keep_alive で自然に手放される。
+
+    options（num_ctx等）は 聞く() が実際に使う値と必ず揃えること。
+    ここが食い違うと、後の呼び出しでOllamaが読み込み直しになり、
+    温めた意味が無いどころかかえって遅くなる（過去に実測済み）。
+    """
+    try:
+        中身 = json.dumps({
+            'model': モデル,
+            'keep_alive': '20m',
+            'options': {'num_ctx': 8192},
+        }).encode('utf-8')
+        要求 = urllib.request.Request(
+            f'{OLLAMA_の場所}/api/generate',
+            data=中身,
+            headers={'Content-Type': 'application/json'},
+            method='POST',
+        )
+        urllib.request.urlopen(要求, timeout=120)
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError):
+        pass

@@ -50,6 +50,11 @@ function initMainAi() {
         runMainAiCommand(text);
         if (input) input.value = '';
     });
+    // 入力欄にカーソルを置いた時点で、ローカルLLMを裏で温め始める
+    // （console.js 参照。最初の一言が長く待たされる不具合の対策）。
+    document.getElementById('mainai-input')?.addEventListener('focus', () => {
+        if (typeof ローカルAIを温める === 'function') ローカルAIを温める();
+    });
 
     document.getElementById('mainai-mic-btn')?.addEventListener('click', () => {
         // ホームのマイク処理を、出力先だけエージェント側にして使い回す

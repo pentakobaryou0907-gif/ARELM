@@ -279,6 +279,29 @@ const AREGLM_COMMANDS = [
     }
 ];
 
+/**
+ * ローカルLLM（Ollama）を、これから話しかけそうな合図を受けて裏で温める。
+ *
+ * 話しかけてから読み込みが始まると、最初の一言だけ30〜90秒近く
+ * かかることがあり、「指示しても何も動かない」ように見えていた。
+ * 入力欄にカーソルを置いた時点で温め始めておけば、実際に打ち終わって
+ * 送るまでの数秒〜十数秒のうちに読み込みが進み、待たされている感覚を
+ * 大きく減らせる。
+ *
+ * 何度呼ばれてもよい（Ollama側で二重に読み込むことはない）。
+ * 失敗しても、実際の指示はこれまで通りの待ち時間で普通に動くだけなので、
+ * 何もしない。
+ */
+let _ローカルAIを温めた = false;
+function ローカルAIを温める() {
+    if (_ローカルAIを温めた) return;
+    _ローカルAIを温めた = true;
+    fetch('/api/ai-local/warm', { method: 'POST' }).catch(() => {});
+    // 20分（keep_alive）ほど経てば手放されるので、また温め直せるようにする。
+    setTimeout(() => { _ローカルAIを温めた = false; }, 18 * 60 * 1000);
+}
+window.ローカルAIを温める = ローカルAIを温める;
+
 function initConsole() {
     document.getElementById('console-form')?.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -289,6 +312,7 @@ function initConsole() {
         if (input) input.value = '';
     });
 
+    document.getElementById('console-input')?.addEventListener('focus', ローカルAIを温める);
     document.getElementById('console-mic-btn')?.addEventListener('click', toggleConsoleMic);
 
     renderConsoleRules();
