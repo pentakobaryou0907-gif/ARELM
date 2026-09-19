@@ -59,6 +59,25 @@ const AREGLM_COMMANDS = [
         run: () => goToPageByName('studio')
     },
     {
+        // 「モックアップを作って」が create-product（SUZURI登録まで含む
+        // 自動作成）に取り違えられ、SUZURIトークン未設定のエラーで止まる
+        // 不具合があった。モックアップ単体（この端末の中だけで完結・
+        // SUZURI不要）専用の行き先を分けて用意する。
+        id: 'goto-mockup',
+        keywords: ['モックアップ', 'もっくあっぷ', 'モックアップを作って', '商品に載せた見え方'],
+        label: 'モックアップ（商品に載せた見え方）を開く',
+        run: () => {
+            const 文 = goToPageByName('studio');
+            // ページ切り替えの描画が終わってからでないと、
+            // まだ見えていない要素をスクロールしても動かない。
+            setTimeout(() => {
+                document.getElementById('mockup-section')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+            return `${文}（モックアップの欄まで移動します）`;
+        }
+    },
+    {
         id: 'create-product',
         keywords: ['商品を作って', '新商品を作って'],
         label: '商品を自動で作る（商品名・デザイン画像・SUZURI登録まで）',
