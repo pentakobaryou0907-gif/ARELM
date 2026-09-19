@@ -128,12 +128,13 @@ async function draftCustomerReply() {
 /**
  * SNSの実際の操作（ログイン・投稿・確認）は公式APIを使わず、
  * 画面を映して操作する「遠隔操作」で行う（本人の方針）。
- * ここから1回で、遠隔操作の「画面を見る」タブを開き、映し始めるところまで進める。
+ * ここから1回で、遠隔操作の「手動で細かく操作したいとき」を開き、映し始めるところまで進める。
  */
 function SNSを遠隔操作で開く() {
     if (typeof switchPage === 'function') switchPage('remote');
     setTimeout(() => {
-        document.querySelector('[data-remote-tab="screen"]')?.click();
+        const 詳細 = document.getElementById('remote-advanced');
+        if (詳細) 詳細.open = true;
         setTimeout(() => {
             const 映すボタン = document.querySelector('.stop-box button');
             if (映すボタン && 映すボタン.textContent.includes('映し始める')) 映すボタン.click();

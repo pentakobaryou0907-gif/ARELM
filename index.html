@@ -567,130 +567,71 @@
                 <div class="container">
                     <h2 class="section-title">🖥 遠隔操作</h2>
                     <p class="page-lead">
-                        この画面から、実際のパソコン・Chromeを操作できます。
-                        <strong>映った場所を押すと、実際のその場所が押されます。</strong>
-                        作業ごとにタブが分かれています。
-                        <strong>タブを切り替えても、自動操作やライブ画面はそのまま裏側で動き続けます。</strong>
+                        したいことを、下に話すか書くかしてください。
+                        あとはARELMが実際のパソコン・Chromeを操作して進めます。
+                        <strong>送信・購入・公開・削除など取り消しにくい操作の手前では、
+                        必ず立ち止まって確認します。</strong>
                     </p>
 
-                    <div class="home-tabs" id="remote-tabs">
-                        <button type="button" class="home-tab active" data-remote-tab="auto"><span>⚡</span>自動操作</button>
-                        <button type="button" class="home-tab" data-remote-tab="screen"><span>▦</span>画面を見る</button>
-                        <button type="button" class="home-tab" data-remote-tab="type"><span>⌨</span>文字入力・操作</button>
-                        <button type="button" class="home-tab" data-remote-tab="tools"><span>🛠</span>パソコン操作</button>
-                        <button type="button" class="home-tab" data-remote-tab="browser"><span>🌐</span>ブラウザ</button>
-                        <button type="button" class="home-tab" data-remote-tab="vision"><span>👁</span>画面を見て操作</button>
-                    </div>
+                    <section class="panel-card full-width">
+                        <form id="remote-auto-form" class="remote-auto-form">
+                            <input type="text" id="remote-auto-goal"
+                                placeholder="例: 在庫ページを開いて／いま映っている商品をカートに入れて" maxlength="200">
+                            <button type="submit" class="btn btn-primary">▶ お願いする</button>
+                            <button type="button" id="remote-auto-stop"
+                                class="btn btn-danger" hidden>■ 止める</button>
+                        </form>
+                        <div id="remote-auto-approve" class="notice-strict" hidden></div>
+                        <ol id="remote-auto-log" class="remote-auto-log"></ol>
+                    </section>
 
-                    <div data-remote-group="auto" class="remote-tab-panel active">
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">⚡</span>自動で作業する</h3>
-                            <p class="hint">
-                                目的を伝えると、AIが安全な操作（アプリを開く・ページを開く・
-                                タブを切り替える、など）だけを選び、一手ずつ自動で進めます。
-                                <strong>座標を当てずっぽうに押す・文字を打つことはしません。</strong>
-                                それは「文字入力・操作」タブから、上の画面を見ながら人が押してください。
-                            </p>
-                            <form id="remote-auto-form" class="remote-auto-form">
-                                <input type="text" id="remote-auto-goal"
-                                    placeholder="例: 在庫ページを開いて" maxlength="200">
-                                <button type="submit" class="btn btn-primary">▶ 自動で行う</button>
-                                <button type="button" id="remote-auto-stop"
-                                    class="btn btn-secondary" hidden>■ 止める</button>
-                            </form>
-                            <ol id="remote-auto-log" class="remote-auto-log"></ol>
-                        </section>
-                    </div>
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">▦</span>いまの画面</h3>
+                        <p class="hint">
+                            お願いした作業が進む様子が、ここに映ります。
+                            <strong>確認が要るものには印が付きます。</strong>
+                            自分で押したいときは、映った場所をそのまま押してください。
+                        </p>
+                        <div id="remote-work"></div>
+                    </section>
 
-                    <div data-remote-group="screen" class="remote-tab-panel" hidden>
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">▦</span>作業とタブ</h3>
-                            <p class="hint">
-                                上に、いま動いている作業と開いている画面が並びます。
-                                <strong>確認が要るものには印が付きます。</strong>
-                                真ん中に画面が映り、押すと実際のその場所が押されます。
-                            </p>
-                            <div id="remote-work"></div>
-                        </section>
+                    <!-- これより下は、ふだんは畳んでおく（開いたときだけ描く）。
+                         以前はここが5つのタブに分かれていて、どれを使えば
+                         よいか分かりにくい・ボタンが多すぎる、との指摘を受けて
+                         一つにまとめた。中身（安全装置・確認の仕組み）は
+                         何も変えていない。 -->
+                    <details id="remote-advanced">
+                        <summary>手動で細かく操作したいとき</summary>
+                        <div class="remote-advanced-body">
+                            <section class="panel-card full-width">
+                                <h3><span class="sec-icon">▶</span>ライブ画面・キー操作</h3>
+                                <p class="hint">
+                                    自動で映し直され続ける画面です。
+                                    文字を打つ・スクロール・コピー＆ペースト等のキー操作もここから送れます。
+                                </p>
+                                <div id="remote-screen"></div>
+                                <div id="remote-type-tools"></div>
+                            </section>
 
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">▶</span>ライブ画面（自動で映し直す）</h3>
-                            <p class="hint">
-                                上の画面は押したときだけ更新されます。
-                                <strong>こちらは自動で映し直され続けます。</strong>
-                                動きを見ながら操作したいときに使ってください。
-                                文字を打つ・貼り付ける等の操作は「文字入力・操作」タブにあります。
-                            </p>
-                            <div id="remote-screen"></div>
-                        </section>
-                    </div>
+                            <section class="panel-card full-width">
+                                <h3><span class="sec-icon">🛠</span>パソコンを操る</h3>
+                                <p class="hint">
+                                    座標を押すのではなく、決まった操作（音量・明るさ・アプリを開く・
+                                    通知を出す等）を名前で呼び出します。合言葉の画面が開いていても安全に使えます。
+                                </p>
+                                <div id="computer-control"></div>
+                            </section>
 
-                    <div data-remote-group="type" class="remote-tab-panel" hidden>
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">⌨</span>文字入力・操作</h3>
-                            <p class="hint">
-                                「画面を見る」タブで映している画面に対して、文字を打つ・改行する・
-                                コピー＆ペースト等のキー操作を送ります。まず「画面を見る」タブで
-                                映し始めてから使ってください。
-                            </p>
-                            <div id="remote-type-tools"></div>
-                        </section>
-                    </div>
-
-                    <!-- 遠隔操作の機能を一か所にまとめる一環として、以前は
-                         「パソコンを操る画面」として別に用意していた
-                         （どこにも導線が無く、開けなくなっていた）ものを
-                         ここへ移した。 -->
-                    <div data-remote-group="tools" class="remote-tab-panel" hidden>
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">🛠</span>パソコンを操る</h3>
-                            <p class="hint">
-                                座標を押すのではなく、決まった操作（音量・明るさ・アプリを開く・
-                                通知を出す等）を名前で呼び出します。「画面を見る」タブより手早く、
-                                合言葉の画面が開いていても安全に使えます。
-                            </p>
-                            <div id="computer-control"></div>
-                        </section>
-                    </div>
-
-                    <!-- 同じく一か所へまとめる一環として、以前は
-                         「エージェント」ページの中にあった「Chromeを開いて操る」を
-                         ここへ移した。 -->
-                    <div data-remote-group="browser" class="remote-tab-panel" hidden>
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">🌐</span>Chromeを開いて操る</h3>
-                            <p class="hint">
-                                この道具から、あなたのChromeを開いて操れます。
-                                <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
-                            </p>
-                            <div id="browser-control"></div>
-                        </section>
-                    </div>
-
-                    <div data-remote-group="vision" class="remote-tab-panel" hidden>
-                        <section class="panel-card full-width">
-                            <h3><span class="sec-icon">👁</span>画面を見て操作する</h3>
-                            <p class="hint">
-                                「自動操作」タブは、決まった名前の安全な操作しか選べません。
-                                こちらはGemini（画像が読めるAI）に<strong>実際の画面を見せながら</strong>、
-                                クリック・文字入力・スクロールを一手ずつ自動で進めます。
-                                「画面を見る」タブより多くのことができる分、
-                                <strong>実際にマウスとキーボードを動かします。</strong><br>
-                                <strong>送信・購入・支払い・公開・削除など取り消しにくい操作の手前では、
-                                必ず立ち止まって確認を求めます。</strong>
-                                使うにはGeminiキーの設定と使用の許可、パソコン操作の「動かす」が要ります。
-                            </p>
-                            <form id="vision-auto-form" class="remote-auto-form">
-                                <input type="text" id="vision-auto-goal"
-                                    placeholder="例: いま映っているページの一番上の商品をカートに入れて" maxlength="200">
-                                <button type="submit" id="vision-auto-start" class="btn btn-primary">▶ 見ながら進める</button>
-                                <button type="button" id="vision-auto-stop"
-                                    class="btn btn-danger" hidden>■ 止める</button>
-                            </form>
-                            <div id="vision-auto-approve" class="notice-strict" hidden></div>
-                            <ol id="vision-auto-log" class="remote-auto-log"></ol>
-                        </section>
-                    </div>
+                            <section class="panel-card full-width">
+                                <h3><span class="sec-icon">🌐</span>Chromeを開いて操る</h3>
+                                <p class="hint">
+                                    この道具から、あなたのChromeを開いて操れます。
+                                    <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
+                                </p>
+                                <div id="browser-control"></div>
+                            </section>
+                        </div>
+                    </details>
                 </div>
             </div>
 

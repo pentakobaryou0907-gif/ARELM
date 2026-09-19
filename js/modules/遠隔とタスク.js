@@ -412,6 +412,28 @@ async function 自動作業を始める(目的) {
     自動作業が進行中か = false;
 }
 
+/**
+ * 「お願いする」の入口を一つにする。
+ *
+ * 以前は「名前の付いた安全な操作だけの自動操作」と「Geminiに画面を
+ * 見せながら進める操作」が別のタブ・別の入力欄に分かれていて、
+ * どちらを使えばよいか分からない、との指摘を受けた。
+ * ここで自動的に選ぶ: Geminiが使える状態（キー設定・使用許可・
+ * パソコン操作が動ける状態）なら、より多くのことができる「見て操作」を
+ * 使う。使えなければ、キー設定なしでも常に使える「名前で操作」を使う。
+ * 人はどちらが動いているかを意識しなくてよい。
+ */
+async function 統合で自動作業を始める(目的) {
+    const 見て操作できない理由 = (typeof 画面操作_使えるか確かめる === 'function')
+        ? await 画面操作_使えるか確かめる() : '画面を見て操作する仕組みが読み込まれていません';
+
+    if (!見て操作できない理由 && typeof 画面を見て自動作業を始める === 'function') {
+        await 画面を見て自動作業を始める(目的);
+    } else {
+        await 自動作業を始める(目的);
+    }
+}
+
 function init自動作業() {
     const form = document.getElementById('remote-auto-form');
     if (!form || form.dataset.配線済み) return;
@@ -422,46 +444,20 @@ function init自動作業() {
         const 入力 = document.getElementById('remote-auto-goal');
         const 目的 = ((入力 && 入力.value) || '').trim();
         if (!目的) return;
-        自動作業を始める(目的);
+        統合で自動作業を始める(目的);
     });
 
     const 止めるボタン = document.getElementById('remote-auto-stop');
     if (止めるボタン) {
-        止めるボタン.addEventListener('click', () => { 自動作業を止めるか = true; });
+        止めるボタン.addEventListener('click', () => {
+            自動作業を止めるか = true;
+            if (typeof 画面操作_止めさせる === 'function') 画面操作_止めさせる();
+        });
     }
 }
 
-/**
- * 遠隔操作ページのタブ切り替え（自動操作／画面を見る／文字入力・操作）。
- *
- * 作業ごとに画面を分けてほしいという要望に応えたもの。
- * ただし中身のDOMは消さず hidden を付け外しするだけなので、
- * 自動操作の実行中状態やライブ画面のタイマーはタブを切り替えても
- * 裏側で動き続ける（要望の「バックグラウンドで維持」を満たす）。
- */
-function init遠隔操作タブ() {
-    const タブ列 = document.getElementById('remote-tabs');
-    if (!タブ列 || タブ列.dataset.配線済み) return;
-    タブ列.dataset.配線済み = '1';
-
-    タブ列.querySelectorAll('[data-remote-tab]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const 選んだ = btn.dataset.remoteTab;
-            タブ列.querySelectorAll('[data-remote-tab]').forEach((b) => {
-                b.classList.toggle('active', b === btn);
-            });
-            document.querySelectorAll('[data-remote-group]').forEach((枠) => {
-                枠.hidden = 枠.dataset.remoteGroup !== 選んだ;
-                枠.classList.toggle('active', 枠.dataset.remoteGroup === 選んだ);
-            });
-        });
-    });
-}
-window.init遠隔操作タブ = init遠隔操作タブ;
-
 function init遠隔とタスク() {
     if (!document.getElementById('remote-work')) return;
-    init遠隔操作タブ();
     render遠隔とタスク();
     init自動作業();
 

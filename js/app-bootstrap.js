@@ -143,7 +143,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 「パソコン操作」タブへ設置し直した）。
     if (typeof initパソコン操作 === 'function') initパソコン操作();
     if (typeof initブラウザ操作 === 'function') initブラウザ操作();
-    if (typeof init画面操作 === 'function') init画面操作();
     if (typeof initホームからChrome === 'function') initホームからChrome();
     if (typeof init自分を良くする === 'function') init自分を良くする();
     if (typeof init分析画面 === 'function') init分析画面();

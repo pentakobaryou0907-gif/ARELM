@@ -47,7 +47,7 @@ let 画面操作_止めるか = false;
 let 画面操作_進行中か = false;
 
 function 画面操作ログに足す(文) {
-    const box = document.getElementById('vision-auto-log');
+    const box = document.getElementById('remote-auto-log');
     if (!box) return;
     const li = document.createElement('li');
     li.textContent = 文;
@@ -187,13 +187,16 @@ async function 画面を見て自動作業を始める(目的) {
     画面操作_止めるか = false;
     画面操作_進行中か = true;
 
-    const ログ = document.getElementById('vision-auto-log');
+    // ログ・確認欄・止めるボタンは、名前の付いた安全な操作だけの
+    // 自動操作（遠隔とタスク.js）と共有している。「見て操作」か
+    // 「名前で操作」かを人が選ばずに済むよう、入口を一つにまとめたため。
+    const ログ = document.getElementById('remote-auto-log');
     if (ログ) ログ.innerHTML = '';
-    const 承認欄 = document.getElementById('vision-auto-approve');
+    const 承認欄 = document.getElementById('remote-auto-approve');
     if (承認欄) { 承認欄.hidden = true; 承認欄.innerHTML = ''; }
 
-    const 始めるボタン = document.getElementById('vision-auto-start');
-    const 止めるボタン = document.getElementById('vision-auto-stop');
+    const 始めるボタン = document.querySelector('#remote-auto-form button[type="submit"]');
+    const 止めるボタン = document.getElementById('remote-auto-stop');
     if (始めるボタン) 始めるボタン.disabled = true;
     if (止めるボタン) 止めるボタン.hidden = false;
 
@@ -240,7 +243,7 @@ async function 画面を見て自動作業を始める(目的) {
                 const 案内 = document.createElement('p');
                 案内.className = 'hint';
                 案内.textContent = '送信・購入・公開・削除など、取り消しにくい操作の手前なので、'
-                    + 'ここでは自動では進めません。続きは「画面を見る」「文字入力・操作」タブから、'
+                    + 'ここでは自動では進めません。続きは下の「手動で細かく操作したいとき」から、'
                     + 'ご自身の目と手で確かめて行ってください。';
                 承認欄.appendChild(案内);
             }
@@ -270,22 +273,10 @@ async function 画面を見て自動作業を始める(目的) {
     画面操作_進行中か = false;
 }
 
-function init画面操作() {
-    const form = document.getElementById('vision-auto-form');
-    if (!form || form.dataset.配線済み) return;
-    form.dataset.配線済み = '1';
-
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const 入力 = document.getElementById('vision-auto-goal');
-        const 目的 = ((入力 && 入力.value) || '').trim();
-        if (!目的) return;
-        画面を見て自動作業を始める(目的);
-    });
-
-    document.getElementById('vision-auto-stop')?.addEventListener('click', () => {
-        画面操作_止めるか = true;
-    });
-}
-
-window.init画面操作 = init画面操作;
+// 「お願いする」の入口・止めるボタンは、遠隔とタスク.js の
+// remote-auto-form / remote-auto-stop を共有する（一つにまとめたため）。
+// そちらの 統合で自動作業を始める() が、使える状況なら
+// 画面を見て自動作業を始める() をそのまま呼ぶ。
+window.画面を見て自動作業を始める = 画面を見て自動作業を始める;
+window.画面操作_使えるか確かめる = 画面操作_使えるか確かめる;
+window.画面操作_止めさせる = () => { 画面操作_止めるか = true; };

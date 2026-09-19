@@ -106,7 +106,6 @@ const AREGLM_COMMANDS = [
             if (typeof switchPage !== 'function') return '画面の切り替えの仕組みが読み込まれていません。';
             switchPage('remote');
             setTimeout(() => {
-                document.querySelector('[data-remote-tab="auto"]')?.click();
                 const 入力 = document.getElementById('remote-auto-goal');
                 const form = document.getElementById('remote-auto-form');
                 if (入力) 入力.value = arg;
