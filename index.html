@@ -577,6 +577,8 @@
                         <button type="button" class="home-tab active" data-remote-tab="auto"><span>⚡</span>自動操作</button>
                         <button type="button" class="home-tab" data-remote-tab="screen"><span>▦</span>画面を見る</button>
                         <button type="button" class="home-tab" data-remote-tab="type"><span>⌨</span>文字入力・操作</button>
+                        <button type="button" class="home-tab" data-remote-tab="tools"><span>🛠</span>パソコン操作</button>
+                        <button type="button" class="home-tab" data-remote-tab="browser"><span>🌐</span>ブラウザ</button>
                     </div>
 
                     <div data-remote-group="auto" class="remote-tab-panel active">
@@ -631,6 +633,36 @@
                                 映し始めてから使ってください。
                             </p>
                             <div id="remote-type-tools"></div>
+                        </section>
+                    </div>
+
+                    <!-- 遠隔操作の機能を一か所にまとめる一環として、以前は
+                         「パソコンを操る画面」として別に用意していた
+                         （どこにも導線が無く、開けなくなっていた）ものを
+                         ここへ移した。 -->
+                    <div data-remote-group="tools" class="remote-tab-panel" hidden>
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">🛠</span>パソコンを操る</h3>
+                            <p class="hint">
+                                座標を押すのではなく、決まった操作（音量・明るさ・アプリを開く・
+                                通知を出す等）を名前で呼び出します。「画面を見る」タブより手早く、
+                                合言葉の画面が開いていても安全に使えます。
+                            </p>
+                            <div id="computer-control"></div>
+                        </section>
+                    </div>
+
+                    <!-- 同じく一か所へまとめる一環として、以前は
+                         「エージェント」ページの中にあった「Chromeを開いて操る」を
+                         ここへ移した。 -->
+                    <div data-remote-group="browser" class="remote-tab-panel" hidden>
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">🌐</span>Chromeを開いて操る</h3>
+                            <p class="hint">
+                                この道具から、あなたのChromeを開いて操れます。
+                                <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
+                            </p>
+                            <div id="browser-control"></div>
                         </section>
                     </div>
                 </div>
@@ -858,15 +890,8 @@
                         <div id="self-review"></div>
                     </section>
 
-
-                    <section class="panel-card full-width">
-                        <h3><span class="sec-icon">🌐</span>Chromeを開いて操る</h3>
-                        <p class="hint">
-                            この道具から、あなたのChromeを開いて操れます。
-                            <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
-                        </p>
-                        <div id="browser-control"></div>
-                    </section>
+                    <!-- 「Chromeを開いて操る」は、遠隔操作の機能を一か所にまとめる
+                         一環として「🖥 遠隔操作」ページ（ブラウザタブ）へ移した。 -->
 
                     <section class="panel-card full-width">
                         <h3><span class="sec-icon">⚙️</span>自動で動く決まり</h3>
@@ -3422,6 +3447,7 @@
     <script src="js/modules/作業を教える.js" defer></script>
     <script src="js/modules/自動の決まり.js" defer></script>
     <script src="js/modules/遠隔操作画面.js" defer></script>
+    <script src="js/modules/パソコンを操る画面.js" defer></script>
     <script src="js/modules/ブラウザ操作画面.js" defer></script>
     <script src="js/modules/ホームからChrome.js" defer></script>
     <script src="js/modules/自分を良くする.js" defer></script>

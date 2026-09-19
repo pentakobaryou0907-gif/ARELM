@@ -135,6 +135,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init作業を教える === 'function') init作業を教える();
     if (typeof init自動の決まり === 'function') init自動の決まり();
     if (typeof init遠隔操作 === 'function') init遠隔操作();
+    // 以前は導線（設置場所）が無く、開けなくなっていた
+    // （遠隔操作の機能を一つにまとめた際に、遠隔操作ページの
+    // 「パソコン操作」タブへ設置し直した）。
+    if (typeof initパソコン操作 === 'function') initパソコン操作();
     if (typeof initブラウザ操作 === 'function') initブラウザ操作();
     if (typeof initホームからChrome === 'function') initホームからChrome();
     if (typeof init自分を良くする === 'function') init自分を良くする();
