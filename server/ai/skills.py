@@ -241,6 +241,13 @@ def find_skill(text):
     確信が持てないときは None を返す。
     決めつけて動くより、聞き返したほうが害が小さいため。
 
+    次点との差が小さいときも「確信が持てない」うちに入れる。
+    たとえば「今日は在庫が少ない商品を教えて」は
+    show_schedule（「今日」に反応）と show_inventory（「在庫」に反応）が
+    同点になる。同点のときソート順で先に定義した方が勝ってしまうと、
+    たまたま先に書いた作業がいつも勝つだけの、意味のない決め方になる。
+    僅差の同点は「見分けられなかった」として扱い、確信度を落とす。
+
     @return (Skill, 確信度 0.0〜1.0) または (None, 0.0)
     """
     if not text:
@@ -251,6 +258,7 @@ def find_skill(text):
 
     best = None
     best_score = 0.0
+    second_score = 0.0
 
     for skill in SKILLS:
         score = 0.0
@@ -263,14 +271,24 @@ def find_skill(text):
                 score += 0.8
 
         if score > best_score:
+            second_score = best_score
             best_score = score
             best = skill
+        elif score > second_score:
+            second_score = score
 
     if not best:
         return None, 0.0
 
     # 点数を 0〜1 に収める。2点あればほぼ確実とみなす。
     confidence = min(best_score / 2.0, 1.0)
+
+    # 次点が僅差（8割以上）なら、どちらの話かを取り違えている恐れがある。
+    # 「今日」1語だけの一致のような弱い根拠どうしがぶつかったときに
+    # 起きやすいので、その分だけ確信度を割り引く。
+    if second_score >= best_score * 0.8:
+        confidence *= 0.5
+
     return best, confidence
 
 
