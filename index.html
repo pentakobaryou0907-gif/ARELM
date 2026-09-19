@@ -579,6 +579,7 @@
                         <button type="button" class="home-tab" data-remote-tab="type"><span>⌨</span>文字入力・操作</button>
                         <button type="button" class="home-tab" data-remote-tab="tools"><span>🛠</span>パソコン操作</button>
                         <button type="button" class="home-tab" data-remote-tab="browser"><span>🌐</span>ブラウザ</button>
+                        <button type="button" class="home-tab" data-remote-tab="vision"><span>👁</span>画面を見て操作</button>
                     </div>
 
                     <div data-remote-group="auto" class="remote-tab-panel active">
@@ -663,6 +664,31 @@
                                 <strong>ログイン済みのままなので、SUZURI も SNS も base44 もそのまま開けます。</strong>
                             </p>
                             <div id="browser-control"></div>
+                        </section>
+                    </div>
+
+                    <div data-remote-group="vision" class="remote-tab-panel" hidden>
+                        <section class="panel-card full-width">
+                            <h3><span class="sec-icon">👁</span>画面を見て操作する</h3>
+                            <p class="hint">
+                                「自動操作」タブは、決まった名前の安全な操作しか選べません。
+                                こちらはGemini（画像が読めるAI）に<strong>実際の画面を見せながら</strong>、
+                                クリック・文字入力・スクロールを一手ずつ自動で進めます。
+                                「画面を見る」タブより多くのことができる分、
+                                <strong>実際にマウスとキーボードを動かします。</strong><br>
+                                <strong>送信・購入・支払い・公開・削除など取り消しにくい操作の手前では、
+                                必ず立ち止まって確認を求めます。</strong>
+                                使うにはGeminiキーの設定と使用の許可、パソコン操作の「動かす」が要ります。
+                            </p>
+                            <form id="vision-auto-form" class="remote-auto-form">
+                                <input type="text" id="vision-auto-goal"
+                                    placeholder="例: いま映っているページの一番上の商品をカートに入れて" maxlength="200">
+                                <button type="submit" id="vision-auto-start" class="btn btn-primary">▶ 見ながら進める</button>
+                                <button type="button" id="vision-auto-stop"
+                                    class="btn btn-danger" hidden>■ 止める</button>
+                            </form>
+                            <div id="vision-auto-approve" class="notice-strict" hidden></div>
+                            <ol id="vision-auto-log" class="remote-auto-log"></ol>
                         </section>
                     </div>
                 </div>
@@ -3449,6 +3475,7 @@
     <script src="js/modules/遠隔操作画面.js" defer></script>
     <script src="js/modules/パソコンを操る画面.js" defer></script>
     <script src="js/modules/ブラウザ操作画面.js" defer></script>
+    <script src="js/modules/画面を見て操作する.js" defer></script>
     <script src="js/modules/ホームからChrome.js" defer></script>
     <script src="js/modules/自分を良くする.js" defer></script>
     <script src="js/modules/分析画面.js" defer></script>
