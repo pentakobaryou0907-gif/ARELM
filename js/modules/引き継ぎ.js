@@ -341,7 +341,14 @@ async function render引き継ぎ() {
 }
 
 function init引き継ぎ() {
-    if (document.getElementById('handover')) render引き継ぎ();
+    // ここでは描かない。
+    //
+    // 「歯止めを確かめる」は外部へ実際に一度つなごうとする（止まって
+    // いるかの確認）。#handover はDOM上には常に存在するため、ここで
+    // 描いていると、その画面（エージェントページ）をまだ開いてすら
+    // いないログイン直後・起動直後に、毎回「外部通信を止めました」の
+    // 通知が黙って出ることになっていた。実際にその画面を開いたときだけ
+    // 描けばよい（js/app-bootstrap.js の loadPageData 'mainai' から呼ぶ）。
 }
 
 window.init引き継ぎ = init引き継ぎ;
