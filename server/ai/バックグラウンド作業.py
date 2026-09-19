@@ -196,7 +196,7 @@ def _処理する(task):
         指示 = f'【担当】\n{担当指示}\n\n{指示}'
     if not ローカルLLM.使えるか():
         raise RuntimeError('ローカルLLM（Ollama）が動いていません')
-    答え = ローカルLLM.聞く(指示, タイムアウト=180)
+    答え = ローカルLLM.聞く(指示)
     if not 答え:
         raise RuntimeError('答えが得られませんでした')
     return 答え
@@ -242,7 +242,7 @@ def _連携で処理する(task):
             task['現在の手順'] = i
             _書く()
 
-        答え = ローカルLLM.聞く(指示, タイムアウト=180)
+        答え = ローカルLLM.聞く(指示)
         if not 答え:
             raise RuntimeError(f'{担当.get("名") or "担当"}の工程で答えが得られませんでした')
 

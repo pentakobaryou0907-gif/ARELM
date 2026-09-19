@@ -852,7 +852,7 @@ class Handler(BaseHTTPRequestHandler):
                                   '設定 → 自己点検 で状態を確かめてください。',
                     })
 
-                答え = ローカルLLM.聞く(text, タイムアウト=60)
+                答え = ローカルLLM.聞く(text)
                 if not 答え:
                     return self._send(200, {'ok': False, 'answer': '答えられませんでした。'})
                 return self._send(200, {'ok': True, 'answer': 答え})
@@ -884,7 +884,7 @@ class Handler(BaseHTTPRequestHandler):
                     '説明や前置きは書かず、訳文だけをそのまま返してください。\n\n'
                     f'【原文】\n{text}'
                 )
-                答え = ローカルLLM.聞く(指示, タイムアウト=45)
+                答え = ローカルLLM.聞く(指示)
                 with _lock:
                     learner.learn(text, 'translate:user')
                 if not 答え:
