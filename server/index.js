@@ -634,11 +634,14 @@ app.post('/api/remote-task/step', async (req, res) => {
 
     let 決めた;
     try {
+        // タイムアウトは付けない。この端末の中だけで動くAIの返事を
+        // 待つだけで、35秒に切っていたところ実測で軽く超えることが
+        // あり、「AIの返事の形が読み取れなかった」と誤って止まって
+        // いた（実際は考え中に打ち切られていただけ）。
         const r = await fetch('http://127.0.0.1:8765/remote-task/step', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 目的, これまで, 使える作業: 見せる用 }),
-            signal: AbortSignal.timeout(35000),
         });
         決めた = await r.json();
     } catch (e) {
@@ -735,9 +738,10 @@ app.post('/api/sns/generate', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body || {}),
-            // Python側のタイムアウト（120秒）より短いと、
-            // 向こうがまだ考えている途中でここが先に諦めてしまう。
-            signal: AbortSignal.timeout(130000),
+            // タイムアウトは付けない（この端末の中だけで動くAIの返事を
+            // 待つだけなので、急いで切る理由が無い。以前は120秒より
+            // 短くしないよう気をつけていたが、それ自体が「何秒なら
+            // 足りるか」を当て続ける対症療法だったため、上限を無くした）。
         });
         res.status(r.status).json(await r.json());
     } catch (e) {
@@ -752,7 +756,6 @@ app.post('/api/sns/carousel', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body || {}),
-            signal: AbortSignal.timeout(130000),
         });
         res.status(r.status).json(await r.json());
     } catch (e) {
@@ -767,7 +770,6 @@ app.post('/api/advisor/today', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body || {}),
-            signal: AbortSignal.timeout(70000),
         });
         res.status(r.status).json(await r.json());
     } catch (e) {
@@ -793,11 +795,12 @@ app.get('/api/faq', async (req, res) => {
 
 app.post('/api/faq', async (req, res) => {
     try {
+        // よくある質問.py 側がローカルLLMに聞いて答えを作るため、
+        // 10秒では短すぎて途中で打ち切ってしまっていた。
         const r = await fetch(`http://127.0.0.1:${AI_ENGINE_PORT}/faq`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body || {}),
-            signal: AbortSignal.timeout(10000),
         });
         res.status(r.status).json(await r.json());
     } catch (e) {
@@ -811,7 +814,6 @@ app.post('/api/customer-reply', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body || {}),
-            signal: AbortSignal.timeout(90000),
         });
         res.status(r.status).json(await r.json());
     } catch (e) {
