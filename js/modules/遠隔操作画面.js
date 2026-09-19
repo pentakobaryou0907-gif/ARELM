@@ -158,7 +158,37 @@ async function render遠隔操作() {
         });
         行.appendChild(b);
     });
+
+    const 取消 = document.createElement('button');
+    取消.type = 'button';
+    取消.className = 'btn btn-sm btn-secondary';
+    取消.textContent = 'esc';
+    取消.addEventListener('click', async () => {
+        const r = await 文字を送る({ 取り消し: true });
+        showNotification(r.訳, r.ok ? 'success' : 'error');
+        setTimeout(一枚映す, 600);
+    });
+    行.appendChild(取消);
     打つ箱.appendChild(行);
+
+    // クリックと文字入力しかできず、ページを下まで読み進められなかった
+    // ため、スクロールの行を別に用意する（連打しやすいよう、文字入力の
+    // 行とは分ける）。
+    const スクロール行 = document.createElement('div');
+    スクロール行.className = 'guard-row';
+    [['▲ 上へ', '上'], ['▼ 下へ', '下']].forEach(([表示, 向き]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-sm btn-secondary';
+        b.textContent = 表示;
+        b.addEventListener('click', async () => {
+            const r = await 文字を送る({ スクロール: 向き });
+            if (!r.ok) showNotification(r.訳, 'error');
+            setTimeout(一枚映す, 600);
+        });
+        スクロール行.appendChild(b);
+    });
+    打つ箱.appendChild(スクロール行);
 
     /* --- 正直に書く --- */
     const 断り = document.createElement('p');

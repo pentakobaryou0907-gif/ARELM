@@ -346,6 +346,29 @@ const できる操作 = {
             + "[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')",
     },
 
+    // 遠隔操作画面（js/modules/遠隔操作画面.js）は、これまでクリックと
+    // 文字入力しかできず、ページを下に読み進めたり、開いたダイアログを
+    // 閉じたりする手段が無かった。「クリックする」「文字を打つ」と同じ
+    // 重さ（合言葉の画面では打たない）の扱いにする。
+    スクロール: {
+        重さ: '重い',
+        説: '画面を上下にスクロールする',
+        要る: ['向き'],
+        合言葉を見る: true,
+        本文: (材) => `tell application "System Events" to key code ${材.向き === '上' ? 116 : 121}`,
+        winスクリプト: (材) => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + `[System.Windows.Forms.SendKeys]::SendWait('${材.向き === '上' ? '{PGUP}' : '{PGDN}'}')`,
+    },
+
+    取り消しを押す: {
+        重さ: '重い',
+        説: 'エスケープを押す（開いたダイアログ・メニューを閉じる）',
+        合言葉を見る: true,
+        本文: () => 'tell application "System Events" to key code 53',
+        winスクリプト: () => 'Add-Type -AssemblyName System.Windows.Forms; '
+            + "[System.Windows.Forms.SendKeys]::SendWait('{ESC}')",
+    },
+
     クリックする: {
         重さ: '重い',
         説: '画面のその場所を押す',

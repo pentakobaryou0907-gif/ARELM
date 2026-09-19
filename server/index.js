@@ -502,7 +502,9 @@ app.post('/api/remote/click', (req, res) => {
 });
 
 app.post('/api/remote/type', (req, res) => {
-    const { 文, キー } = req.body || {};
+    const { 文, キー, スクロール, 取り消し } = req.body || {};
+    if (スクロール) return res.json(パソコン.操る('スクロール', { 向き: スクロール }));
+    if (取り消し) return res.json(パソコン.操る('取り消しを押す', {}));
     if (キー) return res.json(パソコン.操る('キーを押す', { キー }));
     if (文 === '\n' || 文 === '改行') return res.json(パソコン.操る('改行を押す', {}));
     if (!文) return res.status(400).json({ ok: false, 訳: '打つ文字が要ります' });
