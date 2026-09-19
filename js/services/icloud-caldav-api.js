@@ -204,7 +204,7 @@ const AReGLM_ICLOUD_CAL = {
 
         const ics = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//AReGLM//iCloud連携//JA
+PRODID:-//ARELM//iCloud連携//JA
 BEGIN:VEVENT
 UID:${uid}
 DTSTAMP:${now}

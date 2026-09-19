@@ -28,7 +28,7 @@ prompt = no
 
 [dn]
 CN = ${HOSTNAME_LOCAL}.local
-O = AReGLM
+O = ARELM
 C = JP
 
 [ext]

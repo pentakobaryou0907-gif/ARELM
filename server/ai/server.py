@@ -308,7 +308,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            return self._send(200, {'ok': True, 'service': 'AReGLM AI Engine', 'local': True})
+            return self._send(200, {'ok': True, 'service': 'ARELM AI Engine', 'local': True})
 
         # ---- マルチエージェント化 第2段: 裏で進めている作業の一覧 ----
         if self.path == '/agent-task/list':
@@ -583,7 +583,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, {'ok': False, '訳': verdict['reason']})
 
                 結果 = よくある質問.返信を作る(
-                    質問, data.get('商品一覧') or [], data.get('ブランド') or 'AReGLM')
+                    質問, data.get('商品一覧') or [], data.get('ブランド') or 'ARELM')
                 return self._send(200, 結果)
 
             if self.path == '/sns/generate':
@@ -1150,7 +1150,7 @@ def main():
     signal.signal(signal.SIGHUP, _合図で終わる)
 
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f'AReGLM AI Engine: http://{HOST}:{PORT}')
+    print(f'ARELM AI Engine: http://{HOST}:{PORT}')
     print(f'モデル: {MODEL_PATH}')
     print(f'学習済み: {learner.total_docs}件 / 語彙 {len(learner.vocabulary)}語')
     print('※ このプロセスは外部へ一切通信しません')

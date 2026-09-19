@@ -156,7 +156,7 @@ function checkAndNotify() {
         .forEach((a) => {
             if (!shouldNotify(a.key)) return;
             try {
-                new Notification(`AReGLM — ${a.title}`, {
+                new Notification(`ARELM — ${a.title}`, {
                     body: a.body,
                     tag: a.key,           // 同じタグは上書きされ、積み上がらない
                     requireInteraction: false

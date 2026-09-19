@@ -86,7 +86,7 @@ for (const f of files) {
         if (before !== 0) return; // 関数の中は実行時なので対象外
 
         const m = line.match(/^(?:const|let|var)\s+[\w$]+\s*=\s*([A-Z][\w$]*)/);
-        if (m && /^(AReGLM|AREGLM)/.test(m[1]) && !defined.has(m[1])) {
+        if (m && /^(ARELM|AREGLM)/.test(m[1]) && !defined.has(m[1])) {
             early.push(`${f}:${i + 1}  ${m[1]} を読み込み時に参照しています`);
         }
     });

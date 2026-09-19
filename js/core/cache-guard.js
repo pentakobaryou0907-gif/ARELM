@@ -25,7 +25,7 @@
                 if (!('caches' in window)) return null;
                 return caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
             }).then(() => {
-                console.log('[AReGLM] 古いキャッシュを消しました。最新の画面を読み込みます。');
+                console.log('[ARELM] 古いキャッシュを消しました。最新の画面を読み込みます。');
                 // 消した直後の表示は古いままなので、一度だけ読み直す。
                 // 無限に繰り返さないよう、印を付けてから再読み込みする。
                 if (!sessionStorage.getItem('areglm_cache_cleared')) {

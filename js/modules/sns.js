@@ -1,5 +1,5 @@
 /**
- * SNS — AReGLM 公式アカウント連携
+ * SNS — ARELM 公式アカウント連携
  */
 
 /** 画像プレビュー用に持っている、いまのカルーセル構成。{商品名, フック, スライド:[{見出し,本文},...]} */
@@ -113,7 +113,7 @@ async function draftCustomerReply() {
         const r = await fetch('/api/customer-reply', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 質問, 商品一覧: products, ブランド: 'AReGLM' }),
+            body: JSON.stringify({ 質問, 商品一覧: products, ブランド: 'ARELM' }),
         }).then((y) => y.json());
 
         結果欄.textContent = r.ok ? r['返信案'] : (r.訳 || '下書きを作れませんでした');
@@ -780,7 +780,7 @@ const AREGLM_SNS_CONTENT_TYPES = [
         hypothesis: '「損をしたくない」というInstagramでの流行に沿い、「可愛い！欲しい！」と思わせるのに有効。商品の詳細も知れる',
         format: 'カルーセル投稿：1枚目=他社商品との比較を含む短いリール、2枚目以降=商品単体の詳細写真。AIも活用',
         platform: 'instagram',
-        template: '【AReGLM】{商品名}\n\n実際に着てみてわかった特徴を正直にレビューします。\nサイズ感 / 素材 / 着回しやすさ…\n\n保存して比較の参考にしてください✅'
+        template: '【ARELM】{商品名}\n\n実際に着てみてわかった特徴を正直にレビューします。\nサイズ感 / 素材 / 着回しやすさ…\n\n保存して比較の参考にしてください✅'
     },
     {
         id: 'worldview',
@@ -788,7 +788,7 @@ const AREGLM_SNS_CONTENT_TYPES = [
         hypothesis: 'モデル着用で商品の詳細が伝わり、憧れと世界観からブランドの基盤を設計し「この服が欲しい」と思わせる（HUMAN MADE社員ヒアリングの知見）',
         format: '写真のみ・複数枚カルーセル。カメラマン撮影の高画質コーデ写真、またはAIモデルでルックブック風に',
         platform: 'instagram',
-        template: '{商品名}\n\n———\n\nAReGLM'
+        template: '{商品名}\n\n———\n\nARELM'
     },
     {
         id: 'streetsnap',
@@ -796,7 +796,7 @@ const AREGLM_SNS_CONTENT_TYPES = [
         hypothesis: '「この服を着て街を歩いたら自分もこれくらいオシャレになれる」と日常に落とし込んだリアルな妄想（強烈な物欲）を膨らませる',
         format: 'リール（縦型動画）。コーディネートの静止画を複数挿入し、ゆっくり見られる形にする',
         platform: 'instagram',
-        template: '街で{商品名}を着てみた。\n\nどんな時に着たい？コメントで教えてください👇\n\n#AReGLM'
+        template: '街で{商品名}を着てみた。\n\nどんな時に着たい？コメントで教えてください👇\n\n#ARELM'
     }
 ];
 
@@ -1163,9 +1163,9 @@ async function runAutoPromo(自動実行か = false) {
     const platforms = Object.keys(AREGLM_PROFILE.sns);
     const plat = platforms[index % platforms.length];
 
-    // AIで実際に文章を作る（以前は「【AReGLM】商品名＋URL」の固定文だった）。
+    // AIで実際に文章を作る（以前は「【ARELM】商品名＋URL」の固定文だった）。
     // 失敗しても諦めず、その固定文にフォールバックする。
-    let caption = `【AReGLM】${p.name}\n${p.shopUrl || AREGLM_PROFILE.suzuriShop}`;
+    let caption = `【ARELM】${p.name}\n${p.shopUrl || AREGLM_PROFILE.suzuriShop}`;
     try {
         const 商品情報 = [
             `商品名: ${p.name || ''}`,
@@ -1203,7 +1203,7 @@ async function runAutoPromo(自動実行か = false) {
 }
 
 async function analyzeTrendsWithAi() {
-    const keyword = document.getElementById('sns-trend-product')?.value?.trim() || 'AReGLM アパレル';
+    const keyword = document.getElementById('sns-trend-product')?.value?.trim() || 'ARELM アパレル';
     const out = document.getElementById('sns-trend-result');
     if (out) out.innerHTML = '<p class="hint">分析中…</p>';
 
@@ -1211,7 +1211,7 @@ async function analyzeTrendsWithAi() {
         const text = await AReGLM_LOCAL_FIRST.complete({
             provider: document.getElementById('chat-ai-provider')?.value || 'local',
             history: [],
-            userText: `「${keyword}」に関するSNSトレンドと投稿戦略を、Instagram/TikTok/YouTube向けに箇条書きで分析してください。AReGLMブランド（${AREGLM_PROFILE.suzuriShop}）向けです。`,
+            userText: `「${keyword}」に関するSNSトレンドと投稿戦略を、Instagram/TikTok/YouTube向けに箇条書きで分析してください。ARELMブランド（${AREGLM_PROFILE.suzuriShop}）向けです。`,
             attachments: [],
             mode: 'analyze'
         });

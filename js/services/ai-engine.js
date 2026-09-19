@@ -16,9 +16,9 @@ const AReGLM_AI_ENGINE = {
             mockup: 'モックアップ仕様（シルエット・素材・カラー・寸法）を箇条書きで。',
             techpack: 'テックパック項目（品番・素材・サイズ・縫製・付属）を表形式で。'
         };
-        let p = `${AReGLM_CONTENT_POLICY.systemRules}\n${hints[mode] || hints.chat}\nAReGLMブランド・SUZURIショップ(suzuri.jp/areglm)向け。\n\n`;
+        let p = `${AReGLM_CONTENT_POLICY.systemRules}\n${hints[mode] || hints.chat}\nARELMブランド・SUZURIショップ(suzuri.jp/areglm)向け。\n\n`;
 
-        // 学習エンジンで蓄積した傾向を差し込み、使うほど回答がAReGLMの実態に沿うようにする
+        // 学習エンジンで蓄積した傾向を差し込み、使うほど回答がARELMの実態に沿うようにする
         const learned = window.AReGLM_LEARNING?.getContextSummary?.();
         if (learned) p += `${learned}\n`;
 

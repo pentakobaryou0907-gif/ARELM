@@ -7,7 +7,7 @@
  * 権限モデルによる制限）。
  */
 const AReGLM_DRIVE = {
-    FOLDER_NAME: 'AReGLM バックアップ',
+    FOLDER_NAME: 'ARELM バックアップ',
 
     async isReady() {
         return AReGLM_GOOGLE_OAUTH.isConnected();

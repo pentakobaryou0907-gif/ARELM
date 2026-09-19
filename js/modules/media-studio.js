@@ -687,7 +687,7 @@ async function 直前の動画をYouTubeへ上げる() {
     }
 
     const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
-    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'AReGLM');
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'ARELM');
     if (!policy.ok) {
         showNotification(policy.message, 'error');
         return;
@@ -697,7 +697,7 @@ async function 直前の動画をYouTubeへ上げる() {
     if (状態) 状態.textContent = 'YouTubeへアップロードしています…（動画の大きさによっては数分かかります）';
 
     try {
-        const タイトル = caption ? caption.split('\n')[0].slice(0, 90) : `AReGLM ${new Date().toLocaleDateString('ja-JP')}`;
+        const タイトル = caption ? caption.split('\n')[0].slice(0, 90) : `ARELM ${new Date().toLocaleDateString('ja-JP')}`;
         const 結果 = await AReGLM_YOUTUBE.upload(lastBuiltVideoBlob, タイトル, caption, 'unlisted');
         if (状態) {
             状態.innerHTML = `✅ アップロードしました（限定公開）: <a href="${AReGLM_SECURITY.escapeAttr(結果.url)}" target="_blank" rel="noopener">${AReGLM_SECURITY.sanitizeHtml(結果.url)}</a>`;
@@ -731,7 +731,7 @@ async function 直前の動画をTikTokへ上げる() {
     }
 
     const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
-    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'AReGLM');
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'ARELM');
     if (!policy.ok) {
         showNotification(policy.message, 'error');
         return;

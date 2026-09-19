@@ -70,7 +70,7 @@ function タグを描く(canvas, 設定) {
     g.fillStyle = 字;
 
     // ブランド名。いちばん目立たせる。
-    const 名 = 設定.ブランド || 'AReGLM';
+    const 名 = 設定.ブランド || 'ARELM';
     let 大 = Math.min(w / Math.max(4, 名.length * 0.62), h * 0.14);
     g.font = `800 ${大}px "Helvetica Neue", "Hiragino Sans", sans-serif`;
     g.fillText(名, w / 2, h * 0.30);
@@ -152,7 +152,7 @@ function タグを書き出す() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `値札タグ_${(document.getElementById('tag-brand')?.value || 'AReGLM')}.png`;
+        a.download = `値札タグ_${(document.getElementById('tag-brand')?.value || 'ARELM')}.png`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -163,7 +163,7 @@ function タグを書き出す() {
         // 画像には何も埋め込まず、指紋だけを控える
         window.AReGLM_真贋?.作ったものを控える(canvas.toDataURL('image/png'), {
             種類: '値札タグ',
-            名前: document.getElementById('tag-brand')?.value || 'AReGLM',
+            名前: document.getElementById('tag-brand')?.value || 'ARELM',
         });
     }, 'image/png');
 }

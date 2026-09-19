@@ -206,7 +206,7 @@ def term_frequencies(text: str):
 if __name__ == '__main__':
     samples = [
         '新作のデニムジャケットを制作する',
-        'AReGLMブランドのオーバーサイズTシャツ',
+        'ARELMブランドのオーバーサイズTシャツ',
         'Instagram投稿で購買意欲を高める',
     ]
     for s in samples:

@@ -163,7 +163,7 @@ function 全データを控えにする() {
     return {
         ok: true,
         中身: JSON.stringify(控え, null, 1),
-        名: `AReGLM控え_${日付()}.json`,
+        名: `ARELM控え_${日付()}.json`,
         型: 'application/json',
     };
 }

@@ -30,7 +30,7 @@ const AReGLM_YOUTUBE = {
         if (!token) throw new Error('Googleと連携していません → 設定（⚙）');
 
         const q = new URLSearchParams({
-            title: (title || 'AReGLM').slice(0, 100),
+            title: (title || 'ARELM').slice(0, 100),
             description: (description || '').slice(0, 5000),
             privacy: ['public', 'unlisted', 'private'].includes(privacy) ? privacy : 'private',
         });

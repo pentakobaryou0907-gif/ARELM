@@ -52,7 +52,7 @@ function 逃がす(s) {
 function 店のページを作る(設定 = {}) {
     const 品 = 店の商品を集める();
     const 店名 = 設定.店名 || (typeof ツールの名前を読む === 'function'
-        ? 'AReGLM' : 'AReGLM');
+        ? 'ARELM' : 'ARELM');
     const 一言 = 設定.一言 || '';
     const 買う先 = 設定.買う先 || '';
 
@@ -133,7 +133,7 @@ function 店のページを書き出す() {
     }
 
     const 中身 = 店のページを作る({
-        店名: (document.getElementById('shop-name')?.value || '').trim() || 'AReGLM',
+        店名: (document.getElementById('shop-name')?.value || '').trim() || 'ARELM',
         一言: (document.getElementById('shop-lead')?.value || '').trim(),
         買う先: (document.getElementById('shop-buy-url')?.value || '').trim(),
     });
@@ -164,7 +164,7 @@ function 店のページを見る() {
     if (!枠) return;
 
     const 中身 = 店のページを作る({
-        店名: (document.getElementById('shop-name')?.value || '').trim() || 'AReGLM',
+        店名: (document.getElementById('shop-name')?.value || '').trim() || 'ARELM',
         一言: (document.getElementById('shop-lead')?.value || '').trim(),
         買う先: (document.getElementById('shop-buy-url')?.value || '').trim(),
     });

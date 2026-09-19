@@ -1,5 +1,5 @@
 /**
- * AReGLM API Gateway（Base44型バックエンド）
+ * ARELM API Gateway（Base44型バックエンド）
  * 公式APIへのプロキシ — CORS回避・キーをサーバー経由で送信
  */
 const express = require('express');
@@ -520,7 +520,7 @@ app.get('/api/browser', (req, res) => {
 });
 
 /**
- * 「在庫ページを開いて」のような、AReGLM自身の画面名を、
+ * 「在庫ページを開いて」のような、ARELM自身の画面名を、
  * このアプリのURL（#ハッシュ）に解決する。
  *
  * なぜ要るのか:
@@ -529,7 +529,7 @@ app.get('/api/browser', (req, res) => {
  *   これは実在のURLではないため毎回失敗し、何度繰り返しても直らず、
  *   上限に達して静かに終わっていた。
  *
- *   AReGLM自身の画面名だけは、ここで実際のURLに変換してから開く。
+ *   ARELM自身の画面名だけは、ここで実際のURLに変換してから開く。
  *   それ以外（本物のURLでも、知らない名前でもない）は、
  *   これまで通り失敗として扱う。
  */
@@ -543,7 +543,7 @@ const AREGLM_内部ページ = [
     { 語: ['開発', 'スタジオ', '工房'], ハッシュ: 'studio' },
 ];
 
-function AReGLM内部ページを解決する(文字列) {
+function ARELM内部ページを解決する(文字列) {
     const s = String(文字列 || '');
     if (!s) return null;
     const 一致 = AREGLM_内部ページ.find((p) => p.語.some((語) => s.includes(語)));
@@ -562,9 +562,9 @@ function ブラウザの操作を行う(操作, 材料) {
         case 'ページを読む':
             return ブラウザ.ページを読む();
         case '開く': {
-            // 本物のURLでなければ、まずAReGLM自身の画面名として解決を試す。
+            // 本物のURLでなければ、まずARELM自身の画面名として解決を試す。
             if (道 && !/^https?:\/\//.test(String(道))) {
-                const 内部先 = AReGLM内部ページを解決する(道);
+                const 内部先 = ARELM内部ページを解決する(道);
                 if (内部先) return ブラウザ.開く(内部先, 材料['新しいタブ']);
             }
             return ブラウザ.開く(道, 材料['新しいタブ']);
@@ -1679,7 +1679,7 @@ app.post('/api/fetch-url-text', async (req, res) => {
             upstream = await fetch(現在.toString(), {
                 signal: AbortSignal.timeout(15000),
                 redirect: 'manual',
-                headers: { 'User-Agent': 'AReGLM/1.0 (local tool; user-requested single-page fetch)' },
+                headers: { 'User-Agent': 'ARELM/1.0 (local tool; user-requested single-page fetch)' },
             });
             if (upstream.status >= 300 && upstream.status < 400 && upstream.headers.get('location')) {
                 const 次 = new URL(upstream.headers.get('location'), 現在);
@@ -1864,7 +1864,7 @@ app.get('/api/techpack-deck/download/:file', (req, res) => {
 });
 
 app.get('/api/health', (_, res) => {
-    res.json({ ok: true, service: 'AReGLM API Gateway' });
+    res.json({ ok: true, service: 'ARELM API Gateway' });
 });
 
 /**
@@ -2272,7 +2272,7 @@ app.post('/api/suzuri/products', async (req, res) => {
 /**
  * Notion連携
  *
- * 統合トークンは本人がNotion側の設定画面で発行し、AReGLMには
+ * 統合トークンは本人がNotion側の設定画面で発行し、ARELMには
  * 暗号化してこの端末にだけ保存する（サーバー側では保持しない・
  * 毎回ヘッダーで受け取って中継するだけ）。
  * 実際に触れる範囲は、Notion側で本人がその統合に「共有」した
@@ -2374,7 +2374,7 @@ app.get('/oauth2callback/google', (req, res) => {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
     const error = typeof req.query.error === 'string' ? req.query.error : '';
     res.type('html').send(`<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"><title>AReGLM Google連携</title></head>
+<html lang="ja"><head><meta charset="utf-8"><title>ARELM Google連携</title></head>
 <body style="font-family:sans-serif;padding:2em;text-align:center;">
 <p id="msg">処理しています…</p>
 <script>
@@ -2391,7 +2391,7 @@ app.get('/oauth2callback/google', (req, res) => {
         msg.textContent = '完了しました。このタブは閉じて構いません。';
         setTimeout(function () { window.close(); }, 800);
     } else {
-        msg.textContent = '認証は完了しましたが、元のタブへ自動で伝えられませんでした。このタブを閉じて、AReGLMの画面に戻ってください。';
+        msg.textContent = '認証は完了しましたが、元のタブへ自動で伝えられませんでした。このタブを閉じて、ARELMの画面に戻ってください。';
     }
 })();
 </script>
@@ -2613,7 +2613,7 @@ app.post('/api/youtube-upload-proxy', express.raw({ type: '*/*', limit: '200mb' 
     if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
     if (!req.body || !req.body.length) return res.status(400).json({ error: '動画データが届いていません' });
 
-    const title = String(req.query.title || 'AReGLM').slice(0, 100);
+    const title = String(req.query.title || 'ARELM').slice(0, 100);
     const description = String(req.query.description || '').slice(0, 5000);
     const privacyStatus = ['public', 'unlisted', 'private'].includes(req.query.privacy) ? req.query.privacy : 'private';
     const contentType = req.headers['x-video-content-type'] || 'video/mp4';
@@ -2821,7 +2821,7 @@ app.post('/api/icloud-caldav-proxy', async (req, res) => {
  */
 const { execFileSync: 実行 } = require('child_process');
 // __dirname.replace(/\/server$/, '') は Windows のバックスラッシュ区切り
-// パス（C:\...\server）では効かず、常に AReGLM のルートを指せなかった。
+// パス（C:\...\server）では効かず、常に ARELM のルートを指せなかった。
 // path.dirname はOSに関係なく、ひとつ上の階層を正しく返す。
 const AREGLM_ROOT = require('path').dirname(__dirname);
 const 大きな変更の目安 = 50; // これを超える行数の差分は、確認なしでは記録しない
@@ -3135,7 +3135,7 @@ app.listen(APP_PORT, '127.0.0.1', () => {
 });
 
 app.listen(PORT, HOST, () => {
-    console.log(`AReGLM: http://localhost:${PORT}`);
+    console.log(`ARELM: http://localhost:${PORT}`);
 
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {

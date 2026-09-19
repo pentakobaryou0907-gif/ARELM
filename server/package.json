@@ -2,7 +2,7 @@
   "name": "areglm-server",
   "version": "1.0.0",
   "private": true,
-  "description": "AReGLM APIプロキシ（公式APIのみ・キー漏洩防止）",
+  "description": "ARELM APIプロキシ（公式APIのみ・キー漏洩防止）",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

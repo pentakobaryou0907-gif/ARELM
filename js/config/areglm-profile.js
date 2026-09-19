@@ -1,6 +1,6 @@
-/** AReGLM 公式アカウント・ショップ */
+/** ARELM 公式アカウント・ショップ */
 const AREGLM_PROFILE = {
-    brand: 'AReGLM',
+    brand: 'ARELM',
     suzuriShop: 'https://suzuri.jp/areglm',
     suzuriShopName: 'areglm',
     shops: {
@@ -17,7 +17,7 @@ const AREGLM_PROFILE = {
         facebook: {
             name: 'Facebook',
             url: 'https://www.facebook.com/profile.php?id=61577637205103&locale=ja_JP',
-            handle: 'AReGLM',
+            handle: 'ARELM',
             apiId: 'facebook'
         },
         tiktok: {

@@ -1,5 +1,5 @@
 /**
- * AReGLM 起動・設定・API Gateway
+ * ARELM 起動・設定・API Gateway
  */
 window.loadPageData = function (pageName) {
     AReGLM_PERF?.invalidate(pageName);
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     document.getElementById('brand-research-btn')?.addEventListener('click', async () => {
-        const q = document.getElementById('brand-search')?.value?.trim() || 'AReGLM ファッション';
+        const q = document.getElementById('brand-search')?.value?.trim() || 'ARELM ファッション';
         try {
             const text = await AReGLM_LOCAL_FIRST.complete({
                 provider: 'local',
@@ -280,10 +280,10 @@ function initClaudeKeyInput() {
 
 function seedAreglmBrand() {
     const brands = JSON.parse(localStorage.getItem('brands') || '[]');
-    if (brands.some((b) => b.name === 'AReGLM')) return;
+    if (brands.some((b) => b.name === 'ARELM')) return;
     brands.unshift({
         id: Date.now(),
-        name: 'AReGLM',
+        name: 'ARELM',
         description: '社内ファッションブランド。SUZURIショップで展開。',
         category: 'アパレル',
         country: '日本',

@@ -1,6 +1,6 @@
 /* ブランドフォント（けいふぉんと・Apache License 2.0系オープンソース、商用利用可） */
 @font-face {
-    font-family: 'AReGLM Display';
+    font-family: 'ARELM Display';
     src: url('../fonts/keifont.ttf') format('truetype');
     font-display: swap;
 }
@@ -90,7 +90,7 @@ body {
 
 /* ログイン画面 */
 .brand-logo {
-    font-family: 'AReGLM Display', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'ARELM Display', 'Segoe UI', system-ui, sans-serif;
     font-weight: 800;
     letter-spacing: 0.06em;
     color: var(--areglm-primary);
@@ -304,7 +304,7 @@ section {
     margin-bottom: 2rem;
     color: #333;
     font-size: 2rem;
-    font-family: 'AReGLM Display', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'ARELM Display', 'Segoe UI', system-ui, sans-serif;
 }
 
 /* ダッシュボード */
@@ -9578,7 +9578,7 @@ html[data-theme] .chat-bubble.user {
 /* ===================================================================
    業務ハブ：JARVISのコアから放射状に伸びる、機能領域ノード
    ---------------------------------------------------------------
-   参照デザイン（Apex風）を踏まえつつ、AReGLMの実データに基づいて
+   参照デザイン（Apex風）を踏まえつつ、ARELMの実データに基づいて
    光る／光らないを決める（見せかけのアニメーションにしない）。
    =================================================================== */
 .jarvis-nodes {

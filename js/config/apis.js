@@ -1,5 +1,5 @@
 /**
- * AReGLM — 公式・無料APIのみ
+ * ARELM — 公式・無料APIのみ
  */
 const AReGLM_API_REGISTRY = {
     ai: {

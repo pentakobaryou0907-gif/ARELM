@@ -1,5 +1,5 @@
 #!/bin/bash
-# AReGLM ランチャー
+# ARELM ランチャー
 #
 # ダブルクリックすると:
 #   1. サーバーと自作AIが止まっていれば起動する
@@ -49,7 +49,7 @@ fi
 
 # --- サーバーが起動しなかった場合は知らせる ---
 if ! curl -s -m 2 "http://127.0.0.1:8080/api/health" > /dev/null 2>&1; then
-    osascript -e 'display alert "AReGLM を起動できませんでした" message "サーバーが応答しません。ログを確認してください:\n~/Developer/AReGLM/server_launchd.log" as critical' 2>/dev/null
+    osascript -e 'display alert "ARELM を起動できませんでした" message "サーバーが応答しません。ログを確認してください:\n~/Developer/AReGLM/server_launchd.log" as critical' 2>/dev/null
     exit 1
 fi
 

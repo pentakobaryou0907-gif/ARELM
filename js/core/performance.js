@@ -1,5 +1,5 @@
 /**
- * AReGLM パフォーマンス — デバウンス・キャッシュ・遅延描画
+ * ARELM パフォーマンス — デバウンス・キャッシュ・遅延描画
  */
 const AReGLM_PERF = {
     _cache: new Map(),

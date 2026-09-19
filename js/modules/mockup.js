@@ -342,7 +342,7 @@ function initMockup() {
 
     // 自作の図案をそのまま載せる。作ってすぐ確かめられるように。
     document.getElementById('mock-from-design')?.addEventListener('click', () => {
-        const 言葉 = prompt('どんな図案を載せますか', '黒い縞のロゴ「AReGLM」');
+        const 言葉 = prompt('どんな図案を載せますか', '黒い縞のロゴ「ARELM」');
         if (言葉 === null) return;
         if (typeof 図案をつくる !== 'function') {
             showNotification('図案づくりが読み込まれていません', 'error');

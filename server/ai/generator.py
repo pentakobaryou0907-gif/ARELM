@@ -224,7 +224,7 @@ def _build_sns(f, tone):
         lines.append(f'🛍 {_v(f, "shop")}')
 
     lines.append('')
-    lines.append('#AReGLM')
+    lines.append('#ARELM')
     return '\n'.join(lines)
 
 
@@ -236,7 +236,7 @@ def _build_order(f, tone):
     lines = [
         f'{company} ご担当者様',
         '',
-        'いつもお世話になっております。AReGLMの小林です。',
+        'いつもお世話になっております。ARELMの小林です。',
         '',
         '下記の通り発注をお願いしたく、ご連絡いたしました。',
         '',

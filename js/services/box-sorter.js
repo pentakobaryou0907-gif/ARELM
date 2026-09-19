@@ -9,7 +9,7 @@ const AReGLM_BOX_SORTER = {
     DEFAULT_CAPACITY: 5,
 
     defaultRules() {
-        // AReGLMの実商品カテゴリを初期値にしておく（商品一覧CSVの実データに合わせて調整可能）
+        // ARELMの実商品カテゴリを初期値にしておく（商品一覧CSVの実データに合わせて調整可能）
         return {
             'カジュアルスウェット': 'アパレル-トップス',
             'デニムジャケット': 'アパレル-アウター',

@@ -152,7 +152,7 @@ function initScrollGuard() {
 
 window.initScrollGuard = initScrollGuard;
 window.画面の状態 = 画面の状態;
-window.AReGLM画面の版 = 画面の版;
+window.ARELM画面の版 = 画面の版;
 
 // 読み込まれた時点ですぐ見張りを始める（他の指定より先に効かせるため）
 if (document.readyState === 'loading') {

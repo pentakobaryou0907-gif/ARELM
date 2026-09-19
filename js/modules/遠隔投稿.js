@@ -144,7 +144,7 @@ async function 文章を写す(文) {
 async function 端末の共有に渡す(文, 題) {
     if (!navigator.share) return { ok: false, 訳: 'この端末は共有に対応していません' };
     try {
-        await navigator.share({ text: 文, title: 題 || 'AReGLM' });
+        await navigator.share({ text: 文, title: 題 || 'ARELM' });
         return { ok: true };
     } catch (e) {
         // 本人がやめたときも例外になる。失敗と区別する。

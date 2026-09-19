@@ -1,5 +1,5 @@
 /**
- * AReGLM ホーム（ダッシュボード）— 情報管理ハブ
+ * ARELM ホーム（ダッシュボード）— 情報管理ハブ
  */
 function initDashboard() {
     const refreshBtn = document.getElementById('global-refresh-btn');

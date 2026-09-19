@@ -384,7 +384,7 @@ const 確かめかた = {
     値札タグ() {
         if (typeof タグを描く !== 'function') throw new Error('読み込まれていません');
         const c = document.createElement('canvas');
-        const 寸 = タグを描く(c, { 形: '縦長', ブランド: 'AReGLM', 値段: 12800 });
+        const 寸 = タグを描く(c, { 形: '縦長', ブランド: 'ARELM', 値段: 12800 });
         if (!c.width || !c.height) throw new Error('描けませんでした');
 
         // 本当に何か描かれたかを、色の種類で見る。

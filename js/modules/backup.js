@@ -57,7 +57,7 @@ async function saveSnapshotToServer() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                app: 'AReGLM',
+                app: 'ARELM',
                 version: 1,
                 exportedAt: new Date().toISOString(),
                 data: collectBackupData()
@@ -89,7 +89,7 @@ function exportBackup() {
     const data = collectBackupData();
 
     const payload = {
-        app: 'AReGLM',
+        app: 'ARELM',
         version: 1,
         exportedAt: new Date().toISOString(),
         data
@@ -117,8 +117,9 @@ function importBackup(e) {
     reader.onload = (ev) => {
         try {
             const payload = JSON.parse(ev.target.result);
-            if (payload.app !== 'AReGLM' || !payload.data) {
-                throw new Error('AReGLMのバックアップファイルではありません');
+            // 'AReGLM' は改名前（〜2026-09-19）に作られたバックアップとの互換のため。
+            if ((payload.app !== 'ARELM' && payload.app !== 'AReGLM') || !payload.data) {
+                throw new Error('ARELMのバックアップファイルではありません');
             }
 
             let added = 0;

@@ -7,7 +7,7 @@ const AReGLM_CONTENT_POLICY = {
         /\b(illegal|crime|murder|terror|bomb|weapon|drug|fraud|money laundering|child abuse)\b/i
     ],
 
-    systemRules: `あなたはAReGLM社内のファッション・アパレル専用AIです。
+    systemRules: `あなたはARELM社内のファッション・アパレル専用AIです。
 
 【絶対に守ること】
 - 事実でないことを、事実であるかのように言ってはいけません。

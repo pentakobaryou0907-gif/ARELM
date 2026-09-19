@@ -6,7 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self';">
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow">
-    <title>AReGLM — 社内専用作業ツール</title>
+    <title>ARELM — 社内専用作業ツール</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -14,7 +14,7 @@
     <!-- iOS（iPhone・iPad）でホーム画面に追加したときの設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AReGLM">
+    <meta name="apple-mobile-web-app-title" content="ARELM">
     <link rel="apple-touch-icon" href="images/icon-192x192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512x512.png">
 </head>
@@ -22,7 +22,7 @@
     <div id="login-screen" class="login-screen">
         <div class="login-container">
             <div class="login-header">
-                <h1 class="brand-logo">AReGLM</h1>
+                <h1 class="brand-logo">ARELM</h1>
                 <p>社内専用 · ファッション制作・運営ハブ<br><small>呼び名: <span data-tool-name>アレラム</span></small></p>
             </div>
             <form id="login-form" class="login-form">
@@ -46,7 +46,7 @@
     <div id="main-app" class="main-app" style="display: none;">
         <header class="header header-minimal">
             <div class="container header-inner">
-                <h1 class="brand-logo">AReGLM<small class="tool-nick" data-tool-name>アレラム</small></h1>
+                <h1 class="brand-logo">ARELM<small class="tool-nick" data-tool-name>アレラム</small></h1>
                 <div class="header-actions">
                     <button type="button" class="btn-mainai nav-link" data-page="mainai" title="エージェント" aria-label="エージェント">
                         <span class="mainai-icon">◈</span>
@@ -137,7 +137,7 @@
             <div id="dashboard-page" class="page active">
                 <div class="container">
                     <div class="page-header-row">
-                        <h2 class="section-title">AReGLM ホーム</h2>
+                        <h2 class="section-title">ARELM ホーム</h2>
                         <span id="live-clock" class="live-clock" aria-live="off"></span>
                         <span class="auto-badge" data-automation-status>自動で動いています</span>
                     </div>
@@ -1102,7 +1102,7 @@
             <div id="sns-page" class="page">
                 <div class="container">
                     <h2 class="section-title">SNS連携</h2>
-                    <p class="hint">AReGLM 公式アカウント — 投稿文はこのツールの中で作れます。</p>
+                    <p class="hint">ARELM 公式アカウント — 投稿文はこのツールの中で作れます。</p>
                     <div class="stats-grid compact">
                         <div class="stat-card"><h3>投稿予定数</h3><p id="sns-stat-queue">0</p></div>
                         <div class="stat-card warn"><h3>未対応の下書き</h3><p id="sns-stat-pending">0</p></div>
@@ -1912,7 +1912,7 @@
                             <strong>書き出しただけでは公開されません。</strong>このMacに保存されるだけです。
                         </p>
                         <div class="shop-row">
-                            <input type="text" id="shop-name" placeholder="店の名前（既定: AReGLM）" autocomplete="off">
+                            <input type="text" id="shop-name" placeholder="店の名前（既定: ARELM）" autocomplete="off">
                             <input type="text" id="shop-lead" placeholder="ひとこと（任意）" autocomplete="off">
                         </div>
                         <div class="shop-row">
@@ -1937,7 +1937,7 @@
                         <div class="tag-editor">
                             <div class="tag-fields">
                                 <label>形 <select id="tag-shape"></select></label>
-                                <label>ブランド <input type="text" id="tag-brand" value="AReGLM" autocomplete="off"></label>
+                                <label>ブランド <input type="text" id="tag-brand" value="ARELM" autocomplete="off"></label>
                                 <label>シリーズ <input type="text" id="tag-series" placeholder="TUDURI など" autocomplete="off"></label>
                                 <label>値段 <span class="input-unit-wrap"><input type="number" id="tag-price" min="0" placeholder="12800"><span class="input-unit">円</span></span></label>
                                 <label>素材 <input type="text" id="tag-material" placeholder="COTTON 100%" autocomplete="off"></label>
@@ -1987,7 +1987,7 @@
                             <form id="suzuri-create-form">
                                 <div class="form-group">
                                     <label for="suzuri-product-name">商品名</label>
-                                    <input type="text" id="suzuri-product-name" required placeholder="例: AReGLM ロゴT">
+                                    <input type="text" id="suzuri-product-name" required placeholder="例: ARELM ロゴT">
                                 </div>
                                 <div class="form-group">
                                     <label for="suzuri-item-type">アイテム</label>
@@ -2209,7 +2209,7 @@
                                     </label>
                                     <label>背景色 <input type="color" id="design-bg" value="#111111"></label>
                                     <label>文字色 <input type="color" id="design-fg" value="#ffffff"></label>
-                                    <label>メインテキスト <input type="text" id="design-title" value="AReGLM" maxlength="40"></label>
+                                    <label>メインテキスト <input type="text" id="design-title" value="ARELM" maxlength="40"></label>
                                     <label>サブテキスト <input type="text" id="design-subtitle" value="" maxlength="60" placeholder="任意"></label>
                                     <label>文字サイズ <input type="range" id="design-fontsize" min="30" max="180" value="110"></label>
                                     <label>ロゴ画像 <input type="file" id="design-logo" accept="image/png,image/jpeg,image/webp"></label>
@@ -2786,7 +2786,7 @@
                             で新しい統合（インテグレーション）を作り、発行された「内部インテグレーションシークレット」を
                             下に入れてください。さらに、送り先にしたいNotionのデータベースを開き、
                             右上の「…」→「接続」から、作った統合を招待（共有）しておく必要があります
-                            （共有していないページ・データベースには、AReGLMからは一切触れません）。
+                            （共有していないページ・データベースには、ARELMからは一切触れません）。
                         </p>
                         <div class="form-group">
                             <label for="notion-token">内部インテグレーションシークレット</label>

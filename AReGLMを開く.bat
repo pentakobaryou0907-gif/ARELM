@@ -1,5 +1,5 @@
 @echo off
-REM AReGLM ランチャー（Windows版）
+REM ARELM ランチャー（Windows版）
 REM
 REM ダブルクリックすると:
 REM   1. サーバーと自作AIが止まっていれば起動する（見張り.ps1）

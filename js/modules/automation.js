@@ -21,7 +21,7 @@ async function runFullAutomation() {
                 // 自作AIで行う。外部の鍵が無くても動くようにするため。
                 provider: 'local',
                 history: [],
-                userText: '本日のファッション・アパレルニュース3件をAReGLM向けに要約',
+                userText: '本日のファッション・アパレルニュース3件をARELM向けに要約',
                 attachments: [],
                 mode: 'learn'
             });

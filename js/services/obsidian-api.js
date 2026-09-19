@@ -2,7 +2,7 @@
  * Obsidian 連携 — Local REST APIプラグイン（無料）経由
  *
  * Obsidian側に無料のコミュニティプラグイン「Local REST API」を
- * 入れて有効にし、そこで発行されるAPIキーをAReGLMの設定に入れて使う。
+ * 入れて有効にし、そこで発行されるAPIキーをARELMの設定に入れて使う。
  * この端末からObsidianのVaultへ、直接ノートを読み書きする。
  */
 const AReGLM_OBSIDIAN = {
@@ -39,7 +39,7 @@ const AReGLM_OBSIDIAN = {
     },
 
     /**
-     * ノートを新規作成・上書き保存する（path は Vault内の相対パス。例: "AReGLM/メモ.md"）。
+     * ノートを新規作成・上書き保存する（path は Vault内の相対パス。例: "ARELM/メモ.md"）。
      * Local REST APIの仕様上、本文は生のMarkdown文字列をそのまま送る。
      */
     async writeNote(path, markdown) {

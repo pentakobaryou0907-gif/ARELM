@@ -73,7 +73,7 @@ function renderDesignCanvas() {
     ctx.textBaseline = 'middle';
 
     if (title) {
-        ctx.font = `bold ${fontSize}px 'AReGLM Display', 'Hiragino Sans', 'Segoe UI', sans-serif`;
+        ctx.font = `bold ${fontSize}px 'ARELM Display', 'Hiragino Sans', 'Segoe UI', sans-serif`;
         wrapCanvasText(ctx, title, w / 2, cursorY, w * 0.85, fontSize * 1.15);
     }
 

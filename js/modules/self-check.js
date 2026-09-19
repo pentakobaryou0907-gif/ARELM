@@ -162,7 +162,7 @@ function 自作AIを調べる() {
 
 /** 画面の見た目が最新かどうか */
 function 画面の版を調べる() {
-    const 版 = window.AReGLM画面の版 || '不明';
+    const 版 = window.ARELM画面の版 || '不明';
     return { 状態: 版 === '不明' ? 'warn' : 'ok', 詳細: 版 };
 }
 
@@ -239,7 +239,7 @@ function selfCheckRun() {
 /** 結果を文字にして写す。困ったときにそのまま貼れるようにするため。 */
 async function selfCheckCopy() {
     const text = [
-        'AReGLM 自己点検 ' + new Date().toLocaleString('ja-JP'),
+        'ARELM 自己点検 ' + new Date().toLocaleString('ja-JP'),
         'アドレス: ' + location.href,
         'ブラウザ: ' + navigator.userAgent,
         '',

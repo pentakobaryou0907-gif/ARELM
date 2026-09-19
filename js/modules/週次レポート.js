@@ -271,7 +271,7 @@ async function レポートをObsidianへ保存(r, btn) {
             + 数字を文にする(r.数字 || {}).map((l) => `- ${l}`).join('\n')
             + (r.コメント ? `\n\n> ${r.コメント}` : '');
         const 日付文字 = new Date(r.作った日).toISOString().slice(0, 10);
-        await AReGLM_OBSIDIAN.writeNote(`AReGLM/週次レポート/${日付文字}_第${r.番号}回.md`, 本文);
+        await AReGLM_OBSIDIAN.writeNote(`ARELM/週次レポート/${日付文字}_第${r.番号}回.md`, 本文);
         showNotification('Obsidianへ保存しました', 'success');
     } catch (e) {
         showNotification(`Obsidianへ保存できませんでした: ${e.message}`, 'error');

@@ -62,7 +62,7 @@ function 生きているか(港, 道) {
 async function 様子を集める(本人の言葉) {
     const 行 = [];
 
-    行.push('# AReGLM 非常事態の報せ');
+    行.push('# ARELM 非常事態の報せ');
     行.push('');
     行.push(`時刻: ${new Date().toLocaleString('ja-JP')}`);
     行.push('');

@@ -6,7 +6,7 @@ AI_PYTHON="$(ls /Users/ari/.pyenv/versions/*/bin/python3 2>/dev/null | tail -1)"
 if [ -z "$AI_PYTHON" ] || [ ! -x "$AI_PYTHON" ]; then
     AI_PYTHON="python3"
 fi
-# AReGLM 全体の健全性チェック
+# ARELM 全体の健全性チェック
 #
 # 細かいミスで作業が止まらないよう、変更後にこれを実行する。
 #   ./check.sh
@@ -30,7 +30,7 @@ ng()   { echo -e "${RED}  NG${NC}  $1"; FAIL=1; }
 warn() { echo -e "${YELLOW}  --${NC}  $1"; }
 
 echo "════════════════════════════════════════"
-echo " AReGLM 健全性チェック"
+echo " ARELM 健全性チェック"
 echo "════════════════════════════════════════"
 
 # --- 1. JavaScript 構文 ---

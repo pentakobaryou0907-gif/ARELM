@@ -108,7 +108,7 @@ async function 引き継ぎ書を作る() {
     const 呼び名 = (typeof ツールの名前を読む === 'function') ? ツールの名前を読む().名 : 'アレラム';
 
     const 行 = [];
-    行.push(`# AReGLM（${呼び名}）引き継ぎ書`);
+    行.push(`# ARELM（${呼び名}）引き継ぎ書`);
     行.push('');
     行.push(`作成日: ${今日}`);
     行.push('');
@@ -299,7 +299,7 @@ async function render引き継ぎ() {
         const 塊 = new Blob([中身], { type: 'text/markdown;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(塊);
-        a.download = `AReGLM引き継ぎ書_${(typeof 日付文字 === 'function' ? 日付文字(new Date()) : 'x')}.md`;
+        a.download = `ARELM引き継ぎ書_${(typeof 日付文字 === 'function' ? 日付文字(new Date()) : 'x')}.md`;
         document.body.appendChild(a);
         a.click();
         a.remove();

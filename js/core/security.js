@@ -1,5 +1,5 @@
 /**
- * AReGLM セキュリティ — 情報漏洩防止
+ * ARELM セキュリティ — 情報漏洩防止
  */
 const AReGLM_SECURITY = {
     SESSION_HOURS: 4,

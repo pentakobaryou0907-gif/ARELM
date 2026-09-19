@@ -77,8 +77,8 @@ const できる操作 = {
         重さ: '軽い',
         説: 'いま何のアプリが前にいるかを見る',
         本文: () => 'tell application "System Events" to get name of first process whose frontmost is true',
-        winスクリプト: () => `${PS_前面窓の定義}; $h=[AReGLM.Win32]::GetForegroundWindow(); `
-            + `$sb=New-Object System.Text.StringBuilder 256; [AReGLM.Win32]::GetWindowText($h,$sb,256)|Out-Null; $sb.ToString()`,
+        winスクリプト: () => `${PS_前面窓の定義}; $h=[ARELM.Win32]::GetForegroundWindow(); `
+            + `$sb=New-Object System.Text.StringBuilder 256; [ARELM.Win32]::GetWindowText($h,$sb,256)|Out-Null; $sb.ToString()`,
     },
 
     音量を見る: {
@@ -115,8 +115,8 @@ const できる操作 = {
         winスクリプト: (材) => {
             const n = Math.max(0, Math.min(100, Number(材.大きさ) || 0));
             const 回数 = Math.round(n / 2);
-            return `${PS_音量キー定義}; for($i=0;$i -lt 60;$i++){[AReGLM.Snd]::Send(0xAE)}; `
-                + `for($i=0;$i -lt ${回数};$i++){[AReGLM.Snd]::Send(0xAF)}`;
+            return `${PS_音量キー定義}; for($i=0;$i -lt 60;$i++){[ARELM.Snd]::Send(0xAE)}; `
+                + `for($i=0;$i -lt ${回数};$i++){[ARELM.Snd]::Send(0xAF)}`;
         },
     },
 
@@ -124,7 +124,7 @@ const できる操作 = {
         重さ: '軽い',
         説: '音を消す／戻す',
         本文: (材) => `set volume ${材.戻す ? 'without' : 'with'} output muted`,
-        winスクリプト: () => `${PS_音量キー定義}; [AReGLM.Snd]::Send(0xAD)`, // ミュートの切り替え（トグル）
+        winスクリプト: () => `${PS_音量キー定義}; [ARELM.Snd]::Send(0xAD)`, // ミュートの切り替え（トグル）
     },
 
     画面を暗くする: {
@@ -157,12 +157,12 @@ const できる操作 = {
         説: '通知を出す',
         要る: ['文'],
         本文: (材) => `display notification ${引用符(String(材.文).slice(0, 200))} `
-            + `with title "AReGLM"`,
+            + `with title "ARELM"`,
         // バルーン通知（NotifyIcon）は標準搭載の部品だけで確実に出せる形。
         winスクリプト: (材) => 'Add-Type -AssemblyName System.Windows.Forms; '
             + '$ni=New-Object System.Windows.Forms.NotifyIcon; '
             + '$ni.Icon=[System.Drawing.SystemIcons]::Information; $ni.Visible=$true; '
-            + `$ni.ShowBalloonTip(4000,"AReGLM",${PS引用符(String(材.文).slice(0, 200))},[System.Windows.Forms.ToolTipIcon]::Info); `
+            + `$ni.ShowBalloonTip(4000,"ARELM",${PS引用符(String(材.文).slice(0, 200))},[System.Windows.Forms.ToolTipIcon]::Info); `
             + 'Start-Sleep -Milliseconds 300; $ni.Dispose()',
     },
 
@@ -358,9 +358,9 @@ const できる操作 = {
         winスクリプト: (材) => {
             const x = Math.max(0, Math.round(Number(材.よこ) || 0));
             const y = Math.max(0, Math.round(Number(材.たて) || 0));
-            return `${PS_マウス定義}; [AReGLM.Mouse]::SetCursorPos(${x},${y}); `
-                + '[AReGLM.Mouse]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero); '
-                + '[AReGLM.Mouse]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)';
+            return `${PS_マウス定義}; [ARELM.Mouse]::SetCursorPos(${x},${y}); `
+                + '[ARELM.Mouse]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero); '
+                + '[ARELM.Mouse]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)';
         },
     },
 };
@@ -405,12 +405,12 @@ function SendKeysエスケープ(文) {
  * 変えると壊れるので、そのままの並びで書くこと）。
  */
 const PS_前面窓の定義 = `
-if (-not ('AReGLM.Win32' -as [type])) {
+if (-not ('ARELM.Win32' -as [type])) {
 Add-Type @'
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
-namespace AReGLM {
+namespace ARELM {
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left, Top, Right, Bottom; }
   [StructLayout(LayoutKind.Sequential)]
@@ -446,11 +446,11 @@ namespace AReGLM {
  * メディアキーと同じ形で送る（keybd_event。フォーカスに関係なく効く）。
  */
 const PS_音量キー定義 = `
-if (-not ('AReGLM.Snd' -as [type])) {
+if (-not ('ARELM.Snd' -as [type])) {
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
-namespace AReGLM {
+namespace ARELM {
   public class Snd {
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
     public static void Send(byte vk) {
@@ -464,11 +464,11 @@ namespace AReGLM {
 
 /** Windows向け。マウスを動かして左クリックするためのP/Invoke定義。 */
 const PS_マウス定義 = `
-if (-not ('AReGLM.Mouse' -as [type])) {
+if (-not ('ARELM.Mouse' -as [type])) {
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
-namespace AReGLM {
+namespace ARELM {
   public class Mouse {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
@@ -524,14 +524,14 @@ function 合言葉の画面か() {
     if (WIN) {
         try {
             const script = `${PS_前面窓の定義}
-$h=[AReGLM.Win32]::GetForegroundWindow()
+$h=[ARELM.Win32]::GetForegroundWindow()
 $tpid=0
-$tid=[AReGLM.Win32]::GetWindowThreadProcessId($h,[ref]$tpid)
-$info=New-Object AReGLM.GUITHREADINFO
-$info.cbSize=[System.Runtime.InteropServices.Marshal]::SizeOf([type][AReGLM.GUITHREADINFO])
-$ok=[AReGLM.Win32]::GetGUIThreadInfo($tid,[ref]$info)
+$tid=[ARELM.Win32]::GetWindowThreadProcessId($h,[ref]$tpid)
+$info=New-Object ARELM.GUITHREADINFO
+$info.cbSize=[System.Runtime.InteropServices.Marshal]::SizeOf([type][ARELM.GUITHREADINFO])
+$ok=[ARELM.Win32]::GetGUIThreadInfo($tid,[ref]$info)
 if ($ok -and $info.hwndFocus -ne [IntPtr]::Zero) {
-  $style=[AReGLM.Win32]::GetWindowLong($info.hwndFocus,-16)
+  $style=[ARELM.Win32]::GetWindowLong($info.hwndFocus,-16)
   if (($style -band 0x20) -ne 0) { Write-Output "1" } else { Write-Output "0" }
 } else { Write-Output "0" }`;
             const 出 = execFileSync('powershell.exe',

@@ -248,7 +248,7 @@ function 合った(住所) {
 function 合言葉を聞く画面(訳) {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AReGLM</title>
+<title>ARELM</title>
 <style>
   :root { color-scheme: light dark; }
   body { margin:0; min-height:100dvh; display:grid; place-items:center;
@@ -265,7 +265,7 @@ function 合言葉を聞く画面(訳) {
   .err { color:#dc2626; font-size:.82rem; }
 </style></head><body>
 <form class="box" method="POST" action="/__gate">
-  <h1>AReGLM</h1>
+  <h1>ARELM</h1>
   <p>この端末は、まだ許可されていません。<br>合言葉を入れてください。</p>
   ${訳 ? `<p class="err">${訳}</p>` : ''}
   <input type="password" name="合言葉" autocomplete="current-password" autofocus required>

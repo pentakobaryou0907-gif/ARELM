@@ -116,7 +116,7 @@ def _グラフを組む(プロンプト, 幅, 高さ, 種):
         },
         'save': {
             'class_type': 'SaveImage',
-            'inputs': {'images': ['decode', 0], 'filename_prefix': 'AReGLM'},
+            'inputs': {'images': ['decode', 0], 'filename_prefix': 'ARELM'},
         },
     }
 
