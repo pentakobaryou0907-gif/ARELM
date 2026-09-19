@@ -417,7 +417,7 @@ async function 計画をAIに見てもらう(ボタン) {
 
     try {
         const 答え = await AReGLM_LOCAL_FIRST.complete({
-            provider: (typeof Claudeを使うか === 'function' && Claudeを使うか()) ? 'claude' : 'local',
+            provider: (typeof 現在の脳 === 'function') ? 現在の脳() : 'local',
             history: [],
             userText: 頼み,
             attachments: [],

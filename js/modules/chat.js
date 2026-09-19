@@ -104,62 +104,95 @@ function setChatMode(mode) {
     document.querySelectorAll('.chat-mode-chip').forEach((c) => c.classList.toggle('active', c.dataset.mode === mode));
 }
 
-/* ---------- 会話に使う「脳」の切り替え（自作AI ⇄ Claude） ---------- */
+/* ---------- 会話に使う「脳」の切り替え（自作AI → Gemini → Claude → …） ---------- */
 
 const CHAT_BRAIN_KEY = 'areglm_chat_brain';
 
+// 各「脳」の説明。ボタンの表示・確認ダイアログ・切り替え時の確認に
+// まとめて使う（3択目のGeminiを足すときに、あちこち直さず済むように）。
+const CHAT_BRAINS = {
+    local: { 名: '自作AI', apiId: null },
+    gemini: {
+        名: 'Gemini', apiId: 'gemini',
+        送り先: 'Google',
+        課金: '無料枠を超えると課金されます',
+    },
+    claude: {
+        名: 'Claude', apiId: 'claude',
+        送り先: 'Anthropic',
+        課金: '使った分だけ課金されます（無料枠なし）',
+    },
+};
+const CHAT_BRAIN_ORDER = ['local', 'gemini', 'claude'];
+
+function 現在の脳() {
+    const v = localStorage.getItem(CHAT_BRAIN_KEY);
+    return CHAT_BRAINS[v] ? v : 'local';
+}
+
+// Claude連携.js・Gemini連携.js・console.js から今まで通り呼べるよう残す
+// （エージェント側の判定はこれで「Claudeか自作AIか」を見ていたため）。
 function Claudeを使うか() {
-    return localStorage.getItem(CHAT_BRAIN_KEY) === 'claude';
+    return 現在の脳() === 'claude';
+}
+function Geminiを使うか() {
+    return 現在の脳() === 'gemini';
 }
 
 function 脳の表示を直す() {
     const b = document.getElementById('chat-brain-toggle');
     const who = document.getElementById('chat-who');
-    const claude = Claudeを使うか();
+    const 脳 = 現在の脳();
+    const 情報 = CHAT_BRAINS[脳];
     if (b) {
-        b.textContent = claude ? '脳: Claude' : '脳: 自作AI';
-        b.classList.toggle('btn-accent', claude);
-        b.classList.toggle('btn-secondary', !claude);
+        b.textContent = `脳: ${情報.名}`;
+        b.classList.toggle('btn-accent', 脳 !== 'local');
+        b.classList.toggle('btn-secondary', 脳 === 'local');
     }
     if (who) {
-        who.innerHTML = claude
-            ? 'Claude<small>会話・エージェントへの指示ともに外部（Anthropic）へ送られます・従量課金</small>'
-            : '自作AI<small>この端末の中だけで動きます</small>';
+        who.innerHTML = 脳 === 'local'
+            ? '自作AI<small>この端末の中だけで動きます</small>'
+            : `${情報.名}<small>会話・エージェントへの指示ともに外部（${情報.送り先}）へ送られます・${情報.課金}</small>`;
     }
 }
 
 async function 脳を切り替える() {
-    if (Claudeを使うか()) {
+    const 現在 = 現在の脳();
+    const 次 = CHAT_BRAIN_ORDER[(CHAT_BRAIN_ORDER.indexOf(現在) + 1) % CHAT_BRAIN_ORDER.length];
+
+    if (次 === 'local') {
         localStorage.removeItem(CHAT_BRAIN_KEY);
         脳の表示を直す();
         return;
     }
 
+    const 情報 = CHAT_BRAINS[次];
+
     // 切り替えてから毎回エラーになるのを避ける。
     // 足りないものがあれば、押した時点で何が足りないかを言う。
     const 足りないもの = [];
-    const 鍵 = await AReGLM_SECURITY.loadApiKeySecure('ai', 'claude');
-    if (!鍵) 足りないもの.push('APIキー（設定 → 外部AI（Claude））');
-    if (typeof 使ってよいか === 'function' && !使ってよいか('claude')) {
+    const 鍵 = await AReGLM_SECURITY.loadApiKeySecure('ai', 情報.apiId);
+    if (!鍵) 足りないもの.push(`APIキー（設定 → 外部AI（${情報.名}））`);
+    if (typeof 使ってよいか === 'function' && !使ってよいか(情報.apiId)) {
         足りないもの.push('使用の許可（設定 → お金がかかる機能）');
     }
     if (足りないもの.length) {
         showNotification(
-            `Claudeを使うには、あと ${足りないもの.join(' と ')} が要ります。`,
+            `${情報.名}を使うには、あと ${足りないもの.join(' と ')} が要ります。`,
             'warn');
         return;
     }
 
     // 外へ出る前に、必ず一度はっきり確認する。
     const よいか = confirm(
-        '会話の脳をClaudeに切り替えます。\n\n'
-        + '・この後の会話内容（添付画像も含む）はAnthropicのサーバーへ送られます\n'
-        + '・使った分だけ課金されます\n'
-        + '・Claudeの答えはこの端末の知識にも蓄え、いずれ自作AIだけで答えられるように育てます\n\n'
+        `会話の脳を${情報.名}に切り替えます。\n\n`
+        + `・この後の会話内容（添付画像も含む）は${情報.送り先}のサーバーへ送られます\n`
+        + `・${情報.課金}\n`
+        + `・${情報.名}の答えはこの端末の知識にも蓄え、いずれ自作AIだけで答えられるように育てます\n\n`
         + 'よろしいですか？');
     if (!よいか) return;
 
-    localStorage.setItem(CHAT_BRAIN_KEY, 'claude');
+    localStorage.setItem(CHAT_BRAIN_KEY, 次);
     脳の表示を直す();
 }
 

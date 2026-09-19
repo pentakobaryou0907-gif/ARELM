@@ -695,14 +695,22 @@ async function AIで意図を判定する(text, target) {
         // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
         const page = document.querySelector('.page.active')?.id?.replace('-page', '') || '';
 
-        // 「脳: Claude」に切り替えているときは、エージェントの判定そのものを
-        // Claudeへ頼む（AIチャットの会話だけでなく、指示の実行判定にも
-        // 同じ「脳」を使う、という以前からの決定をここにも反映する）。
+        // 「脳: Claude」「脳: Gemini」に切り替えているときは、エージェントの
+        // 判定そのものをそちらへ頼む（AIチャットの会話だけでなく、指示の
+        // 実行判定にも同じ「脳」を使う、という以前からの決定をここにも
+        // 反映する）。
         if (typeof Claudeを使うか === 'function' && Claudeを使うか()
             && typeof Claudeでエージェントの意図を判定する === 'function') {
             const 判定 = await Claudeでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);
             if (判定 && 判定.ok) return 判定;
-            // Claudeで判定できなかったときは、黙って終わらせず自作AIへ回す
+            // 判定できなかったときは、黙って終わらせず自作AIへ回す
+            // （エージェントが無言になることを避けるため）。
+        }
+        if (typeof Geminiを使うか === 'function' && Geminiを使うか()
+            && typeof Geminiでエージェントの意図を判定する === 'function') {
+            const 判定 = await Geminiでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);
+            if (判定 && 判定.ok) return 判定;
+            // 判定できなかったときは、黙って終わらせず自作AIへ回す
             // （エージェントが無言になることを避けるため）。
         }
 
