@@ -3133,8 +3133,17 @@ function lanAddresses() {
 const APP_PORT = process.env.APP_PORT || 8090;
 
 
+// 待ち受け失敗（EADDRINUSE等）を .on('error', ...) で受け止めないと、
+// Node は既定でプロセス全体を落とす。ここは本来の入口（8080番）が
+// 既に開けていても道連れで落ちてしまい、見張り.sh が再起動を試みても
+// 直前のプロセスがポートを手放しきる前に次を起こして同じ理由で
+// また落ちる、を繰り返すことがあった（実際にこのセッション中に発生）。
+// この入口はあくまで「マイクが使える別の入口」という付加のものなので、
+// 開けなければ諦めて知らせるだけにし、本来の入口は道連れにしない。
 app.listen(APP_PORT, '127.0.0.1', () => {
     console.log(`アプリ用の入口: http://127.0.0.1:${APP_PORT}  （マイク可・キャッシュの影響なし）`);
+}).on('error', (e) => {
+    console.warn(`アプリ用の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
 });
 
 app.listen(PORT, HOST, () => {
@@ -3165,6 +3174,8 @@ if (Tailscaleを許しているか()) {
     if (TS_IP) {
         app.listen(APP_PORT, TS_IP, () => {
             console.log(`Tailscale経由（自分の端末だけ）: http://${TS_IP}:${APP_PORT}`);
+        }).on('error', (e) => {
+            console.warn(`Tailscale経由の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
         });
     } else {
         console.warn('[Tailscale] 「Tailscaleから使う」が入になっていますが、'
@@ -3199,6 +3210,10 @@ if (httpsAvailable) {
                 console.log(`  他端末から: https://${ip}:${HTTPS_PORT}`);
             });
             console.log('  ※ 初回だけブラウザが警告を出します。「詳細」→「アクセスする」で進んでください');
+        }).on('error', (e) => {
+            // これも付加の入口（HTTP版の8080・8090はそのまま動く）なので、
+            // 開けなくてもプロセス全体を道連れにしない。
+            console.warn(`HTTPSの入口（${HTTPS_PORT}番）を開けませんでした: ${e.message}`);
         });
 
         // Tailscale経由でも、マイクが使えるようHTTPSを別に開いておく。
@@ -3207,6 +3222,8 @@ if (httpsAvailable) {
             if (TS_IP) {
                 https.createServer(options, app).listen(HTTPS_PORT, TS_IP, () => {
                     console.log(`  Tailscale経由（マイク可）: https://${TS_IP}:${HTTPS_PORT}`);
+                }).on('error', (e) => {
+                    console.warn(`Tailscale経由のHTTPS入口（${HTTPS_PORT}番）を開けませんでした: ${e.message}`);
                 });
             }
         }
