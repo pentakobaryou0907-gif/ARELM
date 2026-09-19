@@ -717,8 +717,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, {'error': 'text が必要です'})
                 verdict = rules.check(発言)
                 if not verdict['ok']:
+                    # キー名は 意図を選ぶ() の戻り値と揃える（'材料'・'会話の返事'）。
+                    # ここだけ '引数'・'返事' という別名になっていたため、
+                    # 画面側（判定.会話の返事 を見る）には常に空と映り、
+                    # 方針で止めた理由が表示されずに黙って終わっていた。
                     return self._send(200, {
-                        'ok': True, '操作id': None, '引数': '', '返事': verdict['reason'],
+                        'ok': True, '操作id': None, '材料': '', '会話の返事': verdict['reason'],
                     })
                 結果 = エージェントの意図判定.意図を選ぶ(
                     発言,
