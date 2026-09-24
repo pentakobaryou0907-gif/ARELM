@@ -860,6 +860,39 @@
                         <div id="self-review"></div>
                     </section>
 
+                    <!-- 知識メモ（knowledge-ui.js）: 機能自体は前から出来ていたが、
+                         この画面が無く、開く手段が無かった（js/modules/knowledge-ui.js
+                         は読み込まれてはいたが、initKnowledgeUi() がどこからも
+                         呼ばれていなかった）。 -->
+                    <section class="panel-card full-width">
+                        <h3><span class="sec-icon">📚</span>知識メモ</h3>
+                        <p class="hint">
+                            仕事で分かったことを、出所と検証状態つきで記録します。
+                            <strong>外部AI由来の情報は「未検証」として区別し、確認するまで事実として扱いません。</strong>
+                            間違いと分かったものは消さず、「実際はどうだったか」を残して次の警告に使います。
+                        </p>
+                        <form id="knowledge-form" class="knowledge-form">
+                            <textarea id="knowledge-text" rows="2" placeholder="例: A社は月末締め・翌月末払い" required></textarea>
+                            <div class="guard-row">
+                                <select id="knowledge-source">
+                                    <option value="experience">自分の経験</option>
+                                    <option value="document">自分の資料</option>
+                                    <option value="manual" selected>自分で記入</option>
+                                    <option value="external">外部AI</option>
+                                </select>
+                                <input type="text" id="knowledge-topic" placeholder="話題（任意・例: 取引条件）" maxlength="40">
+                                <button type="submit" class="btn btn-sm btn-primary">記録する</button>
+                            </div>
+                        </form>
+
+                        <div class="guard-row">
+                            <input type="text" id="knowledge-query" placeholder="探したい言葉">
+                            <button type="button" id="knowledge-search-btn" class="btn btn-sm btn-secondary">探す</button>
+                            <button type="button" id="knowledge-refresh" class="btn btn-sm btn-secondary">🔄</button>
+                        </div>
+                        <div id="knowledge-results"></div>
+                    </section>
+
                     <!-- 「Chromeを開いて操る」は、遠隔操作の機能を一か所にまとめる
                          一環として「🖥 遠隔操作」ページ（ブラウザタブ）へ移した。 -->
 

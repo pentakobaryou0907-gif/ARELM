@@ -93,6 +93,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initConsole === 'function') initConsole();
     if (typeof initMediaStudio === 'function') initMediaStudio();
     if (typeof initCompliance === 'function') initCompliance();
+    // 機能自体は前からあったが、開く画面（#knowledge-form 等）が無く、
+    // 呼び出し元も無かった（knowledge-ui.js 参照）。
+    if (typeof initKnowledgeUi === 'function') initKnowledgeUi();
     if (typeof initLocalAiPanel === 'function') initLocalAiPanel();
     if (typeof initCalendar === 'function') initCalendar();
     if (typeof initSeries === 'function') initSeries();
