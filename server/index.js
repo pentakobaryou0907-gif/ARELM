@@ -144,6 +144,55 @@ app.post('/api/other-devices', (req, res) => {
 });
 
 /**
+ * 端末同士のデータ連携（同じ商品・タスク等が、どの端末からでも同じに見える）
+ *
+ * これまでタスク・商品・売上などの中身は、この端末のブラウザの中
+ * （localStorage）にしか無かった。他の端末から使えるようにしても
+ * （Tailscale・LAN経由）、そこで入れたデータは元の端末には届かない
+ * ままだった。
+ *
+ * ここでは、各端末のブラウザ側（js/core/sync.js）が localStorage への
+ * 書き込みを検知して、このサーバー（＝全端末で共通のこの1台）に
+ * 書き写す。次にどの端末で開いても、起動時にここから最新の値を
+ * 取り込む。合言葉・セッション等、端末固有であるべきものは対象外
+ * （sync.js 側の除外リストで弾く）。
+ *
+ * 誰が勝つか: 各項目ごとに「最後に書いた時刻」だけを比べる
+ * （単純な後勝ち）。同時に2つの端末で同じ項目を編集した場合、
+ * 後から届いた方が残る。込み入った統合はしない
+ * （複雑にするほど、無言でデータが消える事故が起きやすいため）。
+ */
+const SYNC_PATH = path.join(DATA_DIR, 'sync_store.json');
+
+function 同期の中身を読む() {
+    try { return JSON.parse(fs.readFileSync(SYNC_PATH, 'utf8')); } catch { return {}; }
+}
+
+app.get('/api/sync/all', (req, res) => {
+    res.json({ ok: true, データ: 同期の中身を読む() });
+});
+
+app.post('/api/sync/push', (req, res) => {
+    const { key, value, updatedAt } = req.body || {};
+    if (!key || typeof updatedAt !== 'number') {
+        return res.status(400).json({ ok: false, 訳: 'key と updatedAt が要ります' });
+    }
+    const 店 = 同期の中身を読む();
+    const 既存 = 店[key];
+    // 後勝ち。ただし、届いた方が古ければ黙って捨てる
+    // （通信の順番が入れ替わって、新しい値が古い値に上書きされるのを防ぐ）。
+    if (!既存 || updatedAt >= 既存.updatedAt) {
+        店[key] = { value, updatedAt };
+        try {
+            fs.writeFileSync(SYNC_PATH, JSON.stringify(店));
+        } catch (e) {
+            return res.status(500).json({ ok: false, 訳: '保存できませんでした: ' + e.message });
+        }
+    }
+    res.json({ ok: true });
+});
+
+/**
  * 覚えた声を、常駐の待ち受けへ渡す
  *
  * 画面側（ブラウザ）が覚えた声は、ブラウザの中にしかない。
