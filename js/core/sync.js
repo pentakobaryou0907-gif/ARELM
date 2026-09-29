@@ -83,6 +83,28 @@ const AReGLM_SYNC = {
         });
 
         this._メタを書く(自分の記録);
+
+        // 導入前から端末にあったデータを、サーバーへも送っておく。
+        //
+        // このsync機能を入れる前から、この端末のlocalStorageには
+        // 商品・在庫などのデータが既にあった。仕組み上、setItemが
+        // 呼ばれたときだけサーバーへ送るので、そういう「元々あった」
+        // データは、ユーザーが改めて保存し直すまでサーバー側に
+        // 一度も現れない（＝他の端末からは永遠に見えない）。
+        //
+        // どちらが新しいか判断できないので、サーバーにまだ一件も
+        // 無いキーに限って送る（サーバー側を上書きする事故を避ける）。
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key || this.除外キー.has(key)) continue;
+                if (データ[key]) continue; // サーバーに既にある → 触らない
+                const value = 原本のgetItem.call(localStorage, key);
+                if (typeof value === 'string') this._送信を予約する(key, value);
+            }
+        } catch {
+            // 一部の環境でlocalStorage.lengthが使えなくても、他の起動処理は続ける。
+        }
     },
 
     _メタを読む() {
