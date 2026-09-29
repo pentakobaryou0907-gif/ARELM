@@ -19,9 +19,11 @@ async function 監視ダッシュボードを描く() {
 
     const 待機中箱 = document.getElementById('monitor-waiting-list');
     const 止箱 = document.getElementById('monitor-stuck-list');
+    const クラウド箱 = document.getElementById('monitor-cloud-list');
     const 進行中数 = document.getElementById('monitor-progress-count');
     const 待機中数 = document.getElementById('monitor-waiting-count');
     const 止数 = document.getElementById('monitor-stuck-count');
+    const クラウド数 = document.getElementById('monitor-cloud-count');
 
     const s = (v) => AReGLM_SECURITY.sanitizeHtml(v || '');
     const 空なら = (list, 文) => list.length ? '' : `<li class="monitor-empty">${文}</li>`;
@@ -52,6 +54,18 @@ async function 監視ダッシュボードを描く() {
         }
     } catch { /* サーバーが無ければ、この項目は出さないだけでよい */ }
 
+    /* ---- ☁️ 自動化：クラウド定期レビューが実際に作ったPR一覧 ----
+     * 「自動化できていると言われても、本当か分からない」への対応。
+     * クラウド側の報告を鵜呑みにせず、GitHubの公開PR一覧を直接見に行く。 */
+    let クラウド自動化 = null;
+    try {
+        const r = await fetch('/api/automation-status');
+        if (r.ok) {
+            const d = await r.json();
+            if (d.ok) クラウド自動化 = d;
+        }
+    } catch { /* サーバーやネットが無ければ、この項目は出さないだけでよい */ }
+
     /* ---- 描く：進行中 ---- */
     if (進行中数) 進行中数.textContent = 進行中タスク.length ? String(進行中タスク.length) : '';
     進行中箱.innerHTML = 空なら(進行中タスク, '今、裏で進めている作業はありません。') || 進行中タスク.slice(0, 8).map((t) => {
@@ -74,6 +88,24 @@ async function 監視ダッシュボードを描く() {
         const 名 = t.agent?.名 ? `${t.agent.絵 || ''}${t.agent.名} ／ ` : '';
         return `<li class="monitor-item stuck">${名}${s((t.内容 || t.目的 || '').slice(0, 30))} — ${s((t.エラー || '').slice(0, 40))}</li>`;
     }).join('');
+
+    /* ---- 描く：☁️ 自動化 ---- */
+    if (クラウド箱) {
+        if (!クラウド自動化) {
+            if (クラウド数) クラウド数.textContent = '';
+            クラウド箱.innerHTML = '<li class="monitor-empty">確認できませんでした（ネットに繋がっていない可能性があります）。</li>';
+        } else {
+            const 一覧 = クラウド自動化.一覧 || [];
+            if (クラウド数) クラウド数.textContent = 一覧.length ? String(一覧.length) : '';
+            const 状態文字 = { open: '未対応', merged: '採用済み', closed: '見送り' };
+            クラウド箱.innerHTML = 空なら(一覧, 'まだ自動レビューがPRを作ったことはありません（次回は週3回のスケジュールで実行されます）。')
+                || 一覧.map((p) => {
+                    const 状態 = 状態文字[p.状態] || s(p.状態);
+                    const 日付 = p.作成日時 ? new Date(p.作成日時).toLocaleDateString('ja-JP') : '';
+                    return `<li class="monitor-item"><a href="${s(p.url)}" target="_blank" rel="noopener">#${p.番号} ${s((p.題名 || '').slice(0, 30))}</a> — ${状態}（${日付}）</li>`;
+                }).join('');
+        }
+    }
 }
 
 function init監視ダッシュボード() {

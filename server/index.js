@@ -193,6 +193,63 @@ app.post('/api/sync/push', (req, res) => {
 });
 
 /**
+ * クラウド自動レビュー（RemoteTrigger／schedule）が実際に動いているかを、
+ * このアプリの中だけで確認できるようにする。
+ *
+ * 「本当に自動化できているか」は、私（Claude）の報告を信じるしかない状態だった。
+ * クラウド側のエージェントは、変更を見つけると必ずブランチ名 auto-review/日付 で
+ * GitHubにPRを作る決まりにしてある（プロンプトの制約）。そのPR一覧を見るだけで、
+ * 「本当に動いた／何もしなかった」をユーザー自身がいつでも確認できる。
+ *
+ * リポジトリが非公開のため、認証なしのGitHub APIでは覗けない（404になる）。
+ * 新しい鍵やアカウントを増やしたくないので、この端末に既に入っていて
+ * ログイン済みの公式 gh コマンド（GitHub CLI）をそのまま使う。
+ *
+ * 承認や自動マージは一切しない。ここは表示だけ。
+ */
+const AUTOMATION_REPO = 'pentakobaryou0907-gif/ARELM';
+let 自動化状況キャッシュ = { 時刻: 0, データ: null };
+
+app.get('/api/automation-status', async (req, res) => {
+    const 今 = Date.now();
+    // GitHub APIの上限を無駄に使わないよう、10分はキャッシュを使い回す
+    if (自動化状況キャッシュ.データ && 今 - 自動化状況キャッシュ.時刻 < 10 * 60 * 1000) {
+        return res.json({ ok: true, キャッシュ: true, ...自動化状況キャッシュ.データ });
+    }
+
+    execFile(
+        'gh',
+        ['pr', 'list', '--repo', AUTOMATION_REPO, '--state', 'all', '--limit', '20',
+            '--json', 'number,title,url,state,createdAt,headRefName'],
+        { timeout: 15000 },
+        (err, stdout) => {
+            if (err) {
+                // gh が入っていない／ログインしていない端末でも、他の機能は困らせない
+                return res.status(502).json({ ok: false, 訳: 'ghコマンドで確認できませんでした: ' + err.message });
+            }
+            let 全件 = [];
+            try { 全件 = JSON.parse(stdout); } catch { /* 空のまま扱う */ }
+
+            const 自動化分 = (Array.isArray(全件) ? 全件 : [])
+                .filter((p) => (p.headRefName || '').startsWith('auto-review/'))
+                .slice(0, 8)
+                .map((p) => ({
+                    番号: p.number,
+                    題名: p.title,
+                    url: p.url,
+                    状態: p.state === 'MERGED' ? 'merged' : (p.state === 'CLOSED' ? 'closed' : 'open'),
+                    作成日時: p.createdAt,
+                    ブランチ: p.headRefName || '',
+                }));
+
+            const データ = { 件数: 自動化分.length, 一覧: 自動化分, 確認日時: new Date().toISOString() };
+            自動化状況キャッシュ = { 時刻: 今, データ };
+            res.json({ ok: true, キャッシュ: false, ...データ });
+        }
+    );
+});
+
+/**
  * 覚えた声を、常駐の待ち受けへ渡す
  *
  * 画面側（ブラウザ）が覚えた声は、ブラウザの中にしかない。
