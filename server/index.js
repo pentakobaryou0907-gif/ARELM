@@ -1695,7 +1695,8 @@ async function safeFetch(url, options) {
  * URLを貼るだけで内部探索ができてしまわないよう、行き先を絞る。
  */
 function 内部向けURLか(u) {
-    const host = u.hostname.toLowerCase();
+    // IPv6リテラルは URL.hostname が "[::1]" と角括弧付きで返すので外して比べる
+    const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
     // IPv4リテラル
     const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -1706,7 +1707,11 @@ function 内部向けURLか(u) {
         if (a === 172 && b >= 16 && b <= 31) return true;
         if (a === 192 && b === 168) return true;
     }
-    if (host === '::1' || host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return true;
+    // IPv6: ':' を含むものだけ見る（"fcbarcelona.com" のような通常のドメイン名を誤って弾かないため）
+    if (host.includes(':')) {
+        if (host === '::1' || host === '::' || host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return true;
+        if (host.startsWith('::ffff:')) return true; // IPv4射影アドレス（::ffff:127.0.0.1 等）は安全側で弾く
+    }
     return false;
 }
 
