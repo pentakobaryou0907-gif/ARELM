@@ -164,7 +164,8 @@ async function render他の端末() {
         TS状態.textContent = 'いまTailscaleのアドレスが見つかりません（Tailscaleが起動していないか、未接続です）。';
     } else if (d.Tailscale使う) {
         TS状態.className = 'guard-off';
-        TS状態.innerHTML = `Tailscale経由で使えます:<br><b>http://${d.Tailscaleの住所}:${d.アプリ入口}</b>`;
+        // サーバー由来の値なので、innerHTML に直接埋め込まずエスケープする
+        TS状態.innerHTML = `Tailscale経由で使えます:<br><b>http://${AReGLM_SECURITY.sanitizeHtml(String(d.Tailscaleの住所))}:${AReGLM_SECURITY.sanitizeHtml(String(d.アプリ入口))}</b>`;
     } else {
         TS状態.className = 'guard-on';
         TS状態.textContent = `Tailscaleのアドレスは見つかっています（${d.Tailscaleの住所}）が、まだ許可していません。`;
