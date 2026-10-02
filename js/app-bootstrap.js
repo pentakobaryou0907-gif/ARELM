@@ -43,6 +43,7 @@ window.loadPageData = function (pageName) {
         case 'settings':
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
             if (typeof renderアカウント === 'function') renderアカウント();
+            if (typeof renderバックアップ === 'function') renderバックアップ();
             break;
     }
 };
@@ -194,6 +195,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init先回り === 'function') init先回り();
     if (typeof init置き換え計画 === 'function') init置き換え計画();
     if (typeof init他の端末 === 'function') init他の端末();
+    if (typeof init制作の進捗 === 'function') init制作の進捗();
+    if (typeof init続きから === 'function') init続きから();
     if (typeof init守り === 'function') init守り();
     if (typeof initHomeTabs === 'function') initHomeTabs();
     document.getElementById('import-product-seed-btn')?.addEventListener('click', importProductSeed);

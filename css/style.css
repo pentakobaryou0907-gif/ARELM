@@ -10100,3 +10100,9 @@ html[data-theme] .chat-bubble.user {
 #login-screen [hidden] {
     display: none !important;
 }
+
+/* 公開前チェック */
+.prepublish-detail { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: rgba(127,127,127,.08); }
+.prepublish-detail h5 { margin: 10px 0 4px; }
+.prepublish-detail p { margin: 2px 0; }
+.prepublish-ng { font-weight: 600; }

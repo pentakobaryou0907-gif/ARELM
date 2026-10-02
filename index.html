@@ -449,6 +449,13 @@
                     </section>
                     <section data-home-group="note" class="panel-card full-width">
                         <div class="panel-header-row">
+                            <h3><span class="sec-icon">💡</span>ひらめき箱</h3>
+                        </div>
+                        <p class="hint">外出先のスマホ・iPadからも、写真・URL・ひとことをすぐ入れられます。あとで見返して「知識メモに入れる」か「整理済み」にします（消えません）。</p>
+                        <div id="inbox-panel"></div>
+                    </section>
+                    <section data-home-group="note" class="panel-card full-width">
+                        <div class="panel-header-row">
                             <h3><span class="sec-icon">✎</span>メモ<small class="hint">（書くとAIも覚えます）</small></h3>
                         </div>
                         <p class="hint">思いついたこと・分かったことを書きます。書いた内容は自作AIが覚えて、あとで質問したときに答えられるようになります。すべてこの端末の中だけで保存されます。</p>
@@ -512,6 +519,13 @@
                         <div id="health-status"></div>
                     </section>
                     
+                    <section data-home-group="plan" class="panel-card full-width">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🧵</span>制作の進捗と公開前チェック</h3>
+                        </div>
+                        <p class="hint">TUDURI・INTGLMの作品を記録して、公開の前に「決めた約束を守れているか」を確かめます。<strong>SUZURIの公開ボタンは、あなた自身が押します</strong>（ここからは押しません）。</p>
+                        <div id="production-panel"></div>
+                    </section>
                     <section data-home-group="plan" class="panel-card full-width">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">◎</span>目標を分ける</h3>
@@ -2460,6 +2474,12 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">💾</span>バックアップ</h3>
+                        <p class="hint">毎日、自動で控えを取ります。まちがって消したときや、Macが壊れたときに、ここから戻せます。</p>
+                        <div id="backup-panel"></div>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">🔑</span>ログインのパスワード</h3>
                         <p class="hint">あなた1人用のログインです。パスワードはここで変えられます。</p>
                         <div id="account-panel"></div>
@@ -3487,7 +3507,12 @@
     <script src="js/modules/守り.js" defer></script>
     <script src="js/modules/他の端末.js" defer></script>
     <script src="js/modules/パスキー.js" defer></script>
+    <script src="js/services/公開前チェック.js" defer></script>
     <script src="js/modules/アカウント画面.js" defer></script>
+    <script src="js/modules/バックアップ画面.js" defer></script>
+    <script src="js/modules/続きから.js" defer></script>
+    <script src="js/modules/ひらめき箱.js" defer></script>
+    <script src="js/modules/制作の進捗.js" defer></script>
     <script src="js/modules/取引を見る.js" defer></script>
     <script src="js/modules/話題.js" defer></script>
     <script src="js/modules/voice-style.js" defer></script>

@@ -131,6 +131,9 @@ function loadDashboardData() {
     if (typeof renderTaskList === 'function') renderTaskList();
     renderAssistantSuggestions({ lowStock, snsQueue, brands, products });
     if (typeof renderHomeTabBadges === 'function') renderHomeTabBadges();
+    if (typeof renderひらめき箱 === 'function') renderひらめき箱();
+    if (typeof render制作の進捗 === 'function') render制作の進捗();
+    if (typeof 続きを案内する === 'function') 続きを案内する();
 }
 
 /**

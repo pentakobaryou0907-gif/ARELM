@@ -17,10 +17,19 @@ const CERT_PATH = path.join(__dirname, 'certs', 'cert.pem');
 const KEY_PATH = path.join(__dirname, 'certs', 'key.pem');
 const httpsAvailable = fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH);
 const ROOT = path.join(__dirname, '..');
-const DATA_DIR = path.join(__dirname, 'data');
+// 検証用に置き場を切り替えられる（本物のデータを汚さずに試すため）
+const DATA_DIR = process.env.ARELM_DATA_DIR || path.join(__dirname, 'data');
 const LEARNING_FILE = path.join(DATA_DIR, 'learning.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// 他の部品が必要になる前に、データの置き場を教えておく
+(function () {
+    const バックアップ = require('./バックアップ');
+    const ひらめき箱 = require('./ひらめき箱');
+    バックアップ.場所を教える(DATA_DIR);
+    ひらめき箱.場所を教える(DATA_DIR);
+})();
 
 // テックパックスライド作成では、複数商品ぶんのデザイン画像（data URL）を
 // まとめて1回のリクエストで送るため、20mbでは商品数が増えるとすぐ超える。
@@ -36,6 +45,8 @@ app.use(express.urlencoded({ extended: false }));   // 合言葉の入力を受�
  */
 const 門番 = require('./門番');
 const アカウント = require('./アカウント');
+const バックアップ = require('./バックアップ');
+const ひらめき箱 = require('./ひらめき箱');
 const 他の端末設定 = path.join(DATA_DIR, '他の端末.json');
 
 function 他の端末を許しているか() {
@@ -129,6 +140,56 @@ app.post('/api/account/logout', (req, res) => {
 
 // 指紋・Face ID（パスキー）
 function 身元(req) { return { origin: req.headers['origin'] || '' }; }
+
+// 控え（バックアップ）。戻す操作もあるので、ログイン中の本人だけ。
+function 本人だけ(req, res) {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    if (!人) res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    return 人;
+}
+app.get('/api/backup/status', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    res.json(バックアップ.状態());
+});
+app.post('/api/backup/now', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const r = バックアップ.控えを取る('手動');
+    res.status(r.ok ? 200 : 500).json(r);
+});
+app.post('/api/backup/restore', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const r = バックアップ.戻す((req.body || {}).名前);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+app.post('/api/backup/location', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const r = バックアップ.場所を変える((req.body || {}).場所);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
+// ひらめき箱
+app.post('/api/inbox/add', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const r = ひらめき箱.追加(req.body);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+app.get('/api/inbox/list', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    res.json({ ok: true, 一覧: ひらめき箱.一覧を返す() });
+});
+app.post('/api/inbox/mark', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const r = ひらめき箱.状態を変える((req.body || {}).id, (req.body || {}).状態);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+// 画像は<img>から直接読むので入場券は付けられない。名前が推測できない長さのランダム値であることと、
+// 他の端末からは門番（合言葉）を通った後でしか届かないことで守る。
+app.get('/api/inbox/image/:name', (req, res) => {
+    const p = ひらめき箱.画像のパス(req.params.name);
+    if (!p) return res.status(404).end();
+    res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=86400' });
+    res.sendFile(p);
+});
 
 app.post('/api/passkey/register/options', (req, res) => {
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
@@ -3344,6 +3405,7 @@ app.listen(APP_PORT, '127.0.0.1', () => {
 
 app.listen(PORT, HOST, () => {
     console.log(`ARELM: http://localhost:${PORT}`);
+    バックアップ.毎日の控えを始める();
 
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {
