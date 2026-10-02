@@ -357,8 +357,10 @@ function 待ち受けを本当に止める() {
 
     // そのうえで止める
     try {
-        require('child_process').execSync(
-            `pkill -f ${JSON.stringify(実行file)} 2>/dev/null || true`);
+        // pgrep と同じく、シェルを経由せず引数を配列で渡す
+        // （pkill は該当なしだと失敗終了するが、それは「動いていない」で正常）。
+        require('child_process').execFileSync('pkill', ['-f', 実行file],
+            { stdio: 'ignore' });
     } catch { /* 動いていない */ }
 }
 
