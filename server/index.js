@@ -35,6 +35,7 @@ app.use(express.urlencoded({ extended: false }));   // 合言葉の入力を受�
  * 後ろに置くと、画面のファイルだけ先に渡してしまう。
  */
 const 門番 = require('./門番');
+const アカウント = require('./アカウント');
 const 他の端末設定 = path.join(DATA_DIR, '他の端末.json');
 
 function 他の端末を許しているか() {
@@ -79,6 +80,60 @@ function tailscaleアドレス() {
 }
 
 門番.門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか);
+
+/**
+ * ログイン（本人1人用）
+ *
+ * 他の端末からは、上の門番（合言葉）を通った後でここに来る。
+ * 最初の設定だけは、このMac本体からしかできない
+ * （他の端末に先に開かれて、乗っ取られないようにするため）。
+ */
+function 入場券を取り出す(req) {
+    const h = req.headers['authorization'] || '';
+    return h.startsWith('Bearer ') ? h.slice(7) : '';
+}
+function 本体からか(req) {
+    const a = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+    return a === '127.0.0.1' || a === '::1';
+}
+
+app.get('/api/account/status', (req, res) => {
+    res.json({ ok: true, 初期設定済み: アカウント.初期設定済みか(), 本体から: 本体からか(req) });
+});
+
+app.post('/api/account/setup', (req, res) => {
+    if (!本体からか(req)) {
+        return res.status(403).json({ ok: false, 訳: '最初の設定は、このMac本体でだけできます' });
+    }
+    const { 名前, パスワード } = req.body || {};
+    const r = アカウント.初期設定(名前, パスワード);
+    if (!r.ok) return res.status(400).json(r);
+    // そのままログインした状態にする
+    const 入 = アカウント.ログイン(名前, パスワード, req.socket.remoteAddress);
+    res.json({ ok: true, 訳: r.訳, 名前: 入.名前, 役: 入.役, 入場券: 入.入場券 });
+});
+
+app.post('/api/account/login', (req, res) => {
+    const { 名前, パスワード } = req.body || {};
+    if (!アカウント.初期設定済みか()) {
+        return res.status(409).json({ ok: false, 訳: 'まだアカウントがありません。先に最初の設定をしてください' });
+    }
+    const r = アカウント.ログイン(名前, パスワード, req.socket.remoteAddress);
+    res.status(r.ok ? 200 : (r.締め出し ? 429 : 401)).json(r);
+});
+
+app.post('/api/account/logout', (req, res) => {
+    アカウント.入場券を返す(入場券を取り出す(req));
+    res.json({ ok: true });
+});
+
+app.post('/api/account/password', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    const { 今の, 新しい } = req.body || {};
+    const r = アカウント.パスワード変更(人, 今の, 新しい);
+    res.status(r.ok ? 200 : 400).json(r);
+});
 
 /**
  * 他の端末から使うかどうかの設定。

@@ -58,10 +58,13 @@ async function 歯止めを確かめる() {
 
     /* --- 3. 外へ出る通信が止まっているか --- */
     let 外は止まっているか = false;
+    window.__関所の試験中 = true;
     try {
         await fetch('https://example.com', { method: 'HEAD' });
     } catch {
         外は止まっているか = true;
+    } finally {
+        window.__関所の試験中 = false;
     }
     結果.push({
         件: '外へ出る通信',
@@ -260,6 +263,8 @@ async function 引き継ぎ書を作る() {
 async function render引き継ぎ() {
     const 箱 = document.getElementById('handover');
     if (!箱) return;
+    // ログイン前の画面では点検しない（見えない所で試験通信だけが走るのを避ける）
+    if (document.getElementById('main-app')?.style.display === 'none') return;
 
     箱.innerHTML = '<p class="hint">確かめています…</p>';
     const 歯止め = await 歯止めを確かめる();

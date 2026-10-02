@@ -56,6 +56,10 @@ function 外を許しているか() {
 
 /** 止めたことを残す */
 function 止めたことを残す(行き先, やり方) {
+    // 「歯止めを確かめる」が、止まっているかを見るためにわざと外へ
+    // 出そうとする試験。本当に止めた事故ではないので、通知も記録もしない
+    // （残すと、本物の「止めた記録」に試験の分が混ざって見分けがつかなくなる）。
+    if (window.__関所の試験中) return;
     const 記録 = (() => {
         try { return JSON.parse(localStorage.getItem('areglm_blocked_out') || '[]'); }
         catch { return []; }

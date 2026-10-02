@@ -24,21 +24,15 @@ function initLoginSystem() {
     console.log('ログインシステム初期化開始');
     
     const loginForm = document.getElementById('login-form');
-    const initDbBtn = document.getElementById('init-db-btn');
     const logoutBtn = document.getElementById('logout-btn');
     
     if (loginForm) {
         console.log('ログインフォームが見つかりました');
         loginForm.addEventListener('submit', handleLogin);
+        document.getElementById('setup-form')?.addEventListener('submit', handleSetup);
+        ログイン画面を整える();
     } else {
         console.error('ログインフォームが見つかりません');
-    }
-    
-    if (initDbBtn) {
-        console.log('データベース初期化ボタンが見つかりました');
-        initDbBtn.addEventListener('click', initDatabase);
-    } else {
-        console.error('データベース初期化ボタンが見つかりません');
     }
     
     if (logoutBtn) {
@@ -365,46 +359,97 @@ function clearSession(wipeSecrets) {
     }
 }
 
-// ログイン処理
-function handleLogin(e) {
-    e.preventDefault();
-    console.log('ログイン処理開始');
-    
+// サーバーに確かめてもらうログイン。
+// 以前は、画面のJSに書いた固定のユーザー名・パスワードと見比べていた
+// （JSを開けば誰でも読めるうえ、ログイン画面にも表示していた）。
+async function ログイン画面を整える() {
+    const ログイン = document.getElementById('login-form');
+    const 初期設定 = document.getElementById('setup-form');
+    const 注意 = document.getElementById('login-note');
+    if (!ログイン || !初期設定) return;
     try {
-        const usernameElement = document.getElementById('username');
-        const passwordElement = document.getElementById('password');
-        
-        if (!usernameElement || !passwordElement) {
-            console.error('ログインフォームの要素が見つかりません');
-            showNotification('ログインフォームの読み込みに失敗しました', 'error');
+        const r = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json());
+        if (!r.初期設定済み) {
+            if (r.本体から) {
+                ログイン.hidden = true;
+                初期設定.hidden = false;
+            } else if (注意) {
+                注意.hidden = false;
+                注意.textContent = 'まだ最初の設定がされていません。このMac本体で開いて、最初の設定をしてください。';
+            }
+        }
+    } catch {
+        // サーバーに繋がらないときは、そのままログイン欄を出しておく（押せば理由が出る）
+    }
+}
+
+function 入場券を覚える(r) {
+    // 入場券はタブを閉じれば消える場所にだけ置く
+    sessionStorage.setItem('areglm_account_ticket', r.入場券);
+    sessionStorage.setItem('areglm_account_role', r.役);
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username')?.value.trim();
+    const password = document.getElementById('password')?.value;
+    if (!username || !password) {
+        showNotification('ユーザー名とパスワードを入力してください。', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/account/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 名前: username, パスワード: password }),
+        });
+        const r = await res.json();
+        if (!r.ok) {
+            showNotification(r.訳 || 'ログインできませんでした', 'error');
             return;
         }
-        
-        const username = usernameElement.value.trim();
-        const password = passwordElement.value;
-        
-        console.log('ログイン情報:', { username, password: password ? '***' : 'empty' });
-        
-        if (!username || !password) {
-            showNotification('ユーザー名とパスワードを入力してください。', 'error');
-            return;
-        }
-        
-        // 簡易的な認証（本番環境ではサーバーサイド認証が必要）
-        if (username === 'admin' && password === 'Admin@2024!') {
-            console.log('認証成功');
-            if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(username);
-            else createSession(username);
-            updateUsernameDisplay(username);
-            showMainApp();
-            showNotification('ログインに成功しました！', 'success');
-        } else {
-            console.log('認証失敗');
-            showNotification('ユーザー名またはパスワードが正しくありません。', 'error');
-        }
+        入場券を覚える(r);
+        document.getElementById('password').value = '';
+        if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
+        else createSession(r.名前);
+        updateUsernameDisplay(r.名前);
+        showMainApp();
+        showNotification('ログインに成功しました！', 'success');
     } catch (error) {
         console.error('ログイン処理エラー:', error);
-        showNotification('ログイン処理中にエラーが発生しました', 'error');
+        showNotification('サーバーに繋がりませんでした。ARELMが起動しているか確認してください', 'error');
+    }
+}
+
+async function handleSetup(e) {
+    e.preventDefault();
+    const 名前 = document.getElementById('setup-username').value.trim();
+    const p1 = document.getElementById('setup-password').value;
+    const p2 = document.getElementById('setup-password2').value;
+    if (p1 !== p2) {
+        showNotification('パスワードが一致しません', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/account/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 名前, パスワード: p1 }),
+        });
+        const r = await res.json();
+        if (!r.ok) {
+            showNotification(r.訳 || '作れませんでした', 'error');
+            return;
+        }
+        入場券を覚える(r);
+        ['setup-password', 'setup-password2'].forEach((id) => { document.getElementById(id).value = ''; });
+        if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
+        else createSession(r.名前);
+        updateUsernameDisplay(r.名前);
+        showMainApp();
+        showNotification('設定しました。次回からこのユーザー名でログインします', 'success');
+    } catch {
+        showNotification('サーバーに繋がりませんでした', 'error');
     }
 }
 
@@ -427,74 +472,15 @@ function generateToken() {
 
 // ログアウト処理
 function handleLogout() {
+    const 券 = sessionStorage.getItem('areglm_account_ticket');
+    if (券) {
+        fetch('/api/account/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + 券 } }).catch(() => {});
+        sessionStorage.removeItem('areglm_account_ticket');
+        sessionStorage.removeItem('areglm_account_role');
+    }
     clearSession(true);
     hideMainApp();
     showNotification('ログアウトしました。', 'success');
-}
-
-// データベース初期化
-function initDatabase() {
-    console.log('データベース初期化開始');
-    
-    // 簡易的な初期化処理（実際のAPIがない場合）
-    showNotification('データベース初期化が完了しました。', 'success');
-    
-    // サンプルデータの作成
-    createSampleData();
-}
-
-/**
- * 中身を空にする
- *
- * ここは、問答無用で空にしていた。
- * ストッパーが見つけた。
- *
- * 商品も売上も、貯めたものが一度で消える。
- * しかも消える前に何も聞かない。
- * これは「消さない」という決まりに正面から反していた。
- *
- * いまは、
- *   1. 中身があるなら、控えを取る
- *   2. 本人に確かめる
- *   3. それから空にする
- * の順にしてある。
- */
-function createSampleData() {
-    const 消えるもの = ['products', 'sales', 'areglm_suzuri_products'];
-
-    // いま何件あるかを数える。空なら、聞く必要もない。
-    let 件数 = 0;
-    消えるもの.forEach((鍵) => {
-        try {
-            const r = JSON.parse(localStorage.getItem(鍵) || '[]');
-            if (Array.isArray(r)) 件数 += r.length;
-        } catch { 件数 += 0; }
-    });
-
-    if (件数 > 0) {
-        if (!confirm(`商品・売上あわせて ${件数}件 あります。\n\n`
-            + 'これを空にします。よろしいですか。\n'
-            + '（消す前に、控えをこの端末内に取ります）')) {
-            showNotification('やめました。何も消していません。', 'info');
-            return;
-        }
-
-        // 控えを取る。消してから「戻したい」と言われても遅い。
-        const 控え = {};
-        消えるもの.forEach((鍵) => { 控え[鍵] = localStorage.getItem(鍵); });
-        localStorage.setItem(
-            'areglm_初期化前の控え_' + new Date().toISOString().slice(0, 19),
-            JSON.stringify(控え));
-    }
-
-    消えるもの.forEach((鍵) => localStorage.setItem(鍵, JSON.stringify([])));
-
-    showNotification(
-        件数 > 0
-            ? `空にしました。控えは端末内に残してあります（${件数}件ぶん）。`
-            : '空にしました。',
-        'success');
-    refreshInventory();
 }
 
 // メインアプリの表示

@@ -42,6 +42,7 @@ window.loadPageData = function (pageName) {
             break;
         case 'settings':
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
+            if (typeof renderアカウント === 'function') renderアカウント();
             break;
     }
 };

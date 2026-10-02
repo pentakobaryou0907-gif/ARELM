@@ -37,10 +37,24 @@
                 </div>
                 <button type="submit" class="btn btn-primary">ログイン</button>
             </form>
-            <div class="login-footer">
-                <p>デフォルト: admin / Admin@2024!</p>
-                <button type="button" id="init-db-btn" class="btn btn-secondary">データ初期化</button>
-            </div>
+            <form id="setup-form" class="login-form" hidden>
+                <p class="hint"><b>はじめての設定です。</b>ログイン用のユーザー名とパスワードを決めてください。<br>
+                    ここで決めたユーザー名とパスワードで、次回からログインします。</p>
+                <div class="form-group">
+                    <label for="setup-username">ユーザー名</label>
+                    <input type="text" id="setup-username" required maxlength="32" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="setup-password">パスワード（10文字以上）</label>
+                    <input type="password" id="setup-password" required minlength="10" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="setup-password2">パスワード（もう一度）</label>
+                    <input type="password" id="setup-password2" required minlength="10" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary">決めて始める</button>
+            </form>
+            <p id="login-note" class="hint" hidden></p>
         </div>
     </div>
 
@@ -2445,6 +2459,12 @@
                     </section>
 
                     <section class="panel-card">
+                        <h3><span class="sec-icon">🔑</span>ログインのパスワード</h3>
+                        <p class="hint">あなた1人用のログインです。パスワードはここで変えられます。</p>
+                        <div id="account-panel"></div>
+                    </section>
+
+                    <section class="panel-card">
                         <h3><span class="sec-icon">📱</span>他の端末から使う</h3>
                         <p class="hint">スマホや別のPCのChromeからも使えるようにします。<strong>初期は切ってあります。</strong></p>
                         <div id="other-devices"></div>
@@ -3465,6 +3485,7 @@
     <script src="js/modules/様子.js" defer></script>
     <script src="js/modules/守り.js" defer></script>
     <script src="js/modules/他の端末.js" defer></script>
+    <script src="js/modules/アカウント画面.js" defer></script>
     <script src="js/modules/取引を見る.js" defer></script>
     <script src="js/modules/話題.js" defer></script>
     <script src="js/modules/voice-style.js" defer></script>
