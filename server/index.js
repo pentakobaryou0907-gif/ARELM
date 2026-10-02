@@ -127,6 +127,39 @@ app.post('/api/account/logout', (req, res) => {
     res.json({ ok: true });
 });
 
+// 指紋・Face ID（パスキー）
+function 身元(req) { return { origin: req.headers['origin'] || '' }; }
+
+app.post('/api/passkey/register/options', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const r = アカウント.登録のお題(人);
+    res.status(r.ok ? 200 : 401).json(r);
+});
+app.post('/api/passkey/register/verify', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const r = アカウント.登録する(人, 身元(req), req.body);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+app.post('/api/passkey/login/options', (req, res) => {
+    const r = アカウント.ログインのお題((req.body || {}).id);
+    res.status(r.ok ? 200 : 503).json(r);
+});
+app.post('/api/passkey/login/verify', (req, res) => {
+    const r = アカウント.パスキーでログイン(身元(req), req.body);
+    res.status(r.ok ? 200 : 401).json(r);
+});
+app.get('/api/passkey/list', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const 一覧 = アカウント.パスキー一覧(人);
+    if (!一覧) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    res.json({ ok: true, 一覧 });
+});
+app.post('/api/passkey/remove', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const r = アカウント.パスキーを外す(人, (req.body || {}).id);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
 app.post('/api/account/password', (req, res) => {
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
     if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });

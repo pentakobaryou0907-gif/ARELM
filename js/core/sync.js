@@ -40,9 +40,17 @@ const AReGLM_SYNC = {
         'sessionToken', 'sessionExpiry', 'username',
         'areglm_secure_session', 'areglm_encrypted_secrets',
         'areglm_sync_meta',
+        // 指紋/Face IDの登録は端末ごとに別物。他の端末へ渡すと照合に失敗する。
+        'areglm_passkey_id',
     ]),
 
     _送信待ち: {},
+    _待ちの中身: {},
+    控えの接頭辞: 'areglm_sync_backup_',
+
+    _同期の対象か(key) {
+        return !!key && !this.除外キー.has(key) && !key.startsWith(this.控えの接頭辞);
+    },
 
     /** 起動時、サーバーの最新値をこの端末へ取り込む */
     async 起動時に取り込む() {
@@ -60,7 +68,7 @@ const AReGLM_SYNC = {
         const 自分の記録 = this._メタを読む();
 
         Object.entries(データ).forEach(([key, entry]) => {
-            if (this.除外キー.has(key)) return;
+            if (!this._同期の対象か(key)) return;
             if (!entry || typeof entry.updatedAt !== 'number') return;
 
             const 自分の時刻 = 自分の記録[key] || 0;
@@ -70,6 +78,13 @@ const AReGLM_SYNC = {
             if (entry.updatedAt >= 自分の時刻) {
                 try {
                     if (typeof entry.value === 'string') {
+                        // この端末で一度も同期していない項目に、この端末固有の値が
+                        // 既にあるときは、上書きする前に控えを残す
+                        // （サーバー側の値の方が、必ず正しいとは限らないため）。
+                        const 今の値 = 原本のgetItem.call(localStorage, key);
+                        if (!自分の記録[key] && 今の値 != null && 今の値 !== entry.value) {
+                            原本のsetItem.call(localStorage, this.控えの接頭辞 + key, 今の値);
+                        }
                         // setItem を横取りする前の、素のlocalStorageに直接書く
                         // （横取りしたsetItemを通すと、取り込んだ直後に
                         // また同じ内容をサーバーへ送り返すだけの無駄が起きる）。
@@ -97,7 +112,7 @@ const AReGLM_SYNC = {
         try {
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (!key || this.除外キー.has(key)) continue;
+                if (!this._同期の対象か(key)) continue;
                 if (データ[key]) continue; // サーバーに既にある → 触らない
                 const value = 原本のgetItem.call(localStorage, key);
                 if (typeof value === 'string') this._送信を予約する(key, value);
@@ -122,7 +137,63 @@ const AReGLM_SYNC = {
     /** 書き込みを検知して、少し間を置いてからサーバーへ送る */
     _送信を予約する(key, value) {
         clearTimeout(this._送信待ち[key]);
-        this._送信待ち[key] = setTimeout(() => this._実際に送る(key, value), 900);
+        this._待ちの中身[key] = value;
+        this._送信待ち[key] = setTimeout(() => {
+            delete this._待ちの中身[key];
+            this._実際に送る(key, value);
+        }, 900);
+    },
+
+    /** 予約中のものを今すぐ送る（画面を移る前などに使う） */
+    async 今すぐ送る() {
+        const 残り = Object.entries(this._待ちの中身);
+        残り.forEach(([key]) => { clearTimeout(this._送信待ち[key]); });
+        this._待ちの中身 = {};
+        await Promise.all(残り.map(([key, value]) => this._実際に送る(key, value)));
+    },
+
+    /** この端末の同期対象が、すべてサーバーにあるか（無ければ、無いキーの一覧を返す） */
+    async サーバーに無いもの() {
+        let 応答;
+        try {
+            応答 = await fetch('/api/sync/all', { cache: 'no-store' }).then((r) => r.json());
+        } catch {
+            return ['(サーバーに繋がりません)'];
+        }
+        const サーバー側 = (応答 && 応答.データ) || {};
+        const 無い = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (this._同期の対象か(key) && !サーバー側[key]) 無い.push(key);
+        }
+        return 無い;
+    },
+
+    /**
+     * 127.0.0.1 で開かれたら、localhost へ移る。
+     *
+     * 指紋・Face ID（パスキー）は、IPアドレスのサイトでは使えず、
+     * localhost なら使える。ただ、ブラウザのデータは「アドレスごと」に
+     * 別々なので、移るとそれまでのデータが見えなくなる。
+     * そこで、この端末のデータが全部サーバーに届いたことを確かめてから移る
+     * （移った先は、起動時にサーバーから取り込む）。
+     * 一つでも届いていなければ移らない（データを見失わないため）。
+     */
+    async localhostへ移る() {
+        if (location.hostname !== '127.0.0.1') return;
+        if (sessionStorage.getItem('areglm_no_localhost_move') === '1') return;
+        try {
+            await this.今すぐ送る();
+            const 無い = await this.サーバーに無いもの();
+            if (無い.length) {
+                console.warn('[同期] サーバーに届いていない項目があるため、localhostへは移りません:', 無い);
+                sessionStorage.setItem('areglm_no_localhost_move', '1');
+                return;
+            }
+            location.replace(`http://localhost:${location.port}${location.pathname}${location.search}${location.hash}`);
+        } catch (e) {
+            console.warn('[同期] localhostへ移れませんでした:', e);
+        }
     },
 
     async _実際に送る(key, value) {
@@ -151,7 +222,7 @@ const 原本のgetItem = Storage.prototype.getItem;
 
 Storage.prototype.setItem = function (key, value) {
     原本のsetItem.call(this, key, value);
-    if (this === window.localStorage && !AReGLM_SYNC.除外キー.has(key)) {
+    if (this === window.localStorage && AReGLM_SYNC._同期の対象か(key)) {
         AReGLM_SYNC._送信を予約する(key, value);
     }
 };

@@ -378,6 +378,9 @@ async function ログイン画面を整える() {
                 注意.textContent = 'まだ最初の設定がされていません。このMac本体で開いて、最初の設定をしてください。';
             }
         }
+        if (r.初期設定済み && typeof ログイン画面のパスキーを整える === 'function') {
+            ログイン画面のパスキーを整える(ログインできた);
+        }
     } catch {
         // サーバーに繋がらないときは、そのままログイン欄を出しておく（押せば理由が出る）
     }
@@ -387,6 +390,15 @@ function 入場券を覚える(r) {
     // 入場券はタブを閉じれば消える場所にだけ置く
     sessionStorage.setItem('areglm_account_ticket', r.入場券);
     sessionStorage.setItem('areglm_account_role', r.役);
+}
+
+function ログインできた(r) {
+    入場券を覚える(r);
+    if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
+    else createSession(r.名前);
+    updateUsernameDisplay(r.名前);
+    showMainApp();
+    showNotification('ログインに成功しました！', 'success');
 }
 
 async function handleLogin(e) {
@@ -408,13 +420,8 @@ async function handleLogin(e) {
             showNotification(r.訳 || 'ログインできませんでした', 'error');
             return;
         }
-        入場券を覚える(r);
         document.getElementById('password').value = '';
-        if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
-        else createSession(r.名前);
-        updateUsernameDisplay(r.名前);
-        showMainApp();
-        showNotification('ログインに成功しました！', 'success');
+        ログインできた(r);
     } catch (error) {
         console.error('ログイン処理エラー:', error);
         showNotification('サーバーに繋がりませんでした。ARELMが起動しているか確認してください', 'error');

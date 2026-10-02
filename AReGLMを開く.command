@@ -9,7 +9,7 @@
 
 cd "$(dirname "$0")" || exit 1
 
-URL="http://127.0.0.1:8080"
+URL="http://localhost:8080"
 UID_NUM=$(id -u)
 
 echo "ARELM を起動します…"

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 他の何かがlocalStorageを読む前に、まずサーバーにある最新のデータを
     // この端末へ取り込む（js/core/sync.js 参照。端末同士のデータ連携）。
     if (window.AReGLM_SYNC) await AReGLM_SYNC.起動時に取り込む();
+    if (window.AReGLM_SYNC) await AReGLM_SYNC.localhostへ移る();
 
     await checkGatewayStatus();
 

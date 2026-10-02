@@ -71,6 +71,65 @@ async function renderアカウント() {
         if (結果.ok) p.reset();
     });
     箱.appendChild(p);
+
+    await パスキーの欄を描く(箱);
+}
+
+/* --- 指紋・Face ID --- */
+async function パスキーの欄を描く(箱) {
+    const 枠 = document.createElement('div');
+    枠.className = 'login-form';
+    枠.appendChild(行を作る('h4', '指紋 / Face ID で開く'));
+    箱.appendChild(枠);
+
+    const 使える = typeof パスキーが使えるか === 'function' ? パスキーが使えるか() : { ok: false, 訳: '読み込めませんでした' };
+    const 今の端末 = localStorage.getItem('areglm_passkey_id');
+
+    const 一覧 = await アカウントAPI('/api/passkey/list');
+    const 登録 = (一覧.ok ? 一覧.一覧 : []);
+
+    if (登録.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'monitor-list';
+        登録.forEach((k) => {
+            const li = document.createElement('li');
+            li.className = 'monitor-item';
+            const 文 = `${k.名前}${k.id === 今の端末 ? '（この端末）' : ''} — 登録 ${new Date(k.作った日).toLocaleDateString('ja-JP')}`;
+            li.appendChild(document.createTextNode(文 + ' '));
+            const 外す = 行を作る('button', '外す', 'btn btn-sm btn-secondary');
+            外す.type = 'button';
+            外す.addEventListener('click', async () => {
+                if (!confirm('この端末の指紋・Face IDでの入場を外します。パスワードでは今まで通り入れます。よろしいですか？')) return;
+                const r = await アカウントAPI('/api/passkey/remove', { id: k.id });
+                if (r.ok && k.id === 今の端末) localStorage.removeItem('areglm_passkey_id');
+                showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+                renderアカウント();
+            });
+            li.appendChild(外す);
+            ul.appendChild(li);
+        });
+        枠.appendChild(ul);
+    } else {
+        枠.appendChild(行を作る('p', 'まだ登録した端末はありません。', 'hint'));
+    }
+
+    if (!使える.ok) {
+        枠.appendChild(行を作る('p', 'この画面では登録できません: ' + 使える.訳, 'hint'));
+        return;
+    }
+    const 登録済み = 今の端末 && 登録.some((k) => k.id === 今の端末);
+    if (!登録済み) {
+        const b = 行を作る('button', 'この端末の指紋 / Face ID を登録する', 'btn btn-primary');
+        b.type = 'button';
+        b.addEventListener('click', async () => {
+            b.disabled = true;
+            const r = await この端末のパスキーを登録する();
+            showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+            renderアカウント();
+        });
+        枠.appendChild(b);
+    }
+    枠.appendChild(行を作る('p', '登録しても、パスワードでのログインは今まで通り使えます。端末ごとに登録してください。', 'hint'));
 }
 
 function initアカウント() {
