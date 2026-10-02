@@ -79,7 +79,7 @@ async function renderアカウント() {
 async function パスキーの欄を描く(箱) {
     const 枠 = document.createElement('div');
     枠.className = 'login-form';
-    枠.appendChild(行を作る('h4', '指紋 / Face ID で開く'));
+    枠.appendChild(行を作る('h4', `${この端末の認証名()} で開く`));
     箱.appendChild(枠);
 
     const 使える = typeof パスキーが使えるか === 'function' ? パスキーが使えるか() : { ok: false, 訳: '読み込めませんでした' };
@@ -117,9 +117,13 @@ async function パスキーの欄を描く(箱) {
         枠.appendChild(行を作る('p', 'この画面では登録できません: ' + 使える.訳, 'hint'));
         return;
     }
+    if (!(await この端末に生体認証があるか())) {
+        枠.appendChild(行を作る('p', 'この端末には指紋・顔などの本人確認の仕組みが見つかりません（パスワードでご利用ください）', 'hint'));
+        return;
+    }
     const 登録済み = 今の端末 && 登録.some((k) => k.id === 今の端末);
     if (!登録済み) {
-        const b = 行を作る('button', 'この端末の指紋 / Face ID を登録する', 'btn btn-primary');
+        const b = 行を作る('button', `この端末の ${この端末の認証名()} を登録する`, 'btn btn-primary');
         b.type = 'button';
         b.addEventListener('click', async () => {
             b.disabled = true;

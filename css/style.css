@@ -10094,3 +10094,9 @@ html[data-theme] .chat-bubble.user {
     color: #fff;
     border-color: var(--areglm-accent, #6366f1);
 }
+
+/* ログイン画面の hidden 属性が、.btn / .login-form の display に負けて
+   隠れていないことがあった（未登録の端末にも指紋ボタンが出ていた）。 */
+#login-screen [hidden] {
+    display: none !important;
+}

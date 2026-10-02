@@ -422,6 +422,8 @@ async function handleLogin(e) {
         }
         document.getElementById('password').value = '';
         ログインできた(r);
+        // 打たずに開けるように、この端末の指紋・Face IDの登録を案内する
+        if (typeof パスキー登録を案内する === 'function') パスキー登録を案内する();
     } catch (error) {
         console.error('ログイン処理エラー:', error);
         showNotification('サーバーに繋がりませんでした。ARELMが起動しているか確認してください', 'error');
@@ -543,6 +545,7 @@ function hideMainApp() {
     if (loginScreen) {
         loginScreen.style.display = 'flex';
         console.log('ログイン画面を表示しました');
+        if (typeof パスキーをもう一度求める === 'function') パスキーをもう一度求める();
     }
     
     if (mainApp) {
