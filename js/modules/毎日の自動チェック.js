@@ -54,12 +54,12 @@ function 自動チェックを切り替える(有効か) {
 
 /** 今日、この時刻に、まだ実行していないか */
 function 今日まだ実行していないか() {
-    const 今日 = new Date().toISOString().slice(0, 10);
+    const 今日 = 日付文字(new Date()); // 世界標準時だと朝9時前が前日になるため、端末の日付を使う
     return localStorage.getItem(最後に実行した日キー) !== 今日;
 }
 
 function 実行済みにする() {
-    const 今日 = new Date().toISOString().slice(0, 10);
+    const 今日 = 日付文字(new Date()); // 世界標準時だと朝9時前が前日になるため、端末の日付を使う
     localStorage.setItem(最後に実行した日キー, 今日);
 }
 
