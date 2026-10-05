@@ -270,8 +270,8 @@ async function レポートをObsidianへ保存(r, btn) {
             + `${new Date(r.作った日).toLocaleString('ja-JP')}\n\n`
             + 数字を文にする(r.数字 || {}).map((l) => `- ${l}`).join('\n')
             + (r.コメント ? `\n\n> ${r.コメント}` : '');
-        const 日付文字 = new Date(r.作った日).toISOString().slice(0, 10);
-        await AReGLM_OBSIDIAN.writeNote(`ARELM/週次レポート/${日付文字}_第${r.番号}回.md`, 本文);
+        const 日付 = window.日付文字(r.作った日); // 世界標準時だと日本の朝は前日になる
+        await AReGLM_OBSIDIAN.writeNote(`ARELM/週次レポート/${日付}_第${r.番号}回.md`, 本文);
         showNotification('Obsidianへ保存しました', 'success');
     } catch (e) {
         showNotification(`Obsidianへ保存できませんでした: ${e.message}`, 'error');
@@ -304,8 +304,8 @@ async function レポートをDriveへバックアップ(r, btn) {
             + `${new Date(r.作った日).toLocaleString('ja-JP')}\n\n`
             + 数字を文にする(r.数字 || {}).map((l) => `- ${l}`).join('\n')
             + (r.コメント ? `\n\n> ${r.コメント}` : '');
-        const 日付文字 = new Date(r.作った日).toISOString().slice(0, 10);
-        await AReGLM_DRIVE.backupText(`週次レポート_${日付文字}_第${r.番号}回.txt`, 本文);
+        const 日付 = window.日付文字(r.作った日); // 世界標準時だと日本の朝は前日になる
+        await AReGLM_DRIVE.backupText(`週次レポート_${日付}_第${r.番号}回.txt`, 本文);
         showNotification('Driveへバックアップしました', 'success');
     } catch (e) {
         showNotification(`Driveへ保存できませんでした: ${e.message}`, 'error');
