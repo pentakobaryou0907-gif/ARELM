@@ -28,6 +28,34 @@ function GitHub設定を書く(obj) {
     localStorage.setItem(GITHUB_設定キー, JSON.stringify(obj || {}));
 }
 
+async function ツールを最新にする() {
+    const 状態 = document.getElementById('self-update-status');
+    const btn = document.getElementById('self-update-btn');
+    if (!window.confirm('GitHub の最新の中身を取り込み、サーバーを入れ替えます。よろしいですか？')) return;
+    if (btn) btn.disabled = true;
+    if (状態) 状態.textContent = '取り込んでいます…';
+    try {
+        const r = await fetch('/api/self-update', { method: 'POST' });
+        const d = await r.json();
+        if (状態) 状態.textContent = d.訳 + (d.一覧 ? `（${d.一覧.join(' ／ ')}）` : '');
+        showNotification(d.訳, d.ok ? 'success' : 'error');
+        if (d.ok && d.変わった) {
+            if (状態) 状態.textContent += ' — 立ち上がりを待っています…';
+            for (let i = 0; i < 60; i++) {
+                await new Promise((ok) => setTimeout(ok, 2000));
+                try {
+                    if ((await fetch('/api/health', { cache: 'no-store' })).ok && i > 1) { location.reload(); return; }
+                } catch { /* 入れ替え中 */ }
+            }
+            if (状態) 状態.textContent = 'サーバーが戻りません。デスクトップの AReGLM を押して立ち上げてください。';
+        }
+    } catch (e) {
+        if (状態) 状態.textContent = `取り込めませんでした: ${e.message}`;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 function initGitHub連携() {
     const 保存 = document.getElementById('github-save-btn');
     const 控え = document.getElementById('github-backup-btn');
@@ -41,6 +69,8 @@ function initGitHub連携() {
     if (owner) owner.value = 設定.owner || '';
     if (repo) repo.value = 設定.repo || '';
     if (branch) branch.value = 設定.branch || 'main';
+
+    document.getElementById('self-update-btn')?.addEventListener('click', ツールを最新にする);
 
     AReGLM_SECURITY.loadApiKeySecure('github', 'token').then((t) => {
         const st = document.getElementById('github-token-status');

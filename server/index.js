@@ -3078,6 +3078,37 @@ function gitで実行(args) {
 }
 
 /**
+ * GitHub から最新にする（この端末からだけ）。
+ *
+ * 早送りできるときだけ取り込む（--ff-only）。手元に記録していない変更や、
+ * 食い違う記録があるときは何もせずに理由を返す。
+ * 取り込めたら少し待ってから終わり、見張り（launchd / 見張り.sh / 見張り.ps1）に
+ * 新しいコードで立て直してもらう。
+ */
+app.post('/api/self-update', (req, res) => {
+    const 元 = String(req.socket.remoteAddress || '');
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(元)) {
+        return res.status(403).json({ ok: false, 訳: '最新にするのは、この端末からだけです' });
+    }
+    try {
+        const 変更 = gitで実行(['status', '--porcelain', '--untracked-files=no']).trim();
+        if (変更) {
+            return res.status(409).json({ ok: false, 訳: 'まだ記録していない変更があるので、取り込みませんでした（自己修正の画面で記録するか元に戻してください）' });
+        }
+        const 枝 = gitで実行(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+        const 前 = gitで実行(['rev-parse', 'HEAD']).trim();
+        gitで実行(['pull', '--ff-only', 'origin', 枝]);
+        const 後 = gitで実行(['rev-parse', 'HEAD']).trim();
+        if (前 === 後) return res.json({ ok: true, 変わった: false, 訳: 'すでに最新です' });
+        const 一覧 = gitで実行(['log', '--oneline', `${前}..${後}`]).trim().split('\n').slice(0, 20);
+        res.json({ ok: true, 変わった: true, 訳: `${一覧.length}件の更新を取り込みました。サーバーを入れ替えます`, 一覧 });
+        setTimeout(() => process.exit(0), 1500);
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: `取り込めませんでした: ${String(e.stderr || e.message).slice(0, 300)}` });
+    }
+});
+
+/**
  * Node側から見える python3 は、pyenvのshimが必要なパッケージ
  * （numpy等）の入っていない別のバージョンを指してしまうことがある
  * （実際にテストで踏んだ）。自作AIエンジン本体（server.py）と
@@ -3390,8 +3421,25 @@ app.listen(APP_PORT, '127.0.0.1', () => {
     console.warn(`アプリ用の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
 });
 
+/**
+ * Mac では、サーバーが立ち上がったときにデスクトップの AReGLM.app を確かめ、
+ * このツールが作ったもの（Resources/areglm-launcher の印）でなければ置き直す。
+ * Windows は 見張り.ps1 が同じことをするので、ここでは扱わない。
+ */
+function Macのデスクトップにアプリを置く() {
+    if (process.platform !== 'darwin' || process.env.AREGLM_NO_DESKTOP_APP === '1') return;
+    const 印 = path.join(os.homedir(), 'Desktop', 'AReGLM.app', 'Contents', 'Resources', 'areglm-launcher');
+    const 置く道具 = path.join(__dirname, '..', 'ホーム画面に置く.command');
+    if (fs.existsSync(印) || !fs.existsSync(置く道具)) return;
+    execFile('/bin/bash', [置く道具], { timeout: 60000 }, (e, out) => {
+        if (e) console.warn(`デスクトップに AReGLM を置けませんでした: ${e.message}`);
+        else console.log(`デスクトップに AReGLM を置きました\n${out}`);
+    });
+}
+
 app.listen(PORT, HOST, () => {
     console.log(`ARELM: http://localhost:${PORT}`);
+    setTimeout(Macのデスクトップにアプリを置く, 3000);
 
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {
