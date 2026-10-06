@@ -31,7 +31,8 @@ const AReGLM_SHEETS = {
             try {
                 await this._呼ぶ('GET', `/v4/spreadsheets/${憶えた}?fields=spreadsheetId`);
                 return { id: 憶えた, 新しい: false };
-            } catch {
+            } catch (e) {
+                if (!/not found|404|削除|deleted/i.test(e.message)) throw e;
                 localStorage.removeItem(this.表の鍵);
                 localStorage.removeItem(this.送った鍵);
             }
