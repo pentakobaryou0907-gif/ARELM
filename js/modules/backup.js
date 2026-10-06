@@ -130,8 +130,13 @@ function importBackup(e) {
 
             let added = 0;
             let merged = 0;
+            let skipped = 0;
 
             Object.entries(payload.data).forEach(([key, rawValue]) => {
+                // 以前はファイルにある鍵をすべて書き込んでいたため、手を加えたファイルで
+                // ログインの印（sessionToken）や設定まで入れられた。書き出す鍵だけを戻す。
+                if (!AREGLM_BACKUP_KEYS.includes(key) || typeof rawValue !== 'string') { skipped += 1; return; }
+                try { JSON.parse(rawValue); } catch { skipped += 1; return; }
                 const existingRaw = localStorage.getItem(key);
 
                 // 既存データが無ければそのまま復元
@@ -159,7 +164,8 @@ function importBackup(e) {
                 }
             });
 
-            setBackupStatus(`復元しました: 新規${added}件のデータ種別 / 既存に${merged}件を追加（既存データは削除していません）`);
+            setBackupStatus(`復元しました: 新規${added}件のデータ種別 / 既存に${merged}件を追加（既存データは削除していません）`
+                + (skipped ? ` / バックアップの対象ではない・読めない${skipped}件は戻していません` : ''));
             showNotification('バックアップから復元しました', 'success');
             if (window.logActivity) logActivity('バックアップから復元', { category: 'backup' });
             if (typeof refreshAllData === 'function') refreshAllData();
