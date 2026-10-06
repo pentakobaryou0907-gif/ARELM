@@ -96,7 +96,8 @@ async function render常駐の待ち受け() {
     const 断り = document.createElement('p');
     断り.className = 'notice-strict';
     断り.innerHTML =
-        '<b>使い方</b>: 「' + 呼び名 + '」と呼ぶと「はい」と答えます。'
+        // 呼び名は本人が自由に決められる文字なので、innerHTML に入れる前に置き換える（名前に書いたタグが動いていた）。
+        '<b>使い方</b>: 「' + AReGLM_SECURITY.sanitizeHtml(呼び名) + '」と呼ぶと「はい」と答えます。'
         + 'そのまま用件を言うと、声で返します。<b>画面は開きません。</b><br>'
         + 'アプリを開いていても、閉じていても、同じように応じます。<br><br>'
 

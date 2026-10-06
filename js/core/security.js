@@ -11,7 +11,9 @@ const AReGLM_SECURITY = {
         if (typeof str !== 'string') return '';
         const div = document.createElement('div');
         div.textContent = str;
-        return div.innerHTML;
+        // innerHTML は < > & しか置き換えない。value="${…}" のように属性へ入れている所が
+        // 多く、引用符で属性の外へ抜けられたので、引用符も置き換える（文字としての見た目は同じ）。
+        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     },
 
     escapeAttr(str) {
