@@ -10,13 +10,15 @@
 # 二重に動かないよう、目印のフォルダで見張っている。
 
 param(
-    [switch]$ブラウザを開く
+    [switch]$ブラウザを開く,
+    [switch]$ホームから
 )
 
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 
-$TOOL = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SCRIPT = $MyInvocation.MyCommand.Path
+$TOOL = Split-Path -Parent $SCRIPT
 $LOGDIR = Join-Path $env:LOCALAPPDATA 'AReGLM\logs'
 New-Item -ItemType Directory -Force -Path $LOGDIR | Out-Null
 
@@ -68,13 +70,104 @@ function Find-Chrome {
     return $null
 }
 
+function Find-Edge {
+    $候補 = @(
+        (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe')
+    )
+    foreach ($場所 in $候補) {
+        if ($場所 -and (Test-Path -LiteralPath $場所)) { return $場所 }
+    }
+    return $null
+}
+
+# デスクトップとスタートメニューに、ログイン画面を開くアイコンを置く。
+# 本体のフォルダは移さない。アイコンだけをホーム画面側に出す。
+function Install-HomeShortcut {
+    $ico = Join-Path $TOOL 'images\areglm.ico'
+    $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    if (-not (Test-Path -LiteralPath $powershell)) { $powershell = 'powershell.exe' }
+    $引数 = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$SCRIPT`" -ホームから"
+    $場所一覧 = @(
+        [Environment]::GetFolderPath('Desktop'),
+        [Environment]::GetFolderPath('Programs')
+    )
+    foreach ($dir in $場所一覧) {
+        if (-not $dir) { continue }
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $lnk = Join-Path $dir 'AReGLM.lnk'
+        $shell = New-Object -ComObject WScript.Shell
+        $sc = $shell.CreateShortcut($lnk)
+        $sc.TargetPath = $powershell
+        $sc.Arguments = $引数
+        $sc.WorkingDirectory = $TOOL
+        $sc.WindowStyle = 7
+        $sc.Description = 'AReGLM を開いてログインする'
+        if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
+        $sc.Save()
+        Write-Log "ホーム画面に置きました: $lnk"
+    }
+    try {
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        $lnk = Join-Path $desktop 'AReGLM.lnk'
+        $shellApp = New-Object -ComObject Shell.Application
+        $folder = $shellApp.NameSpace((Split-Path -Parent $lnk))
+        $item = $folder.ParseName((Split-Path -Leaf $lnk))
+        if ($item) {
+            foreach ($verb in @($item.Verbs())) {
+                $名前 = [string]$verb.Name
+                if ($名前 -match '解除|Unpin|タスクバー|taskbar') { continue }
+                if ($名前 -match 'スタート|Pin to Start') {
+                    $verb.DoIt()
+                    Write-Log "スタートにピン留めしました"
+                    break
+                }
+            }
+        }
+    } catch {
+        Write-Log "スタートへのピン留めはスキップしました: $($_.Exception.Message)"
+    }
+}
+
+function Start-WatcherIfNeeded {
+    $pidFile = Join-Path $LOGDIR '見張り.lock\pid'
+    if (Test-Path -LiteralPath $pidFile) {
+        $既存 = Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($既存 -and (Get-Process -Id $既存 -ErrorAction SilentlyContinue)) { return }
+    }
+    $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    if (-not (Test-Path -LiteralPath $powershell)) { $powershell = 'powershell.exe' }
+    Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+        '-File', $SCRIPT
+    )
+}
+
+function Open-LoginWindow([string]$url) {
+    # アドレスバーの無いアプリの窓で開く。最初に出るのはログイン画面。
+    $chrome = Find-Chrome
+    if ($chrome) {
+        Start-Process -FilePath $chrome -ArgumentList @("--app=$url")
+        return
+    }
+    $edge = Find-Edge
+    if ($edge) {
+        Start-Process -FilePath $edge -ArgumentList @("--app=$url")
+        return
+    }
+    Start-Process $url
+}
+
 function Still-Running($proc) {
     if (-not $proc) { return $false }
     try { return -not $proc.HasExited } catch { return $false }
 }
 
 # --- 画面を開く（見張り本体には入らない） ---
-if ($ブラウザを開く) {
+if ($ブラウザを開く -or $ホームから) {
+    try { Install-HomeShortcut } catch { Write-Log "アイコンを置けませんでした: $($_.Exception.Message)" }
+    if ($ホームから) { Start-WatcherIfNeeded }
+
     $届いた = $false
     for ($i = 0; $i -lt 120; $i++) {
         if (Test-Alive 'http://127.0.0.1:8080/api/health') {
@@ -95,18 +188,15 @@ if ($ブラウザを開く) {
 
     # Mac のランチャーと同じく、キャッシュの影響を受けない 8090 を優先する。
     # 8090 が開いていなければ、本来の入口 8080 で開く。
-    $URL = 'http://127.0.0.1:8080'
+    # どちらもログイン画面（index.html）が最初に出る。
+    $URL = 'http://127.0.0.1:8080/'
     if (Test-Alive 'http://127.0.0.1:8090/api/health') {
-        $URL = 'http://127.0.0.1:8090'
+        $URL = 'http://127.0.0.1:8090/'
     }
 
-    $chrome = Find-Chrome
-    if ($chrome) {
-        Start-Process -FilePath $chrome -ArgumentList $URL
-    } else {
-        Start-Process $URL
-    }
-    Write-Host "ブラウザで開きました: $URL"
+    Open-LoginWindow $URL
+    Write-Host "ログイン画面を開きました: $URL"
+    Write-Host "デスクトップとスタートメニューに AReGLM を置きました。次からはそのアイコンからログインできます。"
     exit 0
 }
 

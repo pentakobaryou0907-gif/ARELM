@@ -5,9 +5,9 @@ REM ツールのフォルダの中でダブルクリックすると:
 REM   1. サーバーと自作AIが止まっていれば起動する（見張り.ps1）
 REM   2. 応答するまで待ってから、ブラウザで開く
 REM
-REM デスクトップに出したいときは、このファイル自体は移さず、
-REM ショートカットを作ってください。ファイルだけ移すと、
-REM 隣にあるサーバーを見つけられなくなります。
+REM 起動すると、デスクトップとスタートメニューに AReGLM のアイコンを置く。
+REM 次からはそのアイコンを開くと、ログイン画面が出る。
+REM このファイル自体は移さない。隣にあるサーバーを見失うため。
 
 chcp 65001 >nul
 setlocal
@@ -25,14 +25,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -�
 if errorlevel 1 goto fail
 
 echo.
-echo ブラウザで開きました。このウィンドウは閉じても構いません。
+echo ログイン画面を開きました。
+echo デスクトップとスタートメニューに AReGLM を置きました。
+echo 次からはそのアイコンからログインできます。
+echo このウィンドウは閉じても構いません。
 ping -n 3 127.0.0.1 >nul
 endlocal
 exit /b 0
 
 :missing
 echo ツールのフォルダの中から開いてください。
-echo デスクトップに出したいときは、ショートカットを作ってください。
 echo.
 pause
 endlocal
