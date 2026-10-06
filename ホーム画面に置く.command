@@ -147,7 +147,8 @@ case "$TOOL" in
         mkdir -p "$AGENTS" "$HOME/Library/Logs/AReGLM"
         TOOL_XML="$(printf '%s' "$TOOL" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
         LOGS_XML="$(printf '%s' "$HOME/Library/Logs/AReGLM" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
-        cat > "$PLIST" <<AGENT
+        NEW_PLIST="$(mktemp)"
+        cat > "$NEW_PLIST" <<AGENT
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -161,9 +162,17 @@ case "$TOOL" in
   <key>StandardErrorPath</key><string>$LOGS_XML/見張り.log</string>
 </dict></plist>
 AGENT
-        launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1
-        sleep 1
-        if launchctl bootstrap "gui/$(id -u)" "$PLIST" >/dev/null 2>&1; then
+        CHANGED=0
+        if cmp -s "$NEW_PLIST" "$PLIST"; then rm -f "$NEW_PLIST"; else mv "$NEW_PLIST" "$PLIST"; CHANGED=1; fi
+        # 読み込み済みの登録は外さない。外すと見張りと、見張りが起こしたサーバー
+        # （この置き直しをサーバーが実行していることもある）まで止まるため。
+        if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+            if [ "$CHANGED" = 1 ]; then
+                echo "  ログイン時の自動起動の設定を書き直しました（次のログインから新しい設定で動きます）"
+            else
+                echo "  ログイン時の自動起動は登録済みです"
+            fi
+        elif launchctl bootstrap "gui/$(id -u)" "$PLIST" >/dev/null 2>&1; then
             echo "  ログインしたら見張りが裏で立ち上がるようにしました（$PLIST）"
         else
             echo "  ログイン時の自動起動を登録できませんでした（$PLIST は置いたので、次のログインで読まれます）"
