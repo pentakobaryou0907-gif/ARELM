@@ -163,7 +163,39 @@ function Install-HomeShortcut {
     } catch {
         Write-Log "スタートへのピン留めはスキップしました: $($_.Exception.Message)"
     }
+
+    # サインインのたびに見張りを裏で立ち上げる（Mac版の常駐と同じ役目）。
+    # 見張りは起動時にデスクトップのアイコンを確かめ、無ければ置き直す。
+    try {
+        $startup = [Environment]::GetFolderPath('Startup')
+        if ($startup) {
+            $shell = New-Object -ComObject WScript.Shell
+            $sc = $shell.CreateShortcut((Join-Path $startup 'AReGLM見張り.lnk'))
+            $sc.TargetPath = $powershell
+            $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$SCRIPT`""
+            $sc.WorkingDirectory = $TOOL
+            $sc.WindowStyle = 7
+            $sc.Description = 'AReGLM の見張り（サーバーを保ち、ホーム画面のアイコンを戻す）'
+            if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
+            $sc.Save()
+            Write-Log "サインイン時の見張りを登録しました"
+        }
+    } catch {
+        Write-Log "サインイン時の見張りを登録できませんでした: $($_.Exception.Message)"
+    }
     return $作った
+}
+
+function Test-HomeShortcut {
+    foreach ($候補 in @(
+        [Environment]::GetFolderPath('Desktop'),
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ')
+    )) {
+        if ($候補 -and (Test-Path -LiteralPath (Join-Path $候補 'AReGLM.lnk'))) { return $true }
+    }
+    return $false
 }
 
 function Start-WatcherIfNeeded {
@@ -288,6 +320,10 @@ function Take-Lock {
 
 if (-not (Take-Lock)) { exit 0 }
 Set-Content -LiteralPath (Join-Path $LOCKDIR 'pid') -Value $PID -Encoding ascii
+
+if (-not (Test-HomeShortcut)) {
+    try { [void](Install-HomeShortcut) } catch { Write-Log "アイコンを置けませんでした: $($_.Exception.Message)" }
+}
 
 $serverDir = Join-Path $TOOL 'server'
 $aiDir = Join-Path $serverDir 'ai'
