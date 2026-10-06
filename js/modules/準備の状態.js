@@ -15,7 +15,9 @@ const 準備_鍵一覧 = [
     { 名: 'Instagram のアクセストークン', 鍵: ['instagram', 'access_token'], 用途: 'SNSの成績を読む・投稿の補助', 取り方: 'https://developers.facebook.com' },
     { 名: 'Facebook ページのトークン', 鍵: ['facebook', 'page_access_token'], 用途: 'Facebookページの補助', 取り方: 'https://developers.facebook.com' },
     { 名: 'TikTok の開発者アプリ', 鍵: ['tiktok', 'client_secret'], 用途: 'TikTokの補助', 取り方: 'https://developers.tiktok.com' },
-    { 名: 'Google の OAuth クライアント', 鍵: ['google', 'client_secret'], 用途: 'Googleフォト・ドライブ・カレンダー', 取り方: 'https://console.cloud.google.com' },
+    { 名: 'Google の OAuth クライアント', 鍵: ['google', 'client_secret'], 用途: 'Googleフォト・ドライブ・スプレッドシート・カレンダー・Gmail・YouTube', 取り方: 'https://console.cloud.google.com' },
+    { 名: 'Google へのログイン（連携）', 鍵: ['google', 'refresh_token'], 用途: '上のクライアントで実際につなぐ。進捗ログの表・週次レポートのメール・YouTubeへの動画', 取り方: '設定 →「Google連携」→「Googleにログインして連携」' },
+    { 名: 'iCloud の App 用パスワード', 鍵: ['icloud_calendar', 'app_password'], 用途: 'iCloud カレンダー', 取り方: 'https://account.apple.com →「サインインとセキュリティ」→「App 用パスワード」' },
 ];
 
 async function 準備の状態を描く() {
@@ -43,7 +45,7 @@ async function 準備の状態を描く() {
         let ある = false;
         try { ある = !!(await AReGLM_SECURITY.loadApiKeySecure(x.鍵[0], x.鍵[1])); } catch { ある = false; }
         return `<tr class="${ある ? '' : 'hint'}"><td>${ある ? '✓' : '－'}</td><td>${s(x.名)}</td><td>${s(x.用途)}</td>
-            <td>${ある ? '設定済み' : /^https:/.test(x.取り方) ? `<a href="${s(x.取り方)}" target="_blank" rel="noopener">${s(x.取り方)}</a>` : s(x.取り方)}</td></tr>`;
+            <td>${ある ? '設定済み' : /^https:\/\/\S+$/.test(x.取り方) ? `<a href="${s(x.取り方)}" target="_blank" rel="noopener">${s(x.取り方)}</a>` : s(x.取り方)}</td></tr>`;
     }));
     鍵箱.innerHTML = 行.join('');
 }

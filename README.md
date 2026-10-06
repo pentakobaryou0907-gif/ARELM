@@ -51,6 +51,31 @@ Node.js（https://nodejs.org の LTS）が入っていないとサーバーが�
 - 任意: Claude（有料）、Instagram・Facebook・TikTok・Google の公式開発者アカウント
 - Mac と Windows の同期に Syncthing、外から開くなら Tailscale
 
+### ログインしたら自動で起動（Mac）
+
+`ホーム画面に置く.command` を開くと、`~/Library/LaunchAgents/jp.areglm.watcher.plist` も置き、ログインのたびに見張り（`見張り.sh`）が裏で立ち上がります。
+ツールのフォルダがデスクトップ・書類・iCloud の中にあると macOS に読み込みを止められることがあるため、そのときは登録しません（`~/Developer/AReGLM` なら登録します）。
+
+### iPhone・iPad から https で使う（Tailscale）
+
+1. Mac と iPhone の両方で Tailscale に同じアカウントでログインする
+2. Tailscale の管理画面（DNS）で MagicDNS と HTTPS Certificates を有効にする
+3. `準備する.command` をもう一度開き、「Tailscale の中だけに https の入口を開きますか？」に y と答える（`tailscale serve --bg 8080`。インターネットには出ません）
+4. AReGLM の 設定 →「他の端末」で「Tailscaleから使う」を入にし、合言葉を決める
+5. iPhone で `https://<Macの名前>.<tailnet>.ts.net/` を開き、合言葉を入れる
+
+https の入口を通った相手は「この端末」ではなく Tailscale の中の端末として扱うので、合言葉が要り、パソコンを操る・最新にする等の口は開きません。
+
+### Googleスプレッドシートの進捗ログ
+
+設定 →「Google連携」でログインしたあと、ホーム →「今日」の「Googleスプレッドシートに送る」を押すと、
+進捗・投稿ログ・お金の記録のうちまだ送っていない分を、Googleドライブの「ARELM 進捗ログ」の表に足します（ブランド TUDURI・INTGLM の列つき）。行は足すだけで、消したり書き換えたりはしません。
+
+### オフラインで読む
+
+ツールの「まとめて取り出す」→「持ち歩ける控え（HTML）」で、やること・前回の続き・商品・お金・投稿ログ・メモを1つのファイルにします。
+iPhone の「ファイル」などに入れておけば、サーバーもネットも無い所で読めます（読むだけ）。
+
 ## 登録するAPIキー（すべて公式・無料）
 
 | 種類 | 取得先 |
