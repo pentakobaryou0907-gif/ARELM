@@ -767,6 +767,31 @@
                         </div>
                         <div id="agent-capability-board" class="agent-capability-board"></div>
                     </section>
+                    <section class="panel-card full-width" id="jarvis-features-section">
+                        <div class="panel-header-row">
+                            <h3>JARVISの機能</h3>
+                        </div>
+                        <p class="hint">映画のJ.A.R.V.I.S.と、ザッカーバーグ氏の自宅AI「Jarvis」の機能を、ARELMのどこで実現しているかの一覧です。声や文字で「電気つけて」「エアコン26度で冷房」「見守りを始めて」「システム診断」と言っても動きます。</p>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>元</th><th>機能</th><th>状態</th><th>ARELMでは</th></tr></thead>
+                            <tbody id="jarvis-feature-map"></tbody>
+                        </table></div>
+
+                        <h4 class="media-sub">家電の操作 <small id="switchbot-status" class="hint"></small></h4>
+                        <div id="switchbot-devices" class="home-devices"></div>
+
+                        <h4 class="media-sub">見守り <small id="watch-status" class="hint"></small></h4>
+                        <p class="hint">カメラの動きとマイクの音の大きさだけを見て、変化があれば知らせます。映像も音も保存せず、外へも送りません。誰なのかを見分けること（顔認識）はしません。</p>
+                        <div class="guard-row">
+                            <button type="button" id="watch-toggle-btn" class="btn btn-sm btn-primary">見守りを始める</button>
+                            <label class="hint"><input type="checkbox" id="watch-hide"> 動きがあったら画面を隠す</label>
+                        </div>
+                        <ul id="watch-log" class="ledger-recent"></ul>
+
+                        <h4 class="media-sub">システム診断</h4>
+                        <button type="button" id="system-diagnosis-btn" class="btn btn-sm btn-secondary">診断する</button>
+                        <ul id="system-diagnosis" class="system-diagnosis"></ul>
+                    </section>
                     <label class="checkbox-label" style="font-size:0.85rem;">
                         <input type="checkbox" id="jarvis-default-toggle" checked>
                         このページを開いたら、既定でJARVISモードにする
@@ -3139,6 +3164,33 @@
 
                     <details class="panel-card full-width settings-fold">
                         <summary class="settings-fold-head">
+                            <span class="sec-icon">💡</span>家電（SwitchBot）
+                            <small>（公式API。照明・エアコン・テレビ・カーテン・鍵を声や文字で操作します）</small>
+                        </summary>
+                        <div class="settings-fold-body">
+                            <p class="hint">
+                                <strong>使うにはご自身の作業が必要です：</strong>
+                                SwitchBotアプリ →「プロフィール」→「設定」→「アプリバージョン」を10回押す →「開発者向けオプション」で
+                                トークンとシークレットを出し、下に入れてください。家電はSwitchBotのハブ・ボット・プラグなどに繋がっている必要があります。
+                                鍵を開ける操作は、毎回確認してから送ります。
+                            </p>
+                            <div class="form-group">
+                                <label for="switchbot-token">トークン</label>
+                                <input type="password" id="switchbot-token" placeholder="（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="switchbot-secret">シークレット</label>
+                                <input type="password" id="switchbot-secret" placeholder="（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="guard-row">
+                                <button type="button" id="switchbot-save-btn" class="btn btn-sm btn-primary">保存して機器を読み込む</button>
+                                <button type="button" id="switchbot-reload-btn" class="btn btn-sm btn-secondary">機器を読み込み直す</button>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="panel-card full-width settings-fold">
+                        <summary class="settings-fold-head">
                             <span class="sec-icon">🐙</span>GitHub（作業の控え）
                             <small>（公式API。バックアップと進捗ログだけを上げます。鍵は上げません）</small>
                         </summary>
@@ -3559,6 +3611,7 @@
     <script src="js/modules/監視ダッシュボード.js" defer></script>
     <script src="js/modules/お金の帳面.js" defer></script>
     <script src="js/modules/今日の運用.js" defer></script>
+    <script src="js/modules/ジャービス機能.js" defer></script>
     <script src="js/modules/外部ノート連携設定.js" defer></script>
     <script src="js/modules/Google連携設定.js" defer></script>
     <script src="js/modules/エージェント定義.js" defer></script>

@@ -7,6 +7,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -1585,6 +1586,15 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-30',
     },
     {
+        host: 'api.switch-bot.com',
+        name: 'SwitchBot API',
+        provider: 'SwitchBot（公式）',
+        terms: 'https://github.com/OpenWonderLabs/SwitchBotAPI',
+        無料か: true,
+        無料の中身: 'アプリで発行するトークンで無料（1日1万回まで／2026年10月時点）',
+        確かめた日: '2026-10-06',
+    },
+    {
         host: 'api.github.com',
         name: 'GitHub REST API',
         provider: 'GitHub（公式）',
@@ -2380,6 +2390,95 @@ app.post('/api/notion-proxy', async (req, res) => {
  * パスは areglm-backups/ と areglm-logs/ だけ許可する。
  * 秘密の鍵や .env はここに載せない（クライアント側でもバックアップから除外済み）。
  */
+/**
+ * 家電の操作（SwitchBot 公式API v1.1）
+ *
+ * 通すのは下の決まった操作だけ。鍵を開ける操作は、
+ * 画面で本人が確かめた印（confirmed）が無いと送らない。
+ */
+const SWITCHBOT_許す操作 = new Set([
+    'turnOn', 'turnOff', 'press', 'toggle', 'setBrightness', 'setColor', 'setColorTemperature',
+    'setAll', 'volumeAdd', 'volumeSub', 'channelAdd', 'channelSub', 'setMute',
+    'Play', 'Pause', 'Stop', 'Next', 'Previous', 'open', 'close', 'pause', 'lock', 'unlock',
+]);
+const SWITCHBOT_確認が要る操作 = new Set(['unlock']);
+
+function SwitchBotの印(token, secret) {
+    const t = String(Date.now());
+    const nonce = crypto.randomUUID();
+    const sign = crypto.createHmac('sha256', secret).update(Buffer.from(token + t + nonce, 'utf8')).digest('base64');
+    return {
+        Authorization: token, sign, t, nonce,
+        'Content-Type': 'application/json; charset=utf8',
+    };
+}
+
+function SwitchBotの鍵を確かめる(req, res) {
+    const { token, secret } = req.body || {};
+    if (!token || !secret || typeof token !== 'string' || typeof secret !== 'string'
+        || token.length > 300 || secret.length > 300) {
+        res.status(401).json({ ok: false, 訳: 'SwitchBotのトークンとシークレットが必要です（設定 → 家電）' });
+        return null;
+    }
+    return { token, secret };
+}
+
+app.post('/api/switchbot/devices', async (req, res) => {
+    const 鍵 = SwitchBotの鍵を確かめる(req, res);
+    if (!鍵) return;
+    try {
+        const r = await safeFetch('https://api.switch-bot.com/v1.1/devices', { headers: SwitchBotの印(鍵.token, 鍵.secret) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.statusCode !== 100) {
+            return res.status(502).json({ ok: false, 訳: `SwitchBotが受け付けませんでした（${d.message || r.status}）` });
+        }
+        const 機器 = [
+            ...(d.body?.deviceList || []).map((x) => ({ id: x.deviceId, 名: x.deviceName, 種類: x.deviceType, 赤外線: false })),
+            ...(d.body?.infraredRemoteList || []).map((x) => ({ id: x.deviceId, 名: x.deviceName, 種類: x.remoteType, 赤外線: true })),
+        ];
+        res.json({ ok: true, 機器 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/switchbot/command', async (req, res) => {
+    const 鍵 = SwitchBotの鍵を確かめる(req, res);
+    if (!鍵) return;
+    const { deviceId, command, parameter, commandType, confirmed } = req.body || {};
+    if (!deviceId || !/^[A-Za-z0-9-]{1,64}$/.test(deviceId)) {
+        return res.status(400).json({ ok: false, 訳: '機器の指定が正しくありません' });
+    }
+    const 独自 = commandType === 'customize';
+    if (!独自 && !SWITCHBOT_許す操作.has(command)) {
+        return res.status(400).json({ ok: false, 訳: `この操作は通していません: ${command}` });
+    }
+    if (独自 && (typeof command !== 'string' || command.length > 40)) {
+        return res.status(400).json({ ok: false, 訳: 'ボタン名が正しくありません' });
+    }
+    if (SWITCHBOT_確認が要る操作.has(command) && confirmed !== true) {
+        return res.status(403).json({ ok: false, 訳: '鍵を開ける操作は、画面で確かめてからでないと送りません' });
+    }
+    const 値 = parameter == null ? 'default' : parameter;
+    if (typeof 値 !== 'string' && typeof 値 !== 'number') {
+        return res.status(400).json({ ok: false, 訳: '値が正しくありません' });
+    }
+    try {
+        const r = await safeFetch(`https://api.switch-bot.com/v1.1/devices/${encodeURIComponent(deviceId)}/commands`, {
+            method: 'POST',
+            headers: SwitchBotの印(鍵.token, 鍵.secret),
+            body: JSON.stringify({ command, parameter: 値, commandType: 独自 ? 'customize' : 'command' }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.statusCode !== 100) {
+            return res.status(502).json({ ok: false, 訳: `SwitchBotが受け付けませんでした（${d.message || r.status}）` });
+        }
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
 app.post('/api/github/put-file', async (req, res) => {
     const {
         token, owner, repo, branch, path: filePath, content, message,

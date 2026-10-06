@@ -548,6 +548,18 @@ async function runConsoleCommand(text, target) {
         }
     }
 
+    // 家電・見守り・システム診断（ジャービス機能.js）。当てはまらなければ null が返る。
+    if (typeof ジャービスの指示を拾う === 'function') {
+        const 返事 = await ジャービスの指示を拾う(text);
+        if (返事) {
+            appendConsoleLine('assistant', 返事, target);
+            会話の記憶に足す(target, 'assistant', 返事);
+            if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
+            声で聞かれた = false;
+            return;
+        }
+    }
+
     // 0) まとめての仕事として頼まれていないか。
     //
     // 画面操作の振り分けより先に見る。
