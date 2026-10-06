@@ -56,7 +56,7 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 TOOL="$(head -n 1 "$HERE/Resources/tool-path.txt" 2>/dev/null)"
 
 if [ ! -f "$TOOL/見張り.sh" ]; then
-    for c in "$HOME/Developer/AReGLM" "$HOME/Desktop/AReGLM" "$HOME/Documents/AReGLM" "$HOME/AReGLM"; do
+    for c in "$HOME/Applications/AReGLM.app/Contents/Resources/ツール本体" "$HOME/Developer/AReGLM" "$HOME/Desktop/AReGLM" "$HOME/Documents/AReGLM" "$HOME/AReGLM"; do
         if [ -f "$c/見張り.sh" ] && [ -f "$c/server/index.js" ]; then TOOL="$c"; break; fi
     done
 fi
@@ -120,17 +120,29 @@ move_old() {
 
 DESK="$HOME/Desktop"
 mkdir -p "$HOME/Applications"
+# ツール本体を中に持っている AReGLM.app（~/Applications/AReGLM.app/Contents/Resources/ツール本体）は
+# 触らない。以前これも「前の AReGLM」として使用済みへ移す作りで、本体とデータごと動いてしまうところだった。
+holds_tool() {
+    case "$TOOL/" in "$1"/*) return 0;; esac
+    [ -d "$1/Contents/Resources/ツール本体" ]
+}
+PLACED=()
 for target in "$DESK" "$HOME/Applications"; do
+    if [ -e "$target/AReGLM.app" ] && holds_tool "$target/AReGLM.app"; then
+        echo "  $target/AReGLM.app はツール本体が入っているので、そのままにします"
+        continue
+    fi
     move_old "$target/AReGLM.app"
     [ -f "$target/AReGLM" ] && move_old "$target/AReGLM"
     cp -R "$APP" "$target/AReGLM.app"
     xattr -dr com.apple.quarantine "$target/AReGLM.app" 2>/dev/null
     touch "$target/AReGLM.app"
     echo "  置きました: $target/AReGLM.app"
+    PLACED+=("$target/AReGLM.app")
 done
 
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
-[ -x "$LSREG" ] && "$LSREG" -f "$HOME/Applications/AReGLM.app" "$DESK/AReGLM.app" >/dev/null 2>&1
+[ -x "$LSREG" ] && [ ${#PLACED[@]} -gt 0 ] && "$LSREG" -f "${PLACED[@]}" >/dev/null 2>&1
 rm -rf "$WORK"
 
 # ログインしたら見張りを裏で起こす（launchd）。見張りが落ちたら立て直すが、
