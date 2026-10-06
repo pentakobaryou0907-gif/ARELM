@@ -322,7 +322,19 @@ class Handler(BaseHTTPRequestHandler):
         # アクセスログは出さない（学習内容が漏れないように）
         pass
 
+    def _ブラウザから直に来たか(self):
+        # ここへはNodeの中継と見張り・待ち受けだけが来る。どれも Origin を付けない。
+        # 以前は中身の種類を見ずにJSONとして読んでいたため、よそのサイトの画面から
+        # text/plain で /learn や /forget を送られると、そのまま通っていた。
+        # 名前（Host）も見るのは、よその名前を 127.0.0.1 に向け直す手口を断るため。
+        host = (self.headers.get('Host') or '').split(':')[0].lower()
+        if host not in ('127.0.0.1', 'localhost', ''):
+            return True
+        return bool(self.headers.get('Origin')) or self.headers.get('Sec-Fetch-Site') in ('cross-site', 'same-site')
+
     def do_GET(self):
+        if self._ブラウザから直に来たか():
+            return self._send(403, {'error': 'ブラウザから直接は使えません'})
         if self.path == '/health':
             return self._send(200, {'ok': True, 'service': 'ARELM AI Engine', 'local': True})
 
@@ -481,6 +493,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {'error': 'not found'})
 
     def do_POST(self):
+        if self._ブラウザから直に来たか():
+            return self._send(403, {'error': 'ブラウザから直接は使えません'})
         # 音声はJSONではなく生のバイト列で届く。
         # self._body() は中身をJSONとして読もうとして、
         # そのままではストリームを消費してしまうので、
