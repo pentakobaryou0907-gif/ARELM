@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initお金の帳面 === 'function') initお金の帳面();
     if (typeof init今日の運用 === 'function') init今日の運用();
     if (typeof initジャービス機能 === 'function') initジャービス機能();
+    if (typeof init準備の状態 === 'function') init準備の状態();
     if (typeof init外部ノート連携設定 === 'function') init外部ノート連携設定();
     if (typeof initVoiceUI === 'function') initVoiceUI();
     if (typeof init常駐の待ち受け === 'function') init常駐の待ち受け();

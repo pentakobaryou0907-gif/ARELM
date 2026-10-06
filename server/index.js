@@ -3151,6 +3151,68 @@ const PYTHON_BIN = (() => {
     return process.platform === 'win32' ? 'python' : 'python3';
 })();
 
+/**
+ * 準備の状態 — このツールを動かす・作るのに要るものが揃っているか。
+ * この端末の中を見るだけ。外へは何も送らない。
+ */
+function 版を調べる(命令, 引数 = ['--version']) {
+    try {
+        return 実行(命令, 引数, { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'] }).trim().split(/\r?\n/)[0];
+    } catch {
+        return null;
+    }
+}
+
+function 場所にあるか(候補) {
+    return 候補.find((p) => p && fs.existsSync(p)) || null;
+}
+
+app.get('/api/setup-status', (_, res) => {
+    const 家 = os.homedir();
+    const mac = process.platform === 'darwin';
+    const win = process.platform === 'win32';
+    const 項目 = [];
+    const 足す = (名, 要る, 状態, 入れ方) => 項目.push({ 名, 要る, ある: !!状態, 状態: 状態 || '見つかりません', 入れ方 });
+
+    const node版 = process.versions.node;
+    足す('Node.js（18以上）', true, Number(node版.split('.')[0]) >= 18 ? `v${node版}` : null, 'https://nodejs.org の LTS');
+    足す('サーバーの部品（express）', true,
+        fs.existsSync(path.join(__dirname, 'node_modules', 'express', 'package.json')) ? '入っています' : null, 'server で npm install');
+
+    const py版 = 版を調べる(PYTHON_BIN);
+    足す('Python 3', true, py版, mac ? 'xcode-select --install、または https://www.python.org' : 'https://www.python.org');
+    let 部品 = {};
+    if (py版) {
+        try {
+            const 出 = 実行(PYTHON_BIN, ['-c', [
+                'import importlib.util as u, json',
+                'print(json.dumps({m: bool(u.find_spec(m)) for m in ["numpy", "PIL", "faster_whisper"]}))',
+            ].join('\n')], { encoding: 'utf8', timeout: 15000 });
+            部品 = JSON.parse(出.trim().split('\n').pop());
+        } catch { 部品 = {}; }
+    }
+    足す('numpy（自作AI）', true, 部品.numpy ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements.txt');
+    足す('Pillow（画像の解析）', true, 部品.PIL ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements.txt');
+    足す('faster-whisper（声を文字にする）', false, 部品.faster_whisper ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements-voice.txt');
+    足す('ffmpeg（動画の解析）', false, 版を調べる('ffmpeg', ['-version']), mac ? 'brew install ffmpeg' : 'winget install Gyan.FFmpeg');
+    足す('Git（記録・更新）', true, 版を調べる('git'), mac ? 'xcode-select --install' : 'winget install Git.Git');
+    足す('Google Chrome', false, 場所にあるか(mac
+        ? ['/Applications/Google Chrome.app']
+        : win
+            ? [path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
+                path.join(process.env['ProgramFiles(x86)'] || '', 'Google/Chrome/Application/chrome.exe'),
+                path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe')]
+            : ['/usr/bin/google-chrome', '/usr/local/bin/google-chrome']) ? '入っています' : null,
+    'https://www.google.com/chrome/');
+    if (mac) 足す('Xcode コマンドラインツール（声の部品を作る）', false, 版を調べる('xcode-select', ['-p']), 'xcode-select --install');
+    足す('Syncthing（MacとPCで同期）', false, 版を調べる('syncthing', ['--version'])
+        || 場所にあるか(mac ? ['/Applications/Syncthing.app'] : [path.join(家, 'AppData/Local/Programs/Syncthing')]), 'https://syncthing.net');
+    足す('Tailscale（外から自分の端末へ）', false, 版を調べる('tailscale', ['version'])
+        || 場所にあるか(mac ? ['/Applications/Tailscale.app'] : [path.join(process.env.ProgramFiles || '', 'Tailscale')]), 'https://tailscale.com');
+
+    res.json({ ok: true, OS: process.platform, 項目 });
+});
+
 /** 変更されたコードファイルだけを検査する（学習データ等は対象外） */
 function 変更ファイルを検査する() {
     const 変更 = gitで実行(['status', '--porcelain']).split('\n').filter(Boolean)

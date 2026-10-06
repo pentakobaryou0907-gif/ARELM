@@ -2520,6 +2520,24 @@
                     <h2 class="section-title">設定</h2>
                     <p class="page-lead">このツールは、すべて自作で動きます。外部のAIやサービスの鍵は要りません。</p>
 
+                    <section class="panel-card full-width" id="setup-status-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🧰</span>準備の状態</h3>
+                            <button type="button" id="setup-status-refresh" class="btn btn-sm btn-secondary">調べ直す</button>
+                        </div>
+                        <p class="hint">このツールを動かす・作り続けるのに要るものが、この端末に揃っているかを見ます。足りないソフトは、ツールのフォルダの <code>準備する.command</code>（Mac）か <code>準備する.bat</code>（Windows）を一度開くと、公式の配布元から入れます。アカウントや鍵は、ご自身で作ってから設定に入れてください。</p>
+                        <h4 class="media-sub">ソフト（この端末） <small id="setup-status-summary" class="hint"></small></h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th></th><th>もの</th><th>状態</th><th>入れ方</th></tr></thead>
+                            <tbody id="setup-status-software"></tbody>
+                        </table></div>
+                        <h4 class="media-sub">アカウントと鍵（ご自身で用意するもの）</h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th></th><th>もの</th><th>何に使うか</th><th>取り方</th></tr></thead>
+                            <tbody id="setup-status-keys"></tbody>
+                        </table></div>
+                    </section>
+
                     <section class="panel-card full-width">
                         <h3><span class="sec-icon">🔌</span>API接続状況</h3>
                         <p class="hint">下の各項目で鍵・トークンを保存すると、ここに反映されます。</p>
@@ -3616,6 +3634,7 @@
     <script src="js/modules/お金の帳面.js" defer></script>
     <script src="js/modules/今日の運用.js" defer></script>
     <script src="js/modules/ジャービス機能.js" defer></script>
+    <script src="js/modules/準備の状態.js" defer></script>
     <script src="js/modules/外部ノート連携設定.js" defer></script>
     <script src="js/modules/Google連携設定.js" defer></script>
     <script src="js/modules/エージェント定義.js" defer></script>
