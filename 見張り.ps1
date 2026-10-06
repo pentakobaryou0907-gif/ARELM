@@ -11,7 +11,8 @@
 
 param(
     [switch]$ブラウザを開く,
-    [switch]$ホームから
+    [switch]$ホームから,
+    [switch]$ホームに置く
 )
 
 $ErrorActionPreference = 'Continue'
@@ -85,31 +86,66 @@ function Find-Edge {
 # 本体のフォルダは移さない。アイコンだけをホーム画面側に出す。
 function Install-HomeShortcut {
     $ico = Join-Path $TOOL 'images\areglm.ico'
+    $vbs = Join-Path $TOOL 'AReGLM起動.vbs'
     $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     if (-not (Test-Path -LiteralPath $powershell)) { $powershell = 'powershell.exe' }
     $引数 = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$SCRIPT`" -ホームから"
-    $場所一覧 = @(
+
+    $場所一覧 = New-Object System.Collections.Generic.List[string]
+    foreach ($候補 in @(
         [Environment]::GetFolderPath('Desktop'),
-        [Environment]::GetFolderPath('Programs')
-    )
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
+        (Join-Path $env:USERPROFILE 'デスクトップ')
+    )) {
+        if ($候補 -and (Test-Path -LiteralPath $候補) -and -not $場所一覧.Contains($候補)) {
+            $場所一覧.Add($候補)
+        }
+    }
+    $programs = [Environment]::GetFolderPath('Programs')
+    if ($programs) {
+        $startDir = Join-Path $programs 'AReGLM'
+        New-Item -ItemType Directory -Force -Path $startDir | Out-Null
+        $場所一覧.Add($startDir)
+        if (-not $場所一覧.Contains($programs)) { $場所一覧.Add($programs) }
+    }
+
+    $作った = New-Object System.Collections.Generic.List[string]
     foreach ($dir in $場所一覧) {
         if (-not $dir) { continue }
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        $lnk = Join-Path $dir 'AReGLM.lnk'
-        $shell = New-Object -ComObject WScript.Shell
-        $sc = $shell.CreateShortcut($lnk)
-        $sc.TargetPath = $powershell
-        $sc.Arguments = $引数
-        $sc.WorkingDirectory = $TOOL
-        $sc.WindowStyle = 7
-        $sc.Description = 'AReGLM を開いてログインする'
-        if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
-        $sc.Save()
-        Write-Log "ホーム画面に置きました: $lnk"
+        try {
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            $lnk = Join-Path $dir 'AReGLM.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $sc = $shell.CreateShortcut($lnk)
+            if (Test-Path -LiteralPath $vbs) {
+                # VBS経由なら、黒い窓が一瞬も出ない。
+                $sc.TargetPath = $vbs
+                $sc.Arguments = ''
+            } else {
+                $sc.TargetPath = $powershell
+                $sc.Arguments = $引数
+            }
+            $sc.WorkingDirectory = $TOOL
+            $sc.WindowStyle = 7
+            $sc.Description = 'AReGLM を開いてログインする'
+            if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
+            $sc.Save()
+            $作った.Add($lnk)
+            Write-Log "ホーム画面に置きました: $lnk"
+        } catch {
+            Write-Log "ショートカット作成失敗 ($dir): $($_.Exception.Message)"
+        }
     }
+
     try {
         $desktop = [Environment]::GetFolderPath('Desktop')
+        if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE 'Desktop' }
         $lnk = Join-Path $desktop 'AReGLM.lnk'
+        if (-not (Test-Path -LiteralPath $lnk) -and $作った.Count -gt 0) {
+            $lnk = $作った[0]
+        }
         $shellApp = New-Object -ComObject Shell.Application
         $folder = $shellApp.NameSpace((Split-Path -Parent $lnk))
         $item = $folder.ParseName((Split-Path -Leaf $lnk))
@@ -127,6 +163,7 @@ function Install-HomeShortcut {
     } catch {
         Write-Log "スタートへのピン留めはスキップしました: $($_.Exception.Message)"
     }
+    return $作った
 }
 
 function Start-WatcherIfNeeded {
@@ -163,9 +200,36 @@ function Still-Running($proc) {
     try { return -not $proc.HasExited } catch { return $false }
 }
 
+# --- ホーム画面にアイコンだけ置く（サーバーは起こさない） ---
+if ($ホームに置く) {
+    try {
+        $作った = @(Install-HomeShortcut)
+    } catch {
+        Write-Log "アイコンを置けませんでした: $($_.Exception.Message)"
+        $作った = @()
+    }
+    if ($作った.Count -eq 0) {
+        $文 = "デスクトップにアイコンを置けませんでした。`r`nログ: $(Join-Path $LOGDIR '見張り.log')"
+        Write-Host $文
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null
+        } catch { }
+        exit 1
+    }
+    $一覧 = ($作った | ForEach-Object { "・$_" }) -join "`r`n"
+    $文 = "デスクトップ／スタートメニューに AReGLM を置きました。`r`n`r`n$一覧`r`n`r`n次はデスクトップの「AReGLM」を開いてログインしてください。"
+    Write-Host $文
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Information') | Out-Null
+    } catch { }
+    exit 0
+}
+
 # --- 画面を開く（見張り本体には入らない） ---
 if ($ブラウザを開く -or $ホームから) {
-    try { Install-HomeShortcut } catch { Write-Log "アイコンを置けませんでした: $($_.Exception.Message)" }
+    try { [void](Install-HomeShortcut) } catch { Write-Log "アイコンを置けませんでした: $($_.Exception.Message)" }
     if ($ホームから) { Start-WatcherIfNeeded }
 
     $届いた = $false
