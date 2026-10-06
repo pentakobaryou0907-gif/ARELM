@@ -36,6 +36,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const 設定ファイル = path.join(__dirname, 'data', '門番.json');
 
@@ -328,6 +329,19 @@ const この端末だけの口 = [
     '/api/ai-local/learned-tasks', // 覚えた手順を書き換えられる
     '/api/ai-local/forget',        // 覚えたことを忘れさせられる
     '/api/restart-gateway', // 入口を落とせる
+    '/api/ai-local/knowledge/forget', // 覚えた知識を忘れさせられる（/api/ai-local/forget とは別の道で、漏れていた）
+    '/api/self-heal/rollback',  // コードを前の状態へ戻せる
+    '/api/self-update',         // コードを入れ替えられる
+    '/api/voice-listener',      // ログイン時に動く常駐を登録・解除できる
+];
+
+/**
+ * 合言葉を通っても、Tailscale からでも、この端末でしか書き換えさせない口。
+ * 他の端末に開くかどうかと合言葉そのものを決める所なので、
+ * 外の端末から変えられると、一度入れた端末が門を開けたままにできてしまう。
+ */
+const この端末でしか変えられない口 = [
+    '/api/other-devices',
 ];
 
 /**
@@ -348,9 +362,60 @@ function 本当の住所(req) {
     return 元 && !自分の端末か(元) ? 元 : '中継元不明';
 }
 
+/**
+ * 宛先の名前（Host）が、この端末を指す名前か。
+ *
+ * よそのサイトが自分の名前を 127.0.0.1 に向け直す（DNS rebinding）と、
+ * ブラウザはそのサイトの画面から、この端末の口を「同じサイト」として読めてしまう。
+ * 住所だけ見ていると「この端末から来た」に見えるので、名前でも断る。
+ */
+function 名前が許せるか(host) {
+    const h = String(host || '').toLowerCase().replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+    if (!h) return false;
+    if (h === 'localhost' || h === os.hostname().toLowerCase()) return true;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(':')) return true;
+    return h.endsWith('.local') || h.endsWith('.ts.net');
+}
+
+/**
+ * よそのサイトの画面から送られてきた書き換えか。
+ *
+ * ブラウザは、よそのサイトからこの端末（127.0.0.1）へのフォーム送信や
+ * text/plain の送信を、確認なしで通してしまう。この端末から来たように見えるので、
+ * 以前はパソコンを操る口まで素通りだった。Origin・Sec-Fetch-Site で見分ける。
+ * ブラウザ以外（見張り・待ち受け・curl）はどちらも付けないので、そのまま通る。
+ */
+function よそのサイトからの書き換えか(req) {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return false;
+    if (req.headers['sec-fetch-site'] === 'cross-site') return true;
+    const 元 = req.headers.origin;
+    if (!元) return false;
+    if (元 === 'null') return true;
+    try {
+        return new URL(元).host.toLowerCase() !== String(req.headers.host || '').toLowerCase();
+    } catch {
+        return true;
+    }
+}
+
 function 門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか) {
     app.use((req, res, next) => {
+        if (!名前が許せるか(req.headers.host)) {
+            console.warn(`[門番] 知らない名前で来ました: ${String(req.headers.host).slice(0, 80)}`);
+            res.status(403).type('text/plain; charset=utf-8');
+            return res.end('この名前では使えません。http://127.0.0.1:8080 などから開いてください。');
+        }
+        if (よそのサイトからの書き換えか(req)) {
+            console.warn(`[門番] よそのサイトからの書き換えを止めました: ${String(req.headers.origin || req.headers['sec-fetch-site']).slice(0, 80)} → ${req.path}`);
+            res.status(403).type('text/plain; charset=utf-8');
+            return res.end('よそのサイトからの操作は受け付けません。');
+        }
         const 住所 = 本当の住所(req);
+        if (!自分の端末か(住所) && !['GET', 'HEAD'].includes(req.method)
+            && この端末でしか変えられない口.some((道) => req.path.startsWith(道))) {
+            res.status(403).type('text/plain; charset=utf-8');
+            return res.end('他の端末に開く設定と合言葉は、本体の端末でしか変えられません。');
+        }
 
         // 自分の端末は、いつでもそのまま通す。
         // ここを閉じると、自分が自分の道具を使えなくなる。
@@ -457,6 +522,7 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
 
 module.exports = {
     この端末だけの口,
+    この端末でしか変えられない口,
     門番を置く,
     合言葉を決める,
     合言葉が合うか,

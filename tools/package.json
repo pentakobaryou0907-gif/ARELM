@@ -1,0 +1,8 @@
+{
+  "name": "areglm-tools",
+  "private": true,
+  "description": "ARELM の検査用の道具（画面の自動テスト）。サーバー本体の部品とは分けてある。",
+  "devDependencies": {
+    "puppeteer-core": "^25.0.0"
+  }
+}

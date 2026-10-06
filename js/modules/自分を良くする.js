@@ -111,7 +111,8 @@ async function render自分を良くする() {
     const d = await 自分を見る(true);
     箱.innerHTML = '';
 
-    if (!d) {
+    // 自作AIがエラーの形（{error} など）で返すと 気づき が無く、.filter で落ちて画面が止まっていた。
+    if (!d || !Array.isArray(d.気づき)) {
         const p = document.createElement('p');
         p.className = 'hint';
         p.textContent = '見られませんでした（自作AIが止まっているかもしれません）。';

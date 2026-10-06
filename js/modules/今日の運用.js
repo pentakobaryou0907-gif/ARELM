@@ -228,7 +228,8 @@ function ここから再開する() {
     if (!続き) return;
     if (typeof switchPage === 'function') switchPage('dashboard');
     if (typeof switchHomeTab === 'function') switchHomeTab('today');
-    const 印 = 続き.taskId && document.querySelector(`#task-list [data-id="${CSS.escape(続き.taskId)}"]`);
+    // taskId が空のとき「&&」は空文字を返し、空文字に .closest は無いので落ちていた。
+    const 印 = 続き.taskId ? document.querySelector(`#task-list [data-id="${CSS.escape(続き.taskId)}"]`) : null;
     const 行 = 印?.closest('.task-item');
     if (行) {
         行.scrollIntoView({ behavior: 'smooth', block: 'center' });
