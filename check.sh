@@ -19,6 +19,8 @@ fi
 #   5. 呼んでいる関数が定義されているか
 #   6. サーバーが動いているか
 #   7. 自作AIの自動テスト
+#  10. 門番（よそのサイト・よその名前・中継からの送り方で断られるか）
+#  11. 画面の主な流れ（tools で npm install すると動く）
 
 cd "$(dirname "$0")" || exit 1
 
@@ -199,13 +201,17 @@ done
 
 # 見つからなければ、この検査自身の位置から遡って探す
 if [ ! -d "$APP" ]; then
-    ここ="$(cd "$(dirname "$0")" && pwd)"
-    while [ "$ここ" != "/" ]; do
-        case "$ここ" in *.app) APP="$ここ"; break;; esac
-        ここ="$(dirname "$ここ")"
+    # bash の変数名は英字にする。日本語の名前は Linux の bash では代入にならず、
+    # 「/」に届かないまま回り続けて check.sh が終わらなかった。
+    HERE="$(cd "$(dirname "$0")" && pwd)"
+    while [ "$HERE" != "/" ]; do
+        case "$HERE" in *.app) APP="$HERE"; break;; esac
+        HERE="$(dirname "$HERE")"
     done
 fi
-if [ ! -d "$APP" ]; then
+if [ ! -d "$APP" ] && [ "$(uname)" != "Darwin" ]; then
+    warn "Mac ではないので、アプリ（AReGLM.app）は見ていません"
+elif [ ! -d "$APP" ]; then
     ng "アプリが見つかりません"
 elif [ ! -x "$APP/Contents/MacOS/AReGLM" ]; then
     ng "アプリの起動口が実行できません"
@@ -237,6 +243,32 @@ else
     sed -n 's/^  × /       できなくなった: /p;s/^      いま     : /         症状: /p' /tmp/areglm_regress.log | head -12
 fi
 
+# --- 10. 門番（悪いつもりの送り方で断られるか） ---
+echo
+echo "[10] 門番の自動テスト"
+if curl -s -m 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+    if OUT=$(node tools/門番の自動テスト.js 2>&1); then
+        ok "$(echo "$OUT" | tail -1)"
+    else
+        ng "通ってはいけない送り方が通りました:"; echo "$OUT" | grep "✗" | sed 's/^/      /'
+    fi
+else
+    warn "サーバーが止まっているので見ていません"
+fi
+
+# --- 11. 画面の主な流れ（ログイン・商品・やること・復元） ---
+echo
+echo "[11] 画面の自動テスト"
+OUT=$(node tools/画面の自動テスト.js 2>&1); CODE=$?
+if [ $CODE -eq 0 ]; then
+    ok "$(echo "$OUT" | tail -1)"
+elif [ $CODE -eq 2 ]; then
+    warn "$(echo "$OUT" | tail -1 | sed 's/^－ *//')"
+else
+    ng "画面の流れで期待と違うところがあります:"; echo "$OUT" | grep "✗" | sed 's/^/      /'
+fi
+
+echo
 echo "════════════════════════════════════════"
 if [ $FAIL -eq 0 ]; then
     echo -e "${GREEN} 問題は見つかりませんでした${NC}"
