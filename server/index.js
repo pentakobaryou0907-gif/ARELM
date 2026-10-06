@@ -1370,6 +1370,8 @@ app.get('/api/https-info', (req, res) => {
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
+    // frame-ancestors は <meta> に書いてもブラウザが無視する（毎回コンソールに警告が出ていた）。ヘッダーで送る。
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
 
     // HTML・CSS・JS はブラウザに溜め込ませない。
     // 溜まると「直したのに画面が変わらない」が起きるため。
