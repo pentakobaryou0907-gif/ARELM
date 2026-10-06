@@ -645,6 +645,13 @@
                     <h2 class="section-title">エージェント</h2>
                     <p class="page-lead">このツールを操作する相棒です。<strong>考える部分はすべてこの端末の中だけで動き、外部へは一切送信しません。</strong>知らないことは知らないと答え、覚えたことは忘れてと言えば忘れます。<br><small class="hint">※ 音声を文字にする処理だけは例外です。下の「声で指示する」に、実際どうなっているかを正確に書いています。</small></p>
                     <div id="mainai-health" class="status-banner warn"></div>
+                    <section class="panel-card full-width" id="agent-capability-section">
+                        <div class="panel-header-row">
+                            <h3>できること · 止まること</h3>
+                            <button type="button" id="agent-capability-refresh" class="btn btn-sm btn-secondary">再確認</button>
+                        </div>
+                        <div id="agent-capability-board" class="agent-capability-board"></div>
+                    </section>
                     <label class="checkbox-label" style="font-size:0.85rem;">
                         <input type="checkbox" id="jarvis-default-toggle" checked>
                         このページを開いたら、既定でJARVISモードにする
@@ -3014,6 +3021,47 @@
                         <div id="backup-status" class="hint"></div>
                         <div id="snapshot-info" class="hint"></div>
                     </section>
+
+                    <details class="panel-card full-width settings-fold">
+                        <summary class="settings-fold-head">
+                            <span class="sec-icon">🐙</span>GitHub（作業の控え）
+                            <small>（公式API。バックアップと進捗ログだけを上げます。鍵は上げません）</small>
+                        </summary>
+                        <div class="settings-fold-body">
+                            <p class="hint">
+                                MacとデスクトップPCで同じ控えを追うときに使います。
+                                <strong>使うにはご自身の作業が必要です：</strong>
+                                <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHubのトークン発行ページ</a>
+                                で Personal Access Token（classic）を作り、
+                                権限は <code>repo</code>（非公開リポジトリ）または <code>public_repo</code> だけにしてください。
+                                上げる場所は <code>areglm-backups/</code> と <code>areglm-logs/</code> だけです。
+                            </p>
+                            <div class="form-group">
+                                <label for="github-owner">オーナー（ユーザー名または組織）</label>
+                                <input type="text" id="github-owner" placeholder="your-name" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-repo">リポジトリ名</label>
+                                <input type="text" id="github-repo" placeholder="ARELM" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-branch">枝</label>
+                                <input type="text" id="github-branch" placeholder="main" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-token">Personal Access Token</label>
+                                <input type="password" id="github-token" placeholder="ghp_…（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="guard-row">
+                                <button type="button" id="github-save-btn" class="btn btn-sm btn-primary">設定を保存</button>
+                                <button type="button" id="github-backup-btn" class="btn btn-sm btn-secondary">バックアップを上げる</button>
+                                <button type="button" id="github-log-btn" class="btn btn-sm btn-secondary">進捗ログを上げる</button>
+                            </div>
+                            <small id="github-token-status" class="hint"></small>
+                            <small id="github-last-status" class="hint"></small>
+                        </div>
+                    </details>
+
                     <section class="panel-card">
                         <div class="panel-header-row">
                             <h3>自作AIエンジン <small class="hint">（Python · この端末内で完結）</small></h3>
@@ -3378,6 +3426,8 @@
     <script src="js/modules/商品自動作成.js" defer></script>
     <script src="js/modules/automation.js" defer></script>
     <script src="js/modules/backup.js" defer></script>
+    <script src="js/modules/GitHub連携.js" defer></script>
+    <script src="js/modules/エージェント能力板.js" defer></script>
     <script src="js/modules/design-studio.js" defer></script>
     <script src="js/modules/customers.js" defer></script>
     <script src="js/modules/brand-manual.js" defer></script>

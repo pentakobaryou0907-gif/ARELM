@@ -1585,6 +1585,15 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-30',
     },
     {
+        host: 'api.github.com',
+        name: 'GitHub REST API',
+        provider: 'GitHub（公式）',
+        terms: 'https://docs.github.com/en/site-policy/github-terms/github-terms-of-service',
+        無料か: true,
+        無料の中身: '個人用トークンでのAPI利用は無料枠あり（回数上限あり／2026年10月時点）',
+        確かめた日: '2026-10-06',
+    },
+    {
         host: 'api.anthropic.com',
         name: 'Anthropic Claude API',
         provider: 'Anthropic（公式）',
@@ -2361,6 +2370,91 @@ app.post('/api/notion-proxy', async (req, res) => {
         res.status(upstream.status).json(data);
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * GitHub へファイルを1つ書く（バックアップ・進捗ログ用）
+ *
+ * トークンは毎回本文で受け取り、サーバーには残さない。
+ * パスは areglm-backups/ と areglm-logs/ だけ許可する。
+ * 秘密の鍵や .env はここに載せない（クライアント側でもバックアップから除外済み）。
+ */
+app.post('/api/github/put-file', async (req, res) => {
+    const {
+        token, owner, repo, branch, path: filePath, content, message,
+    } = req.body || {};
+    if (!token || typeof token !== 'string') {
+        return res.status(401).json({ ok: false, 訳: 'GitHubトークンが必要です' });
+    }
+    if (!owner || !repo || !/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+        return res.status(400).json({ ok: false, 訳: 'オーナー名またはリポジトリ名が正しくありません' });
+    }
+    if (!filePath || typeof filePath !== 'string'
+        || !/^(areglm-backups|areglm-logs)\/[A-Za-z0-9_./-]+\.json$/.test(filePath)
+        || filePath.includes('..')) {
+        return res.status(400).json({ ok: false, 訳: '書き込める場所は areglm-backups/ と areglm-logs/ だけです' });
+    }
+    if (typeof content !== 'string' || !content.length) {
+        return res.status(400).json({ ok: false, 訳: '中身が空です' });
+    }
+    if (Buffer.byteLength(content, 'utf8') > 8 * 1024 * 1024) {
+        return res.status(400).json({ ok: false, 訳: '8MBを超える控えは上げられません' });
+    }
+    const 枝 = (branch && /^[A-Za-z0-9_./-]+$/.test(branch)) ? branch : 'main';
+    const 文言 = (message && String(message).slice(0, 200)) || `ARELM backup ${new Date().toISOString()}`;
+
+    try {
+        const encPath = filePath.split('/').map(encodeURIComponent).join('/');
+        const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encPath}`;
+        let sha;
+        try {
+            const 既存 = await safeFetch(`${base}?ref=${encodeURIComponent(枝)}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'User-Agent': 'ARELM',
+                },
+            });
+            if (既存.ok) {
+                const d = await 既存.json();
+                if (d && d.sha) sha = d.sha;
+            }
+        } catch { /* 新規作成でよい */ }
+
+        const body = {
+            message: 文言,
+            content: Buffer.from(content, 'utf8').toString('base64'),
+            branch: 枝,
+        };
+        if (sha) body.sha = sha;
+
+        const upstream = await safeFetch(base, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+                'User-Agent': 'ARELM',
+            },
+            body: JSON.stringify(body),
+        });
+        const data = await upstream.json().catch(() => ({}));
+        if (!upstream.ok) {
+            return res.status(upstream.status).json({
+                ok: false,
+                訳: data.message || `GitHubが拒否しました（HTTP ${upstream.status}）`,
+            });
+        }
+        res.json({
+            ok: true,
+            path: filePath,
+            html_url: data.content?.html_url || data.commit?.html_url || null,
+        });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message || 'GitHubへ送れませんでした' });
     }
 });
 

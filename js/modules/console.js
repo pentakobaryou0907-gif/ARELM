@@ -737,10 +737,11 @@ async function AIで意図を判定する(text, target) {
         // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
         const page = document.querySelector('.page.active')?.id?.replace('-page', '') || '';
 
-        // 「脳: Claude」「脳: Gemini」に切り替えているときは、エージェントの
-        // 判定そのものをそちらへ頼む（AIチャットの会話だけでなく、指示の
-        // 実行判定にも同じ「脳」を使う、という以前からの決定をここにも
-        // 反映する）。
+        // 「脳: Claude」「脳: Gemini」「脳: 自動」のとき。
+        // 自動でも、ツール操作の意図判定は常に自作AI（外へ出さない）。
+        if (typeof 作業に合う脳を決める === 'function') {
+            await 作業に合う脳を決める('agent');
+        }
         if (typeof Claudeを使うか === 'function' && Claudeを使うか()
             && typeof Claudeでエージェントの意図を判定する === 'function') {
             const 判定 = await Claudeでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);

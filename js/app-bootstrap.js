@@ -103,6 +103,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initImageEditor === 'function') initImageEditor();
     if (typeof initPersonalize === 'function') initPersonalize();
     if (typeof initMainAi === 'function') initMainAi();
+    if (typeof initエージェント能力板 === 'function') initエージェント能力板();
+    if (typeof initGitHub連携 === 'function') initGitHub連携();
     if (typeof initTextGen === 'function') initTextGen();
     if (typeof initQuickPanel === 'function') initQuickPanel();
     if (typeof initTheme === 'function') initTheme();

@@ -517,6 +517,33 @@ section {
     color: #3730a3;
 }
 
+.agent-capability-board {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+}
+.agent-capability-board .cap-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 11rem) 1fr;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-left: 3px solid var(--areglm-border);
+    background: color-mix(in srgb, var(--areglm-surface) 92%, var(--areglm-border));
+    font-size: 0.88rem;
+}
+.agent-capability-board .cap-row strong { font-weight: 600; }
+.agent-capability-board .cap-ok { border-left-color: #3f9d6d; }
+.agent-capability-board .cap-warn { border-left-color: #c8a13c; }
+.agent-capability-board .cap-standby { border-left-color: #64748b; }
+.agent-capability-board .cap-stop { border-left-color: #c45c26; }
+.agent-capability-board .cap-no { border-left-color: #94a3b8; opacity: 0.92; }
+@media (max-width: 640px) {
+    .agent-capability-board .cap-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 .activity-list {
     list-style: none;
     max-height: 240px;
