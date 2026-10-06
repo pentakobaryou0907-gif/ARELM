@@ -192,7 +192,8 @@ function 控えの表(見出し, 行) {
  * （どこで開いても中身を読むだけになり、外へ何も送らない）。
  */
 function 持ち歩ける控えを作る() {
-    const 円 = (n) => `¥${(Number(n) || 0).toLocaleString('ja-JP')}`;
+    const 円 = (n) => `${Number(n) < 0 ? '-' : ''}¥${Math.abs(Number(n) || 0).toLocaleString('ja-JP')}`;
+    const 優先 = { high: '高', normal: '普通', low: '低' };
     const 日時 = (v) => (v ? new Date(v).toLocaleString('ja-JP') : '');
     const 新しい順 = (一覧, 鍵) => [...一覧].sort((a, b) => String(b[鍵] || '').localeCompare(String(a[鍵] || '')));
 
@@ -213,7 +214,7 @@ function 持ち歩ける控えを作る() {
 
     const 節 = [
         ['やること（終わっていないもの）', 控えの表(['やること', '期限', '優先'],
-            やること.map((t) => [t.title, t.due || '', t.priority || '']))],
+            やること.map((t) => [t.title, t.due || '', 優先[t.priority] || t.priority || '']))],
         ['前回の続き・進捗', 控えの表(['とき', 'ブランド', 'やること', '現在地', '次に'],
             進捗.map((x) => [日時(x.とき), x.ブランド || '', x.見出し || '', x.現在地 || '', x.次に || '']))],
         ['商品と在庫', 控えの表(['商品名', '種類', '価格', '在庫'],
