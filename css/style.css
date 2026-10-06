@@ -10140,6 +10140,7 @@ html[data-theme] .chat-bubble.user {
 .today-resume { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 0.75rem; margin: 0.5rem 0; border-radius: 8px; background: rgba(59, 130, 246, 0.08); font-size: 0.85rem; }
 .progress-form, .ledger-form, .ledger-price { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
 .progress-form input[type="text"], .ledger-form input[type="text"], .ledger-form textarea { flex: 1 1 200px; }
+.progress-sheet-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .ledger-form textarea { min-width: 100%; }
 .ledger-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.5rem; margin: 0.5rem 0; }
 .ledger-sum { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }

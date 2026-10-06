@@ -330,9 +330,27 @@ const この端末だけの口 = [
     '/api/restart-gateway', // 入口を落とせる
 ];
 
+/**
+ * 本当の相手の住所。
+ *
+ * tailscale serve（Tailscale の https の入口）は、この端末の中から
+ * 127.0.0.1 として中継してくる。そのまま信じると、Tailscale の中の
+ * 端末が「この端末そのもの」として合言葉も無しに通ってしまう。
+ * この端末から来ていて中継の印（X-Forwarded-For・Tailscale-User-Login）
+ * があるときは、中継元の住所で判定する。印が読めなければ外とみなす。
+ */
+function 本当の住所(req) {
+    const 住所 = (req.socket && req.socket.remoteAddress) || '';
+    if (!自分の端末か(住所)) return 住所;
+    const 中継 = req.headers['x-forwarded-for'];
+    if (!中継 && !req.headers['tailscale-user-login']) return 住所;
+    const 元 = String(中継 || '').split(',')[0].trim();
+    return 元 && !自分の端末か(元) ? 元 : '中継元不明';
+}
+
 function 門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか) {
     app.use((req, res, next) => {
-        const 住所 = (req.socket && req.socket.remoteAddress) || '';
+        const 住所 = 本当の住所(req);
 
         // 自分の端末は、いつでもそのまま通す。
         // ここを閉じると、自分が自分の道具を使えなくなる。
@@ -446,4 +464,6 @@ module.exports = {
     設定を書く,
     同じLANか,
     Tailscaleの中か,
+    本当の住所,
+    自分の端末か,
 };

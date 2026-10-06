@@ -114,6 +114,24 @@ else
     ask "Chrome の公式ダウンロードページを開きますか？" && open "https://www.google.com/chrome/"
 fi
 
+# --- Tailscale の https 入口（任意） ---
+# serve は自分の Tailscale の中だけに見える入口（funnel と違い、インターネットには出ない）。
+TS_BIN="$(command -v tailscale || true)"
+[ -n "$TS_BIN" ] || { [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ] && TS_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale; }
+if [ -z "$TS_BIN" ]; then
+    echo "－ Tailscale（任意。外から自分の端末で使うなら https://tailscale.com から入れてログイン）"
+elif ! "$TS_BIN" status --json 2>/dev/null | grep -q '"BackendState": *"Running"'; then
+    echo "－ Tailscale は入っていますが、ログインしていません（メニューバーの Tailscale からログイン）"
+elif "$TS_BIN" serve status 2>/dev/null | grep -q '127.0.0.1:8080'; then
+    echo "✓ Tailscale の https 入口"
+elif ask "Tailscale の中だけに https の入口を開きますか？（iPhone などでマイクが使えるようになります）"; then
+    if "$TS_BIN" serve --bg 8080; then
+        echo "✓ Tailscale の https 入口（AReGLM の 設定 →「他の端末」で「Tailscaleから使う」を入にしてください）"
+    else
+        echo "－ 開けませんでした。Tailscale の管理画面（DNS）で MagicDNS と HTTPS Certificates を有効にしてから、もう一度開いてください"
+    fi
+fi
+
 # --- デスクトップに置く ---
 echo
 bash "$TOOL/ホーム画面に置く.command"
@@ -122,7 +140,7 @@ echo
 if [ ${#MISSING[@]} -eq 0 ]; then
     echo "準備ができました。"
 else
-    echo "まだMISSINGもの:"
+    echo "まだ足りないもの:"
     printf '  ・%s\n' "${MISSING[@]}"
 fi
 echo

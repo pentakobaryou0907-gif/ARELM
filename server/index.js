@@ -1508,6 +1508,17 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-09-03',
     },
     {
+        // 進捗ログ（TUDURI・INTGLM など）を Google スプレッドシートへ積む用。
+        // スコープは drive.file のままなので、このアプリが作った表にしか触れない。
+        host: 'sheets.googleapis.com',
+        name: 'Google Sheets API',
+        provider: 'Google（公式）',
+        terms: 'https://developers.google.com/terms',
+        無料か: true,
+        無料の中身: '無料（1分あたりの回数に上限あり／2026年10月時点）',
+        確かめた日: '2026-10-06',
+    },
+    {
         // Gmail連携（週次レポートの送信など）用。gmail.send スコープのみを
         // 要求しており、受信箱の閲覧・削除はできない（Google側の権限モデル）。
         host: 'gmail.googleapis.com',
@@ -2845,6 +2856,35 @@ app.post('/api/drive-proxy', async (req, res) => {
 });
 
 /**
+ * Google スプレッドシート（進捗ログ）
+ *
+ * 通すのは /v4/spreadsheets 配下の、表を作る・行を足す・読むだけ。
+ * 消す（batchUpdate の deleteSheet 等）は通さない。
+ */
+app.post('/api/sheets-proxy', async (req, res) => {
+    const token = req.headers['x-google-access-token'];
+    if (!token) return res.status(401).json({ error: 'Googleのアクセストークンが必要です' });
+    const { method, path, body } = req.body || {};
+    const 形 = /^\/v4\/spreadsheets(\/[\w-]+(\/values\/[\w%!:.-]+(:append)?)?)?(\?[\w=&%.-]*)?$/;
+    if (!['GET', 'POST'].includes(method) || !path || !形.test(path) || path.includes(':batchUpdate')) {
+        return res.status(400).json({ error: 'この操作は通しません（表を作る・行を足す・読むだけです）' });
+    }
+    try {
+        const upstream = await safeFetch(`https://sheets.googleapis.com${path}`, {
+            method,
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: method === 'GET' ? undefined : JSON.stringify(body || {}),
+        });
+        const text = await upstream.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        res.status(upstream.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * YouTube動画のアップロード（公式Data API v3・再開可能アップロード）
  *
  * メディアスタジオで組み立てた動画を、そのままYouTubeへ上げられるように
@@ -3086,8 +3126,7 @@ function gitで実行(args) {
  * 新しいコードで立て直してもらう。
  */
 app.post('/api/self-update', (req, res) => {
-    const 元 = String(req.socket.remoteAddress || '');
-    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(元)) {
+    if (!門番.自分の端末か(門番.本当の住所(req))) {
         return res.status(403).json({ ok: false, 訳: '最新にするのは、この端末からだけです' });
     }
     try {
@@ -3167,6 +3206,36 @@ function 場所にあるか(候補) {
     return 候補.find((p) => p && fs.existsSync(p)) || null;
 }
 
+/**
+ * Tailscale の様子。CLI が無い・ログインしていないときは、その旨だけ返す。
+ * https 入口は、tailscale serve が 8080 を中継しているかで見る。
+ */
+function Tailscaleの様子() {
+    const 候補 = process.platform === 'darwin'
+        ? ['tailscale', '/Applications/Tailscale.app/Contents/MacOS/Tailscale']
+        : process.platform === 'win32'
+            ? ['tailscale', path.join(process.env.ProgramFiles || '', 'Tailscale', 'tailscale.exe')]
+            : ['tailscale'];
+    for (const 命令 of 候補) {
+        let 様子;
+        try {
+            様子 = JSON.parse(実行(命令, ['status', '--json'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }));
+        } catch (e) {
+            if (e.code === 'ENOENT') continue;
+            return { 入っている: true, ログイン: false };
+        }
+        const ログイン = 様子.BackendState === 'Running';
+        let https入口 = null;
+        try {
+            const 中継 = 実行(命令, ['serve', 'status', '--json'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+            const 名 = String(様子.Self?.DNSName || '').replace(/\.$/, '');
+            if (/127\.0\.0\.1:8080|localhost:8080/.test(中継) && 名) https入口 = `https://${名}/`;
+        } catch { /* serve を使っていない */ }
+        return { 入っている: true, ログイン, 名前: 様子.Self?.DNSName ? String(様子.Self.DNSName).replace(/\.$/, '') : '', https入口 };
+    }
+    return { 入っている: false };
+}
+
 app.get('/api/setup-status', (_, res) => {
     const 家 = os.homedir();
     const mac = process.platform === 'darwin';
@@ -3209,6 +3278,19 @@ app.get('/api/setup-status', (_, res) => {
         || 場所にあるか(mac ? ['/Applications/Syncthing.app'] : [path.join(家, 'AppData/Local/Programs/Syncthing')]), 'https://syncthing.net');
     足す('Tailscale（外から自分の端末へ）', false, 版を調べる('tailscale', ['version'])
         || 場所にあるか(mac ? ['/Applications/Tailscale.app'] : [path.join(process.env.ProgramFiles || '', 'Tailscale')]), 'https://tailscale.com');
+    if (mac) {
+        足す('ログインしたら自動で起動', false, 場所にあるか(['jp.areglm.watcher.plist', 'com.ari.areglm.server.plist']
+            .map((f) => path.join(家, 'Library', 'LaunchAgents', f))) ? '登録済み' : null, 'ホーム画面に置く.command をもう一度開く');
+    } else if (win) {
+        足す('サインインしたら自動で起動', false, 場所にあるか([path.join(process.env.APPDATA || '',
+            'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'AReGLM見張り.lnk')]) ? '登録済み' : null, 'ホーム画面に置く.bat をもう一度開く');
+    }
+    const ts = Tailscaleの様子();
+    if (ts.入っている) {
+        足す('Tailscale にログイン', false, ts.ログイン ? `${ts.名前 || 'ログイン済み'}` : null, 'Tailscale のアプリでログインする');
+        足す('Tailscale の https 入口（tailscale serve）', false, ts.https入口,
+            mac ? '準備する.command をもう一度開く（y で入れる）' : 'tailscale serve --bg 8080');
+    }
 
     res.json({ ok: true, OS: process.platform, 項目 });
 });

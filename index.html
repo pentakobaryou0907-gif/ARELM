@@ -199,11 +199,21 @@
                         </div>
                         <form id="progress-form" class="progress-form">
                             <select id="progress-task" title="どのやることの進捗か"></select>
+                            <select id="progress-brand" title="どのブランドの進捗か">
+                                <option value="">（ブランド）</option>
+                                <option value="ARELM">ARELM</option>
+                                <option value="TUDURI">TUDURI</option>
+                                <option value="INTGLM">INTGLM</option>
+                            </select>
                             <input type="text" id="progress-where" placeholder="いまどこまで進んだか（例: デザイン完成、モックアップ待ち）">
                             <input type="text" id="progress-next" placeholder="次にやること">
                             <label class="hint"><input type="checkbox" id="progress-nomove"> 今日は売上・支出の動きなし</label>
                             <button type="submit" class="btn btn-secondary btn-sm">現在地を残す</button>
                         </form>
+                        <div class="progress-sheet-row">
+                            <button type="button" id="progress-sheet-btn" class="btn btn-secondary btn-sm">Googleスプレッドシートに送る</button>
+                            <small id="progress-sheet-status" class="hint">進捗・投稿ログ・お金の記録のうち、まだ送っていない分を「ARELM 進捗ログ」の表に足します（設定 → Google連携でログインが先に要ります）。</small>
+                        </div>
                     </section>
 
                     <section data-home-group="today" class="panel-card">

@@ -204,6 +204,7 @@ function 進捗を残す(e) {
         現在地: 現在地 || '今日は売上・支出の動きなし',
         次に,
         動きなし,
+        ブランド: document.getElementById('progress-brand')?.value || '',
     });
     運用で保存(運用_進捗キー, ログ.slice(-300));
     ['progress-where', 'progress-next'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -333,6 +334,32 @@ function 更新記録を描く() {
         : '<li class="hint">まだ更新の記録がありません</li>';
 }
 
+/* ---------------- Googleスプレッドシート ---------------- */
+
+async function 進捗を表に送る() {
+    const ボタン = document.getElementById('progress-sheet-btn');
+    const 札 = document.getElementById('progress-sheet-status');
+    const 書く = (html) => { if (札) 札.innerHTML = html; };
+    if (!window.AReGLM_SHEETS || !window.AReGLM_GOOGLE_OAUTH) return;
+    if (!(await AReGLM_GOOGLE_OAUTH.isConnected())) {
+        書く('まだGoogleと連携していません。設定 →「Google連携」でクライアントIDを入れてログインしてください。');
+        return;
+    }
+    if (ボタン) ボタン.disabled = true;
+    書く('送っています…');
+    try {
+        const r = await AReGLM_SHEETS.まだの分を送る();
+        const 合計 = r.件数.進捗 + r.件数.投稿ログ + r.件数.お金;
+        書く(`${合計 ? `進捗${r.件数.進捗}件・投稿ログ${r.件数.投稿ログ}件・お金${r.件数.お金}件を足しました。` : '新しく送るものはありませんでした。'}`
+            + ` <a href="${AReGLM_SECURITY.sanitizeHtml(r.URL)}" target="_blank" rel="noopener">表を開く</a>`);
+        if (window.logActivity) logActivity('進捗をGoogleスプレッドシートへ', { category: 'task', text: `${合計}件` });
+    } catch (e) {
+        書く(AReGLM_SECURITY.sanitizeHtml(`送れませんでした: ${e.message}`));
+    } finally {
+        if (ボタン) ボタン.disabled = false;
+    }
+}
+
 /* ---------------- まとめて描く ---------------- */
 
 function 今日の運用を描く() {
@@ -374,6 +401,7 @@ function init今日の運用() {
     document.getElementById('progress-form')?.addEventListener('submit', 進捗を残す);
     document.getElementById('postlog-form')?.addEventListener('submit', 投稿を記録する);
     document.getElementById('updatelog-form')?.addEventListener('submit', 更新を記録する);
+    document.getElementById('progress-sheet-btn')?.addEventListener('click', 進捗を表に送る);
 
     const 媒体 = document.getElementById('postlog-media');
     if (媒体) 媒体.innerHTML = 投稿の媒体.map((m) => `<option value="${m}">${m}</option>`).join('');

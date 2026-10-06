@@ -133,6 +133,44 @@ LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServic
 [ -x "$LSREG" ] && "$LSREG" -f "$HOME/Applications/AReGLM.app" "$DESK/AReGLM.app" >/dev/null 2>&1
 rm -rf "$WORK"
 
+# ログインしたら見張りを裏で起こす（launchd）。見張りが落ちたら立て直すが、
+# 既に別の見張りが動いていて自分から終わった（終了コード0）ときは立て直さない。
+# デスクトップ・書類の中は、launchd から読むと macOS に止められることがあるので登録しない。
+LABEL="jp.areglm.watcher"
+AGENTS="$HOME/Library/LaunchAgents"
+PLIST="$AGENTS/$LABEL.plist"
+case "$TOOL" in
+    "$HOME/Desktop"/*|"$HOME/Documents"/*|"$HOME/Library/Mobile Documents"/*)
+        echo "  ログイン時の自動起動は登録しませんでした（ツールがデスクトップ・書類・iCloud の中にあるため。~/Developer などへ移すと登録します）"
+        ;;
+    *)
+        mkdir -p "$AGENTS" "$HOME/Library/Logs/AReGLM"
+        TOOL_XML="$(printf '%s' "$TOOL" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+        LOGS_XML="$(printf '%s' "$HOME/Library/Logs/AReGLM" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+        cat > "$PLIST" <<AGENT
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>$TOOL_XML/見張り.sh</string></array>
+  <key>WorkingDirectory</key><string>$TOOL_XML</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>StandardOutPath</key><string>$LOGS_XML/見張り.log</string>
+  <key>StandardErrorPath</key><string>$LOGS_XML/見張り.log</string>
+</dict></plist>
+AGENT
+        launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1
+        sleep 1
+        if launchctl bootstrap "gui/$(id -u)" "$PLIST" >/dev/null 2>&1; then
+            echo "  ログインしたら見張りが裏で立ち上がるようにしました（$PLIST）"
+        else
+            echo "  ログイン時の自動起動を登録できませんでした（$PLIST は置いたので、次のログインで読まれます）"
+        fi
+        ;;
+esac
+
 echo
 echo "できました。デスクトップの「AReGLM」を開くと、ログイン画面が出ます。"
 echo "前の AReGLM は次の場所に残してあります: $USED"
