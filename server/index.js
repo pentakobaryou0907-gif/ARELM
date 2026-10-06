@@ -7,6 +7,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -1585,6 +1586,24 @@ const OFFICIAL_API_ALLOWLIST = [
         確かめた日: '2026-08-30',
     },
     {
+        host: 'api.switch-bot.com',
+        name: 'SwitchBot API',
+        provider: 'SwitchBot（公式）',
+        terms: 'https://github.com/OpenWonderLabs/SwitchBotAPI',
+        無料か: true,
+        無料の中身: 'アプリで発行するトークンで無料（1日1万回まで／2026年10月時点）',
+        確かめた日: '2026-10-06',
+    },
+    {
+        host: 'api.github.com',
+        name: 'GitHub REST API',
+        provider: 'GitHub（公式）',
+        terms: 'https://docs.github.com/en/site-policy/github-terms/github-terms-of-service',
+        無料か: true,
+        無料の中身: '個人用トークンでのAPI利用は無料枠あり（回数上限あり／2026年10月時点）',
+        確かめた日: '2026-10-06',
+    },
+    {
         host: 'api.anthropic.com',
         name: 'Anthropic Claude API',
         provider: 'Anthropic（公式）',
@@ -2365,6 +2384,180 @@ app.post('/api/notion-proxy', async (req, res) => {
 });
 
 /**
+ * GitHub へファイルを1つ書く（バックアップ・進捗ログ用）
+ *
+ * トークンは毎回本文で受け取り、サーバーには残さない。
+ * パスは areglm-backups/ と areglm-logs/ だけ許可する。
+ * 秘密の鍵や .env はここに載せない（クライアント側でもバックアップから除外済み）。
+ */
+/**
+ * 家電の操作（SwitchBot 公式API v1.1）
+ *
+ * 通すのは下の決まった操作だけ。鍵を開ける操作は、
+ * 画面で本人が確かめた印（confirmed）が無いと送らない。
+ */
+const SWITCHBOT_許す操作 = new Set([
+    'turnOn', 'turnOff', 'press', 'toggle', 'setBrightness', 'setColor', 'setColorTemperature',
+    'setAll', 'volumeAdd', 'volumeSub', 'channelAdd', 'channelSub', 'setMute',
+    'Play', 'Pause', 'Stop', 'Next', 'Previous', 'open', 'close', 'pause', 'lock', 'unlock',
+]);
+const SWITCHBOT_確認が要る操作 = new Set(['unlock']);
+
+function SwitchBotの印(token, secret) {
+    const t = String(Date.now());
+    const nonce = crypto.randomUUID();
+    const sign = crypto.createHmac('sha256', secret).update(Buffer.from(token + t + nonce, 'utf8')).digest('base64');
+    return {
+        Authorization: token, sign, t, nonce,
+        'Content-Type': 'application/json; charset=utf8',
+    };
+}
+
+function SwitchBotの鍵を確かめる(req, res) {
+    const { token, secret } = req.body || {};
+    if (!token || !secret || typeof token !== 'string' || typeof secret !== 'string'
+        || token.length > 300 || secret.length > 300) {
+        res.status(401).json({ ok: false, 訳: 'SwitchBotのトークンとシークレットが必要です（設定 → 家電）' });
+        return null;
+    }
+    return { token, secret };
+}
+
+app.post('/api/switchbot/devices', async (req, res) => {
+    const 鍵 = SwitchBotの鍵を確かめる(req, res);
+    if (!鍵) return;
+    try {
+        const r = await safeFetch('https://api.switch-bot.com/v1.1/devices', { headers: SwitchBotの印(鍵.token, 鍵.secret) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.statusCode !== 100) {
+            return res.status(502).json({ ok: false, 訳: `SwitchBotが受け付けませんでした（${d.message || r.status}）` });
+        }
+        const 機器 = [
+            ...(d.body?.deviceList || []).map((x) => ({ id: x.deviceId, 名: x.deviceName, 種類: x.deviceType, 赤外線: false })),
+            ...(d.body?.infraredRemoteList || []).map((x) => ({ id: x.deviceId, 名: x.deviceName, 種類: x.remoteType, 赤外線: true })),
+        ];
+        res.json({ ok: true, 機器 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/switchbot/command', async (req, res) => {
+    const 鍵 = SwitchBotの鍵を確かめる(req, res);
+    if (!鍵) return;
+    const { deviceId, command, parameter, commandType, confirmed } = req.body || {};
+    if (!deviceId || !/^[A-Za-z0-9-]{1,64}$/.test(deviceId)) {
+        return res.status(400).json({ ok: false, 訳: '機器の指定が正しくありません' });
+    }
+    const 独自 = commandType === 'customize';
+    if (!独自 && !SWITCHBOT_許す操作.has(command)) {
+        return res.status(400).json({ ok: false, 訳: `この操作は通していません: ${command}` });
+    }
+    if (独自 && (typeof command !== 'string' || command.length > 40)) {
+        return res.status(400).json({ ok: false, 訳: 'ボタン名が正しくありません' });
+    }
+    if (SWITCHBOT_確認が要る操作.has(command) && confirmed !== true) {
+        return res.status(403).json({ ok: false, 訳: '鍵を開ける操作は、画面で確かめてからでないと送りません' });
+    }
+    const 値 = parameter == null ? 'default' : parameter;
+    if (typeof 値 !== 'string' && typeof 値 !== 'number') {
+        return res.status(400).json({ ok: false, 訳: '値が正しくありません' });
+    }
+    try {
+        const r = await safeFetch(`https://api.switch-bot.com/v1.1/devices/${encodeURIComponent(deviceId)}/commands`, {
+            method: 'POST',
+            headers: SwitchBotの印(鍵.token, 鍵.secret),
+            body: JSON.stringify({ command, parameter: 値, commandType: 独自 ? 'customize' : 'command' }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.statusCode !== 100) {
+            return res.status(502).json({ ok: false, 訳: `SwitchBotが受け付けませんでした（${d.message || r.status}）` });
+        }
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/github/put-file', async (req, res) => {
+    const {
+        token, owner, repo, branch, path: filePath, content, message,
+    } = req.body || {};
+    if (!token || typeof token !== 'string') {
+        return res.status(401).json({ ok: false, 訳: 'GitHubトークンが必要です' });
+    }
+    if (!owner || !repo || !/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+        return res.status(400).json({ ok: false, 訳: 'オーナー名またはリポジトリ名が正しくありません' });
+    }
+    if (!filePath || typeof filePath !== 'string'
+        || !/^(areglm-backups|areglm-logs)\/[A-Za-z0-9_./-]+\.json$/.test(filePath)
+        || filePath.includes('..')) {
+        return res.status(400).json({ ok: false, 訳: '書き込める場所は areglm-backups/ と areglm-logs/ だけです' });
+    }
+    if (typeof content !== 'string' || !content.length) {
+        return res.status(400).json({ ok: false, 訳: '中身が空です' });
+    }
+    if (Buffer.byteLength(content, 'utf8') > 8 * 1024 * 1024) {
+        return res.status(400).json({ ok: false, 訳: '8MBを超える控えは上げられません' });
+    }
+    const 枝 = (branch && /^[A-Za-z0-9_./-]+$/.test(branch)) ? branch : 'main';
+    const 文言 = (message && String(message).slice(0, 200)) || `ARELM backup ${new Date().toISOString()}`;
+
+    try {
+        const encPath = filePath.split('/').map(encodeURIComponent).join('/');
+        const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encPath}`;
+        let sha;
+        try {
+            const 既存 = await safeFetch(`${base}?ref=${encodeURIComponent(枝)}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'User-Agent': 'ARELM',
+                },
+            });
+            if (既存.ok) {
+                const d = await 既存.json();
+                if (d && d.sha) sha = d.sha;
+            }
+        } catch { /* 新規作成でよい */ }
+
+        const body = {
+            message: 文言,
+            content: Buffer.from(content, 'utf8').toString('base64'),
+            branch: 枝,
+        };
+        if (sha) body.sha = sha;
+
+        const upstream = await safeFetch(base, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+                'User-Agent': 'ARELM',
+            },
+            body: JSON.stringify(body),
+        });
+        const data = await upstream.json().catch(() => ({}));
+        if (!upstream.ok) {
+            return res.status(upstream.status).json({
+                ok: false,
+                訳: data.message || `GitHubが拒否しました（HTTP ${upstream.status}）`,
+            });
+        }
+        res.json({
+            ok: true,
+            path: filePath,
+            html_url: data.content?.html_url || data.commit?.html_url || null,
+        });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message || 'GitHubへ送れませんでした' });
+    }
+});
+
+/**
  * Obsidian連携（Local REST APIプラグイン経由）
  *
  * ObsidianはVault自体がこの端末（またはLAN内の別端末）にあり、
@@ -2885,6 +3078,37 @@ function gitで実行(args) {
 }
 
 /**
+ * GitHub から最新にする（この端末からだけ）。
+ *
+ * 早送りできるときだけ取り込む（--ff-only）。手元に記録していない変更や、
+ * 食い違う記録があるときは何もせずに理由を返す。
+ * 取り込めたら少し待ってから終わり、見張り（launchd / 見張り.sh / 見張り.ps1）に
+ * 新しいコードで立て直してもらう。
+ */
+app.post('/api/self-update', (req, res) => {
+    const 元 = String(req.socket.remoteAddress || '');
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(元)) {
+        return res.status(403).json({ ok: false, 訳: '最新にするのは、この端末からだけです' });
+    }
+    try {
+        const 変更 = gitで実行(['status', '--porcelain', '--untracked-files=no']).trim();
+        if (変更) {
+            return res.status(409).json({ ok: false, 訳: 'まだ記録していない変更があるので、取り込みませんでした（自己修正の画面で記録するか元に戻してください）' });
+        }
+        const 枝 = gitで実行(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+        const 前 = gitで実行(['rev-parse', 'HEAD']).trim();
+        gitで実行(['pull', '--ff-only', 'origin', 枝]);
+        const 後 = gitで実行(['rev-parse', 'HEAD']).trim();
+        if (前 === 後) return res.json({ ok: true, 変わった: false, 訳: 'すでに最新です' });
+        const 一覧 = gitで実行(['log', '--oneline', `${前}..${後}`]).trim().split('\n').slice(0, 20);
+        res.json({ ok: true, 変わった: true, 訳: `${一覧.length}件の更新を取り込みました。サーバーを入れ替えます`, 一覧 });
+        setTimeout(() => process.exit(0), 1500);
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: `取り込めませんでした: ${String(e.stderr || e.message).slice(0, 300)}` });
+    }
+});
+
+/**
  * Node側から見える python3 は、pyenvのshimが必要なパッケージ
  * （numpy等）の入っていない別のバージョンを指してしまうことがある
  * （実際にテストで踏んだ）。自作AIエンジン本体（server.py）と
@@ -2926,6 +3150,68 @@ const PYTHON_BIN = (() => {
     }
     return process.platform === 'win32' ? 'python' : 'python3';
 })();
+
+/**
+ * 準備の状態 — このツールを動かす・作るのに要るものが揃っているか。
+ * この端末の中を見るだけ。外へは何も送らない。
+ */
+function 版を調べる(命令, 引数 = ['--version']) {
+    try {
+        return 実行(命令, 引数, { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'] }).trim().split(/\r?\n/)[0];
+    } catch {
+        return null;
+    }
+}
+
+function 場所にあるか(候補) {
+    return 候補.find((p) => p && fs.existsSync(p)) || null;
+}
+
+app.get('/api/setup-status', (_, res) => {
+    const 家 = os.homedir();
+    const mac = process.platform === 'darwin';
+    const win = process.platform === 'win32';
+    const 項目 = [];
+    const 足す = (名, 要る, 状態, 入れ方) => 項目.push({ 名, 要る, ある: !!状態, 状態: 状態 || '見つかりません', 入れ方 });
+
+    const node版 = process.versions.node;
+    足す('Node.js（18以上）', true, Number(node版.split('.')[0]) >= 18 ? `v${node版}` : null, 'https://nodejs.org の LTS');
+    足す('サーバーの部品（express）', true,
+        fs.existsSync(path.join(__dirname, 'node_modules', 'express', 'package.json')) ? '入っています' : null, 'server で npm install');
+
+    const py版 = 版を調べる(PYTHON_BIN);
+    足す('Python 3', true, py版, mac ? 'xcode-select --install、または https://www.python.org' : 'https://www.python.org');
+    let 部品 = {};
+    if (py版) {
+        try {
+            const 出 = 実行(PYTHON_BIN, ['-c', [
+                'import importlib.util as u, json',
+                'print(json.dumps({m: bool(u.find_spec(m)) for m in ["numpy", "PIL", "faster_whisper"]}))',
+            ].join('\n')], { encoding: 'utf8', timeout: 15000 });
+            部品 = JSON.parse(出.trim().split('\n').pop());
+        } catch { 部品 = {}; }
+    }
+    足す('numpy（自作AI）', true, 部品.numpy ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements.txt');
+    足す('Pillow（画像の解析）', true, 部品.PIL ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements.txt');
+    足す('faster-whisper（声を文字にする）', false, 部品.faster_whisper ? '入っています' : null, 'python3 -m pip install -r server/ai/requirements-voice.txt');
+    足す('ffmpeg（動画の解析）', false, 版を調べる('ffmpeg', ['-version']), mac ? 'brew install ffmpeg' : 'winget install Gyan.FFmpeg');
+    足す('Git（記録・更新）', true, 版を調べる('git'), mac ? 'xcode-select --install' : 'winget install Git.Git');
+    足す('Google Chrome', false, 場所にあるか(mac
+        ? ['/Applications/Google Chrome.app']
+        : win
+            ? [path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
+                path.join(process.env['ProgramFiles(x86)'] || '', 'Google/Chrome/Application/chrome.exe'),
+                path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe')]
+            : ['/usr/bin/google-chrome', '/usr/local/bin/google-chrome']) ? '入っています' : null,
+    'https://www.google.com/chrome/');
+    if (mac) 足す('Xcode コマンドラインツール（声の部品を作る）', false, 版を調べる('xcode-select', ['-p']), 'xcode-select --install');
+    足す('Syncthing（MacとPCで同期）', false, 版を調べる('syncthing', ['--version'])
+        || 場所にあるか(mac ? ['/Applications/Syncthing.app'] : [path.join(家, 'AppData/Local/Programs/Syncthing')]), 'https://syncthing.net');
+    足す('Tailscale（外から自分の端末へ）', false, 版を調べる('tailscale', ['version'])
+        || 場所にあるか(mac ? ['/Applications/Tailscale.app'] : [path.join(process.env.ProgramFiles || '', 'Tailscale')]), 'https://tailscale.com');
+
+    res.json({ ok: true, OS: process.platform, 項目 });
+});
 
 /** 変更されたコードファイルだけを検査する（学習データ等は対象外） */
 function 変更ファイルを検査する() {
@@ -3197,8 +3483,25 @@ app.listen(APP_PORT, '127.0.0.1', () => {
     console.warn(`アプリ用の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
 });
 
+/**
+ * Mac では、サーバーが立ち上がったときにデスクトップの AReGLM.app を確かめ、
+ * このツールが作ったもの（Resources/areglm-launcher の印）でなければ置き直す。
+ * Windows は 見張り.ps1 が同じことをするので、ここでは扱わない。
+ */
+function Macのデスクトップにアプリを置く() {
+    if (process.platform !== 'darwin' || process.env.AREGLM_NO_DESKTOP_APP === '1') return;
+    const 印 = path.join(os.homedir(), 'Desktop', 'AReGLM.app', 'Contents', 'Resources', 'areglm-launcher');
+    const 置く道具 = path.join(__dirname, '..', 'ホーム画面に置く.command');
+    if (fs.existsSync(印) || !fs.existsSync(置く道具)) return;
+    execFile('/bin/bash', [置く道具], { timeout: 60000 }, (e, out) => {
+        if (e) console.warn(`デスクトップに AReGLM を置けませんでした: ${e.message}`);
+        else console.log(`デスクトップに AReGLM を置きました\n${out}`);
+    });
+}
+
 app.listen(PORT, HOST, () => {
     console.log(`ARELM: http://localhost:${PORT}`);
+    setTimeout(Macのデスクトップにアプリを置く, 3000);
 
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {

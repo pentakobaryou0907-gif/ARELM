@@ -548,6 +548,18 @@ async function runConsoleCommand(text, target) {
         }
     }
 
+    // 家電・見守り・システム診断（ジャービス機能.js）。当てはまらなければ null が返る。
+    if (typeof ジャービスの指示を拾う === 'function') {
+        const 返事 = await ジャービスの指示を拾う(text);
+        if (返事) {
+            appendConsoleLine('assistant', 返事, target);
+            会話の記憶に足す(target, 'assistant', 返事);
+            if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
+            声で聞かれた = false;
+            return;
+        }
+    }
+
     // 0) まとめての仕事として頼まれていないか。
     //
     // 画面操作の振り分けより先に見る。
@@ -737,10 +749,11 @@ async function AIで意図を判定する(text, target) {
         // マルチエージェント化: 今見ている画面から、専門の担当を選んでもらう。
         const page = document.querySelector('.page.active')?.id?.replace('-page', '') || '';
 
-        // 「脳: Claude」「脳: Gemini」に切り替えているときは、エージェントの
-        // 判定そのものをそちらへ頼む（AIチャットの会話だけでなく、指示の
-        // 実行判定にも同じ「脳」を使う、という以前からの決定をここにも
-        // 反映する）。
+        // 「脳: Claude」「脳: Gemini」「脳: 自動」のとき。
+        // 自動でも、ツール操作の意図判定は常に自作AI（外へ出さない）。
+        if (typeof 作業に合う脳を決める === 'function') {
+            await 作業に合う脳を決める('agent');
+        }
         if (typeof Claudeを使うか === 'function' && Claudeを使うか()
             && typeof Claudeでエージェントの意図を判定する === 'function') {
             const 判定 = await Claudeでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);
@@ -1166,8 +1179,8 @@ function ブラウザ音声で切り替える(target) {
     if (!window.isSecureContext) {
         const msg = `今のURL（${location.host}）ではマイクを使えません。`
             + '\nブラウザの決まりで、マイクは 127.0.0.1 か localhost でしか許可されません。'
-            + '\n\nこのMacで使う場合は http://127.0.0.1:8080 で開いてください。'
-            + '\n（デスクトップの AReGLM.app から開くと、このURLになります）';
+            + '\n\nこの端末で使う場合は http://127.0.0.1:8090 で開いてください。'
+            + '\n（Mac はデスクトップの AReGLM.app、デスクトップPCは AReGLMを開く.bat から開くと、このURLになります）';
         showNotification('このURLではマイクを使えません', 'error');
         appendConsoleLine('assistant', msg, target);
         return;

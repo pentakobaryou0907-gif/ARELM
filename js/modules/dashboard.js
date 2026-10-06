@@ -101,7 +101,8 @@ function initAutomationIntervalSetting() {
 function loadDashboardData() {
     const brands = JSON.parse(localStorage.getItem('brands') || '[]');
     const products = JSON.parse(localStorage.getItem('products') || '[]');
-    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    const sales = JSON.parse(localStorage.getItem('sales') || '[]')
+        .concat(JSON.parse(localStorage.getItem('areglm_sales') || '[]'));
     const snsQueue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
     const ecSync = JSON.parse(localStorage.getItem('areglm_ec_sync_log') || '[]');
 

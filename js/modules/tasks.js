@@ -100,6 +100,7 @@ function renderTaskList() {
                     <span class="task-priority priority-${AReGLM_SECURITY.sanitizeHtml(t.priority)}">${{ high: '重要', normal: '通常', low: '低' }[t.priority] || '通常'}</span>
                     <button type="button" class="btn-link danger" data-id="${t.id}" data-action="delete">削除</button>
                 </span>
+                ${タスクの中身(t)}
             </li>`;
         })
         .join('');
@@ -110,6 +111,40 @@ function renderTaskList() {
     box.querySelectorAll('[data-action="delete"]').forEach((el) => {
         el.addEventListener('click', () => deleteTask(el.dataset.id));
     });
+    box.querySelectorAll('[data-action="check"]').forEach((el) => {
+        el.addEventListener('change', () => タスクのチェックを切り替える(el.dataset.id, Number(el.dataset.index)));
+    });
+}
+
+/** 目的／完了条件／必要素材／手順／チェック／ログ項目 を持つタスクだけ、開ける中身を出す */
+function タスクの中身(t) {
+    if (!t.目的 && !t.完了条件 && !(t.手順 || []).length && !(t.チェック || []).length) return '';
+    const s = (v) => AReGLM_SECURITY.sanitizeHtml(String(v ?? ''));
+    const 並べる = (名, 列) => (列 || []).length
+        ? `<div class="task-detail-row"><b>${名}</b><ol>${列.map((x) => `<li>${s(x)}</li>`).join('')}</ol></div>` : '';
+    const チェック = t.チェック || [];
+    const 済 = チェック.filter((c) => c.済).length;
+    return `<details class="task-detail">
+        <summary>中身を見る${チェック.length ? `（チェック ${済}/${チェック.length}）` : ''}</summary>
+        ${t.目的 ? `<div class="task-detail-row"><b>目的</b><span>${s(t.目的)}</span></div>` : ''}
+        ${t.完了条件 ? `<div class="task-detail-row"><b>完了条件</b><span>${s(t.完了条件)}</span></div>` : ''}
+        ${並べる('必要素材', t.必要素材)}
+        ${並べる('手順', t.手順)}
+        ${チェック.length ? `<div class="task-detail-row"><b>チェック</b><ul class="task-checks">${チェック.map((c, i) => `<li><label>
+            <input type="checkbox" data-action="check" data-id="${t.id}" data-index="${i}" ${c.済 ? 'checked' : ''}> ${s(c.文)}</label></li>`).join('')}</ul></div>` : ''}
+        ${(t.ログ項目 || []).length ? `<div class="task-detail-row"><b>ログに残すこと</b><span>${t.ログ項目.map(s).join('・')}</span></div>` : ''}
+    </details>`;
+}
+
+function タスクのチェックを切り替える(id, i) {
+    const tasks = loadTasks();
+    const t = tasks.find((x) => x.id === id);
+    if (!t || !t.チェック || !t.チェック[i]) return;
+    t.チェック[i].済 = !t.チェック[i].済;
+    saveTasks(tasks);
+    renderTaskList();
+    const 開く = document.querySelector(`#task-list [data-action="check"][data-id="${CSS.escape(id)}"]`)?.closest('details');
+    if (開く) 開く.open = true;
 }
 
 function toggleTask(id) {
@@ -122,6 +157,7 @@ function toggleTask(id) {
     }
     saveTasks(tasks);
     renderTaskList();
+    if (typeof 今日の運用を描く === 'function') 今日の運用を描く();
 
     // 繰り返しのものは、終わった時点で次回分を作る
     if (t && t.done && t.repeat && typeof 繰り返しの次を作る === 'function') {

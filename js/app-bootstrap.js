@@ -103,6 +103,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initImageEditor === 'function') initImageEditor();
     if (typeof initPersonalize === 'function') initPersonalize();
     if (typeof initMainAi === 'function') initMainAi();
+    if (typeof initエージェント能力板 === 'function') initエージェント能力板();
+    if (typeof initGitHub連携 === 'function') initGitHub連携();
     if (typeof initTextGen === 'function') initTextGen();
     if (typeof initQuickPanel === 'function') initQuickPanel();
     if (typeof initTheme === 'function') initTheme();
@@ -134,6 +136,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof initページ内目次 === 'function') initページ内目次();
     if (typeof init背景作業 === 'function') init背景作業();
     if (typeof init監視ダッシュボード === 'function') init監視ダッシュボード();
+    if (typeof initお金の帳面 === 'function') initお金の帳面();
+    if (typeof init今日の運用 === 'function') init今日の運用();
+    if (typeof initジャービス機能 === 'function') initジャービス機能();
+    if (typeof init準備の状態 === 'function') init準備の状態();
     if (typeof init外部ノート連携設定 === 'function') init外部ノート連携設定();
     if (typeof initVoiceUI === 'function') initVoiceUI();
     if (typeof init常駐の待ち受け === 'function') init常駐の待ち受け();

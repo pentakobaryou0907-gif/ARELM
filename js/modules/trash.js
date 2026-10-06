@@ -32,6 +32,9 @@ const 戻し先 = {
     event:   { 名: '予定',   鍵: 'areglm_events',   描く: 'renderCalendar' },
     sns:     { 名: 'SNS投稿', 鍵: 'areglm_sns_posts', 描く: 'renderSnsPosts' },
     rule:    { 名: 'ルール',  鍵: 'areglm_my_rules',  描く: 'renderRules' },
+    sale:    { 名: '売上',   鍵: 'areglm_sales',     描く: 'お金の帳面を描く' },
+    expense: { 名: '支出',   鍵: 'areglm_expenses',  描く: 'お金の帳面を描く' },
+    postlog: { 名: '投稿ログ', 鍵: 'areglm_post_log',  描く: '投稿ログを描く' },
     other:   { 名: 'その他',  鍵: '',                描く: '' },
 };
 

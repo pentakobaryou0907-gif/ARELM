@@ -70,8 +70,15 @@ def _アプリの場所():
     自分の位置から遡って探せば、どこへ移っても正しく言える。
     """
     ここ = os.path.abspath(__file__)
-    while ここ != '/':
-        ここ = os.path.dirname(ここ)
+    while True:
+        親 = os.path.dirname(ここ)
+        # Windows ではルートが '/' ではなく 'C:\\' のようになる。
+        # 親と自分が同じになったら、もう上はない。
+        # 以前は '/' だけを終了条件にしていたため、
+        # デスクトップPCではこの関数が戻ってこなかった。
+        if 親 == ここ:
+            break
+        ここ = 親
         if ここ.endswith('.app'):
             return ここ
     return '（アプリの外で動いています）'
@@ -1167,8 +1174,18 @@ def main():
     def _合図で終わる(番号, 位置):
         raise KeyboardInterrupt
 
-    signal.signal(signal.SIGTERM, _合図で終わる)
-    signal.signal(signal.SIGHUP, _合図で終わる)
+    # SIGHUP は Mac の終了合図。Windows にはこの合図自体が無い。
+    # 無い名前を登録しようとすると、待ち受けを始める前に落ちて、
+    # デスクトップPCでは自作AIが一度も起動しなかった。
+    # そのOSに存在する合図だけを受け取る。
+    for 合図名 in ('SIGTERM', 'SIGHUP', 'SIGBREAK'):
+        合図 = getattr(signal, 合図名, None)
+        if 合図 is None:
+            continue
+        try:
+            signal.signal(合図, _合図で終わる)
+        except (ValueError, OSError):
+            pass
 
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f'ARELM AI Engine: http://{HOST}:{PORT}')

@@ -112,6 +112,11 @@ const CHAT_BRAIN_KEY = 'areglm_chat_brain';
 // まとめて使う（3択目のGeminiを足すときに、あちこち直さず済むように）。
 const CHAT_BRAINS = {
     local: { 名: '自作AI', apiId: null },
+    auto: {
+        名: '自動', apiId: null,
+        送り先: '作業の種類に応じて',
+        課金: '外部AIを使うときだけ、設定したキーと許可が要ります',
+    },
     gemini: {
         名: 'Gemini', apiId: 'gemini',
         送り先: 'Google',
@@ -123,20 +128,67 @@ const CHAT_BRAINS = {
         課金: '使った分だけ課金されます（無料枠なし）',
     },
 };
-const CHAT_BRAIN_ORDER = ['local', 'gemini', 'claude'];
+const CHAT_BRAIN_ORDER = ['local', 'auto', 'gemini', 'claude'];
+
+/** 自動モードのとき、今回の1往復で実際に使う脳（local / gemini / claude） */
+let _areglm_今回の脳 = 'local';
 
 function 現在の脳() {
     const v = localStorage.getItem(CHAT_BRAIN_KEY);
     return CHAT_BRAINS[v] ? v : 'local';
 }
 
-// Claude連携.js・Gemini連携.js・console.js から今まで通り呼べるよう残す
-// （エージェント側の判定はこれで「Claudeか自作AIか」を見ていたため）。
 function Claudeを使うか() {
+    if (現在の脳() === 'auto') return _areglm_今回の脳 === 'claude';
     return 現在の脳() === 'claude';
 }
 function Geminiを使うか() {
+    if (現在の脳() === 'auto') return _areglm_今回の脳 === 'gemini';
     return 現在の脳() === 'gemini';
+}
+
+/**
+ * 作業の種類に合わせて、使う脳を決める。
+ *
+ * 自動モードのときだけ動く。固定で選んでいるときはその脳のまま。
+ * 外部へ出す前に、キーと「お金がかかる機能」の許可が無ければ自作AIへ戻す。
+ *
+ * 種類の目安:
+ *   vision … 画像・動画の読み取り
+ *   write  … 長文・投稿文・台本
+ *   chat   … ふつうの会話
+ *   agent  … ツール操作の意図判定（既定は自作AI。外に出さない）
+ */
+async function 作業に合う脳を決める(種類) {
+    const 固定 = 現在の脳();
+    if (固定 !== 'auto') {
+        _areglm_今回の脳 = 固定 === 'local' ? 'local' : 固定;
+        return _areglm_今回の脳;
+    }
+
+    const 候補順 = {
+        vision: ['gemini', 'local'],
+        write: ['claude', 'gemini', 'local'],
+        chat: ['gemini', 'claude', 'local'],
+        agent: ['local'],
+        tool: ['local'],
+    }[種類] || ['local'];
+
+    for (const id of 候補順) {
+        if (id === 'local') {
+            _areglm_今回の脳 = 'local';
+            return 'local';
+        }
+        const 情報 = CHAT_BRAINS[id];
+        if (!情報?.apiId) continue;
+        const 鍵 = await AReGLM_SECURITY.loadApiKeySecure('ai', 情報.apiId);
+        if (!鍵) continue;
+        if (typeof 使ってよいか === 'function' && !使ってよいか(情報.apiId)) continue;
+        _areglm_今回の脳 = id;
+        return id;
+    }
+    _areglm_今回の脳 = 'local';
+    return 'local';
 }
 
 function 脳の表示を直す() {
@@ -146,13 +198,17 @@ function 脳の表示を直す() {
     const 情報 = CHAT_BRAINS[脳];
     if (b) {
         b.textContent = `脳: ${情報.名}`;
-        b.classList.toggle('btn-accent', 脳 !== 'local');
-        b.classList.toggle('btn-secondary', 脳 === 'local');
+        b.classList.toggle('btn-accent', 脳 !== 'local' && 脳 !== 'auto');
+        b.classList.toggle('btn-secondary', 脳 === 'local' || 脳 === 'auto');
     }
     if (who) {
-        who.innerHTML = 脳 === 'local'
-            ? '自作AI<small>この端末の中だけで動きます</small>'
-            : `${情報.名}<small>会話・エージェントへの指示ともに外部（${情報.送り先}）へ送られます・${情報.課金}</small>`;
+        if (脳 === 'local') {
+            who.innerHTML = '自作AI<small>この端末の中だけで動きます</small>';
+        } else if (脳 === 'auto') {
+            who.innerHTML = '自動<small>画像はGemini、長文はClaude、操作は自作AI。鍵と許可があるときだけ外部へ</small>';
+        } else {
+            who.innerHTML = `${情報.名}<small>会話・エージェントへの指示ともに外部（${情報.送り先}）へ送られます・${情報.課金}</small>`;
+        }
     }
 }
 
@@ -162,6 +218,22 @@ async function 脳を切り替える() {
 
     if (次 === 'local') {
         localStorage.removeItem(CHAT_BRAIN_KEY);
+        _areglm_今回の脳 = 'local';
+        脳の表示を直す();
+        return;
+    }
+
+    if (次 === 'auto') {
+        const よいか = confirm(
+            '会話の脳を「自動」にします。\n\n'
+            + '・画像の読み取り → Gemini（キーと許可があるとき）\n'
+            + '・長文・投稿文 → Claude、無ければ Gemini\n'
+            + '・ツール操作の判定 → 常に自作AI（外へ出しません）\n'
+            + '・鍵や許可が無いときは、黙って自作AIに戻します\n\n'
+            + 'よろしいですか？');
+        if (!よいか) return;
+        localStorage.setItem(CHAT_BRAIN_KEY, 'auto');
+        _areglm_今回の脳 = 'local';
         脳の表示を直す();
         return;
     }
@@ -193,6 +265,7 @@ async function 脳を切り替える() {
     if (!よいか) return;
 
     localStorage.setItem(CHAT_BRAIN_KEY, 次);
+    _areglm_今回の脳 = 次;
     脳の表示を直す();
 }
 
@@ -807,9 +880,20 @@ async function handleChatSubmit(e) {
     }
 
     // 既定は自作AI（この端末の中だけ）。
-    // 本人が上の「脳」切り替えでClaudeを選んだときだけ外部へ出す。
-    // お金の関所（paid-guard）を通らなければ、自動で自作AIに戻る。
-    const provider = Claudeを使うか() ? 'claude' : 'local';
+    // 「自動」のときは作業の種類で脳を選び、鍵・許可が無ければ自作AIへ戻す。
+    // 本人が固定で外部AIを選んだときだけ、常にそちらへ出す。
+    const 添付あり = chatAttachments.some((a) => a && (a.type || '').startsWith('image'));
+    const 長文っぽい = /投稿|台本|キャプション|スライド|企画書|メール|説明文/.test(text);
+    const 脳の種類 = 添付あり ? 'vision' : (長文っぽい ? 'write' : 'chat');
+    const 選んだ脳 = typeof 作業に合う脳を決める === 'function'
+        ? await 作業に合う脳を決める(脳の種類)
+        : (Claudeを使うか() ? 'claude' : (Geminiを使うか() ? 'gemini' : 'local'));
+    const provider = 選んだ脳 === 'claude' ? 'claude'
+        : (選んだ脳 === 'gemini' ? 'gemini' : 'local');
+    if (現在の脳() === 'auto' && 選んだ脳 !== 'local') {
+        const 名 = CHAT_BRAINS[選んだ脳]?.名 || 選んだ脳;
+        showNotification(`自動: 今回は「${名}」で進めます`, 'info');
+    }
 
     // 何を作りたいかは、言葉から読み取る。
     //

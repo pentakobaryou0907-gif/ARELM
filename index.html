@@ -186,6 +186,26 @@
                         </div>
                     </section>
 
+                    <section data-home-group="today" class="panel-card full-width" id="today-ops-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">✅</span>今日の運用 <small id="today-kpi-status" class="hint"></small></h3>
+                            <button type="button" id="today-routine-btn" class="btn btn-primary btn-sm">今日やることを作る</button>
+                        </div>
+                        <p class="hint">毎日の最低ライン（商品1件・SNS1投稿・記録）を、実際に入っているデータから判定します。「今日やること」は制作→投稿準備→記録→整理→学習→改善提案の順で、目的・完了条件・手順・チェックつきのタスクになります。</p>
+                        <ul id="today-kpi" class="today-kpi"></ul>
+                        <div id="today-resume" class="today-resume" hidden>
+                            <span data-resume-text></span>
+                            <button type="button" id="today-resume-btn" class="btn btn-secondary btn-sm">ここから再開</button>
+                        </div>
+                        <form id="progress-form" class="progress-form">
+                            <select id="progress-task" title="どのやることの進捗か"></select>
+                            <input type="text" id="progress-where" placeholder="いまどこまで進んだか（例: デザイン完成、モックアップ待ち）">
+                            <input type="text" id="progress-next" placeholder="次にやること">
+                            <label class="hint"><input type="checkbox" id="progress-nomove"> 今日は売上・支出の動きなし</label>
+                            <button type="submit" class="btn btn-secondary btn-sm">現在地を残す</button>
+                        </form>
+                    </section>
+
                     <section data-home-group="today" class="panel-card">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">⏱</span>タイマー</h3>
@@ -451,6 +471,101 @@
                         </div>
                         <div id="memo-list" class="memo-list"></div>
                     </section>
+                    <section data-home-group="note" class="panel-card full-width" id="ledger-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">¥</span>お金の帳面<small class="hint">（端末内のみ）</small></h3>
+                            <button type="button" id="ledger-balance-btn" class="btn btn-secondary btn-sm">元手を決める</button>
+                        </div>
+                        <p class="hint">売上ごとに手数料・原価・利益・販売先を残し、商品別の表と資金残高の移り変わりを出します。手数料率は目安なので、変わっていたら「率を直す」で自分の数字にしてください。</p>
+                        <div id="ledger-summary" class="ledger-summary"></div>
+                        <form id="ledger-form" class="ledger-form">
+                            <select id="ledger-kind" title="種類">
+                                <option value="sale">売上</option>
+                                <option value="expense">支出</option>
+                            </select>
+                            <input type="date" id="ledger-date" title="日付">
+                            <input type="text" id="ledger-product" list="ledger-product-options" placeholder="商品（商品番号_商品名）">
+                            <datalist id="ledger-product-options"></datalist>
+                            <select id="ledger-channel" title="販売先" data-ledger-sale></select>
+                            <input type="number" id="ledger-qty" min="1" value="1" title="数量" data-ledger-sale>
+                            <input type="text" id="ledger-category" placeholder="何に使ったか（材料・送料・広告…）" data-ledger-expense hidden>
+                            <input type="number" id="ledger-amount" min="0" placeholder="金額（円）" required>
+                            <input type="number" id="ledger-fee" min="0" placeholder="手数料（空なら目安）" data-ledger-sale>
+                            <input type="number" id="ledger-cost" min="0" placeholder="原価（仕入・素材・制作）" data-ledger-sale>
+                            <input type="text" id="ledger-note" placeholder="メモ（任意）">
+                            <button type="submit" class="btn btn-primary btn-sm">記録する</button>
+                        </form>
+                        <p class="hint" data-ledger-sale><span id="ledger-fee-note"></span> <button type="button" id="ledger-fee-edit-btn" class="btn-link">率を直す</button></p>
+
+                        <h4 class="media-sub">赤字にならない値段</h4>
+                        <div class="ledger-price">
+                            <input type="number" id="ledger-price-cost" min="0" placeholder="原価（円）">
+                            <input type="number" id="ledger-price-profit" min="0" placeholder="残したい利益（円）">
+                            <select id="ledger-price-channel" title="販売先"></select>
+                        </div>
+                        <p id="ledger-price-result" class="hint"></p>
+
+                        <h4 class="media-sub">商品別</h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>商品</th><th>数量</th><th>売上</th><th>手数料</th><th>原価・支出</th><th>利益</th><th>販売先</th></tr></thead>
+                            <tbody id="ledger-product-table"></tbody>
+                        </table></div>
+
+                        <h4 class="media-sub">在庫（EC・リアル別の販売数）</h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>商品番号</th><th>商品</th><th>在庫</th><th>EC販売</th><th>リアル販売</th></tr></thead>
+                            <tbody id="ledger-stock-table"></tbody>
+                        </table></div>
+
+                        <h4 class="media-sub">資金残高の移り変わり（直近14日分）</h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>日</th><th>入った</th><th>出た</th><th>残高</th><th>内訳</th></tr></thead>
+                            <tbody id="ledger-balance-table"></tbody>
+                        </table></div>
+
+                        <h4 class="media-sub">最近の記録</h4>
+                        <ul id="ledger-recent" class="ledger-recent"></ul>
+                    </section>
+
+                    <section data-home-group="note" class="panel-card full-width" id="postlog-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">📣</span>投稿ログ</h3>
+                        </div>
+                        <p class="hint">投稿ボタンは自分で押し、そのあとここに残します。BGMの出所は毎回必須です（使っていなければ「なし」）。</p>
+                        <form id="postlog-form" class="ledger-form">
+                            <input type="datetime-local" id="postlog-at" title="投稿した日時">
+                            <select id="postlog-media" title="媒体"></select>
+                            <textarea id="postlog-body" rows="2" placeholder="本文" required></textarea>
+                            <input type="text" id="postlog-tags" placeholder="タグ（#…）">
+                            <input type="text" id="postlog-assets" placeholder="素材（ファイル名）">
+                            <input type="text" id="postlog-bgm" placeholder="BGMの出所（曲名・提供元・利用条件／なし）" required>
+                            <input type="url" id="postlog-url" placeholder="投稿のURL（任意）">
+                            <button type="submit" class="btn btn-primary btn-sm">投稿ログに残す</button>
+                        </form>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>日時</th><th>媒体</th><th>本文</th><th>タグ</th><th>素材</th><th>BGMの出所</th><th></th></tr></thead>
+                            <tbody id="postlog-list"></tbody>
+                        </table></div>
+                    </section>
+
+                    <section data-home-group="note" class="panel-card full-width" id="updatelog-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🗓</span>更新記録</h3>
+                        </div>
+                        <p class="hint">ツールを更新したら、内容と日付を残します。大きく変わる更新は、事前に確認したことに印を付けないと残せません。</p>
+                        <form id="updatelog-form" class="ledger-form">
+                            <input type="date" id="updatelog-date" title="更新した日">
+                            <select id="updatelog-size" title="変更の大きさ">
+                                <option value="small">小さな変更</option>
+                                <option value="large">大きな変更</option>
+                            </select>
+                            <input type="text" id="updatelog-text" placeholder="何を変えたか" required>
+                            <label id="updatelog-confirm-row" class="hint" hidden><input type="checkbox" id="updatelog-confirmed"> 事前に報告・確認した</label>
+                            <button type="submit" class="btn btn-primary btn-sm">残す</button>
+                        </form>
+                        <ul id="updatelog-list" class="ledger-recent"></ul>
+                    </section>
+
                     <section data-home-group="note" class="panel-card full-width">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">📋</span>週次レポート</h3>
@@ -645,6 +760,38 @@
                     <h2 class="section-title">エージェント</h2>
                     <p class="page-lead">このツールを操作する相棒です。<strong>考える部分はすべてこの端末の中だけで動き、外部へは一切送信しません。</strong>知らないことは知らないと答え、覚えたことは忘れてと言えば忘れます。<br><small class="hint">※ 音声を文字にする処理だけは例外です。下の「声で指示する」に、実際どうなっているかを正確に書いています。</small></p>
                     <div id="mainai-health" class="status-banner warn"></div>
+                    <section class="panel-card full-width" id="agent-capability-section">
+                        <div class="panel-header-row">
+                            <h3>できること · 止まること</h3>
+                            <button type="button" id="agent-capability-refresh" class="btn btn-sm btn-secondary">再確認</button>
+                        </div>
+                        <div id="agent-capability-board" class="agent-capability-board"></div>
+                    </section>
+                    <section class="panel-card full-width" id="jarvis-features-section">
+                        <div class="panel-header-row">
+                            <h3>JARVISの機能</h3>
+                        </div>
+                        <p class="hint">映画のJ.A.R.V.I.S.と、ザッカーバーグ氏の自宅AI「Jarvis」の機能を、ARELMのどこで実現しているかの一覧です。声や文字で「電気つけて」「エアコン26度で冷房」「見守りを始めて」「システム診断」と言っても動きます。</p>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th>元</th><th>機能</th><th>状態</th><th>ARELMでは</th></tr></thead>
+                            <tbody id="jarvis-feature-map"></tbody>
+                        </table></div>
+
+                        <h4 class="media-sub">家電の操作 <small id="switchbot-status" class="hint"></small></h4>
+                        <div id="switchbot-devices" class="home-devices"></div>
+
+                        <h4 class="media-sub">見守り <small id="watch-status" class="hint"></small></h4>
+                        <p class="hint">カメラの動きとマイクの音の大きさだけを見て、変化があれば知らせます。映像も音も保存せず、外へも送りません。誰なのかを見分けること（顔認識）はしません。</p>
+                        <div class="guard-row">
+                            <button type="button" id="watch-toggle-btn" class="btn btn-sm btn-primary">見守りを始める</button>
+                            <label class="hint"><input type="checkbox" id="watch-hide"> 動きがあったら画面を隠す</label>
+                        </div>
+                        <ul id="watch-log" class="ledger-recent"></ul>
+
+                        <h4 class="media-sub">システム診断</h4>
+                        <button type="button" id="system-diagnosis-btn" class="btn btn-sm btn-secondary">診断する</button>
+                        <ul id="system-diagnosis" class="system-diagnosis"></ul>
+                    </section>
                     <label class="checkbox-label" style="font-size:0.85rem;">
                         <input type="checkbox" id="jarvis-default-toggle" checked>
                         このページを開いたら、既定でJARVISモードにする
@@ -2373,6 +2520,24 @@
                     <h2 class="section-title">設定</h2>
                     <p class="page-lead">このツールは、すべて自作で動きます。外部のAIやサービスの鍵は要りません。</p>
 
+                    <section class="panel-card full-width" id="setup-status-card">
+                        <div class="panel-header-row">
+                            <h3><span class="sec-icon">🧰</span>準備の状態</h3>
+                            <button type="button" id="setup-status-refresh" class="btn btn-sm btn-secondary">調べ直す</button>
+                        </div>
+                        <p class="hint">このツールを動かす・作り続けるのに要るものが、この端末に揃っているかを見ます。足りないソフトは、ツールのフォルダの <code>準備する.command</code>（Mac）か <code>準備する.bat</code>（Windows）を一度開くと、公式の配布元から入れます。アカウントや鍵は、ご自身で作ってから設定に入れてください。</p>
+                        <h4 class="media-sub">ソフト（この端末） <small id="setup-status-summary" class="hint"></small></h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th></th><th>もの</th><th>状態</th><th>入れ方</th></tr></thead>
+                            <tbody id="setup-status-software"></tbody>
+                        </table></div>
+                        <h4 class="media-sub">アカウントと鍵（ご自身で用意するもの）</h4>
+                        <div class="table-scroll"><table class="data-table ledger-table">
+                            <thead><tr><th></th><th>もの</th><th>何に使うか</th><th>取り方</th></tr></thead>
+                            <tbody id="setup-status-keys"></tbody>
+                        </table></div>
+                    </section>
+
                     <section class="panel-card full-width">
                         <h3><span class="sec-icon">🔌</span>API接続状況</h3>
                         <p class="hint">下の各項目で鍵・トークンを保存すると、ここに反映されます。</p>
@@ -3014,6 +3179,78 @@
                         <div id="backup-status" class="hint"></div>
                         <div id="snapshot-info" class="hint"></div>
                     </section>
+
+                    <details class="panel-card full-width settings-fold">
+                        <summary class="settings-fold-head">
+                            <span class="sec-icon">💡</span>家電（SwitchBot）
+                            <small>（公式API。照明・エアコン・テレビ・カーテン・鍵を声や文字で操作します）</small>
+                        </summary>
+                        <div class="settings-fold-body">
+                            <p class="hint">
+                                <strong>使うにはご自身の作業が必要です：</strong>
+                                SwitchBotアプリ →「プロフィール」→「設定」→「アプリバージョン」を10回押す →「開発者向けオプション」で
+                                トークンとシークレットを出し、下に入れてください。家電はSwitchBotのハブ・ボット・プラグなどに繋がっている必要があります。
+                                鍵を開ける操作は、毎回確認してから送ります。
+                            </p>
+                            <div class="form-group">
+                                <label for="switchbot-token">トークン</label>
+                                <input type="password" id="switchbot-token" placeholder="（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="switchbot-secret">シークレット</label>
+                                <input type="password" id="switchbot-secret" placeholder="（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="guard-row">
+                                <button type="button" id="switchbot-save-btn" class="btn btn-sm btn-primary">保存して機器を読み込む</button>
+                                <button type="button" id="switchbot-reload-btn" class="btn btn-sm btn-secondary">機器を読み込み直す</button>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="panel-card full-width settings-fold">
+                        <summary class="settings-fold-head">
+                            <span class="sec-icon">🐙</span>GitHub（作業の控え）
+                            <small>（公式API。バックアップと進捗ログだけを上げます。鍵は上げません）</small>
+                        </summary>
+                        <div class="settings-fold-body">
+                            <p class="hint">
+                                MacとデスクトップPCで同じ控えを追うときに使います。
+                                <strong>使うにはご自身の作業が必要です：</strong>
+                                <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHubのトークン発行ページ</a>
+                                で Personal Access Token（classic）を作り、
+                                権限は <code>repo</code>（非公開リポジトリ）または <code>public_repo</code> だけにしてください。
+                                上げる場所は <code>areglm-backups/</code> と <code>areglm-logs/</code> だけです。
+                            </p>
+                            <div class="form-group">
+                                <label for="github-owner">オーナー（ユーザー名または組織）</label>
+                                <input type="text" id="github-owner" placeholder="your-name" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-repo">リポジトリ名</label>
+                                <input type="text" id="github-repo" placeholder="ARELM" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-branch">枝</label>
+                                <input type="text" id="github-branch" placeholder="main" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="github-token">Personal Access Token</label>
+                                <input type="password" id="github-token" placeholder="ghp_…（保存後は表示しません）" autocomplete="off">
+                            </div>
+                            <div class="guard-row">
+                                <button type="button" id="github-save-btn" class="btn btn-sm btn-primary">設定を保存</button>
+                                <button type="button" id="github-backup-btn" class="btn btn-sm btn-secondary">バックアップを上げる</button>
+                                <button type="button" id="github-log-btn" class="btn btn-sm btn-secondary">進捗ログを上げる</button>
+                            </div>
+                            <small id="github-token-status" class="hint"></small>
+                            <small id="github-last-status" class="hint"></small>
+                            <h4 class="media-sub">このツールを最新にする</h4>
+                            <p class="hint">GitHub の最新の中身をこの端末のツールに取り込み、サーバーを入れ替えます。記録していない変更があるときは取り込みません。この端末からだけ押せます。Mac では、取り込んだあとデスクトップの AReGLM も新しいものに置き直します。</p>
+                            <button type="button" id="self-update-btn" class="btn btn-sm btn-primary">GitHubから最新にする</button>
+                            <small id="self-update-status" class="hint"></small>
+                        </div>
+                    </details>
+
                     <section class="panel-card">
                         <div class="panel-header-row">
                             <h3>自作AIエンジン <small class="hint">（Python · この端末内で完結）</small></h3>
@@ -3378,6 +3615,8 @@
     <script src="js/modules/商品自動作成.js" defer></script>
     <script src="js/modules/automation.js" defer></script>
     <script src="js/modules/backup.js" defer></script>
+    <script src="js/modules/GitHub連携.js" defer></script>
+    <script src="js/modules/エージェント能力板.js" defer></script>
     <script src="js/modules/design-studio.js" defer></script>
     <script src="js/modules/customers.js" defer></script>
     <script src="js/modules/brand-manual.js" defer></script>
@@ -3392,6 +3631,10 @@
     <script src="js/modules/ページ内目次.js" defer></script>
     <script src="js/modules/バックグラウンド作業.js" defer></script>
     <script src="js/modules/監視ダッシュボード.js" defer></script>
+    <script src="js/modules/お金の帳面.js" defer></script>
+    <script src="js/modules/今日の運用.js" defer></script>
+    <script src="js/modules/ジャービス機能.js" defer></script>
+    <script src="js/modules/準備の状態.js" defer></script>
     <script src="js/modules/外部ノート連携設定.js" defer></script>
     <script src="js/modules/Google連携設定.js" defer></script>
     <script src="js/modules/エージェント定義.js" defer></script>

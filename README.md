@@ -15,6 +15,42 @@ npm start
 
 ログイン: `admin` / `Admin@2024!`
 
+### Mac のデスクトップの AReGLM から開く
+
+1. ツールのフォルダの `ホーム画面に置く.command` を一度だけダブルクリックする
+   （初回は右クリック →「開く」。macOS が確認を出すため）
+2. デスクトップと「アプリケーション」に新しい **AReGLM** ができる。押すとログイン画面が開く
+
+前からある AReGLM は消さずに `~/Library/Application Support/AReGLM/使用済み/` へ移します。
+フォルダを別の場所へ動かしたときは、もう一度 `ホーム画面に置く.command` を開いてください。
+
+### デスクトップPC（Windows）のホーム画面から開く
+
+1. Mac から同期されたツールのフォルダを開く（`ホーム画面に置く.bat` があることを確かめる）
+2. `ホーム画面に置く.bat` を一度だけダブルクリックする
+3. デスクトップにできた **AReGLM** を押すと、ログイン画面がアプリの窓で開く
+
+一度置いたあとは、サインインのたびに見張りが裏で動き、アイコンが消えていれば置き直します。
+Node.js（https://nodejs.org の LTS）が入っていないとサーバーが立ち上がりません。
+
+## 必要なものをまとめて入れる（初回だけ）
+
+| 端末 | 開くファイル | 入れるもの |
+|------|------|------|
+| Mac | `準備する.command`（右クリック →「開く」） | Xcode コマンドラインツール、Node.js LTS（公式配布・SHA-256 確認）、サーバーの部品、Python の部品、任意で faster-whisper・ffmpeg |
+| Windows | `準備する.bat` | winget で Node.js LTS・Python 3.12・Git・Chrome、サーバーの部品、Python の部品、任意で faster-whisper・ffmpeg |
+
+どちらも入れる前に y/N で確かめ、最後にデスクトップへ AReGLM を置きます。
+揃っているかは、ツールの「設定」の一番上にある **準備の状態** でいつでも見られます。
+
+自分で用意するもの（ツールは代わりに作りません）:
+
+- GitHub のトークン（控え・作業ログ・ツールの更新）
+- SwitchBot のトークンとシークレット（家電）
+- SUZURI の API キー、Gemini の API キー（無料枠）
+- 任意: Claude（有料）、Instagram・Facebook・TikTok・Google の公式開発者アカウント
+- Mac と Windows の同期に Syncthing、外から開くなら Tailscale
+
 ## 登録するAPIキー（すべて公式・無料）
 
 | 種類 | 取得先 |

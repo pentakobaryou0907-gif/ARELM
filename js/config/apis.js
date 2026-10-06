@@ -105,6 +105,17 @@ const AReGLM_API_REGISTRY = {
             subRoles: ['products', 'materials', 'inventory', 'publish'],
             features: ['商品CRUD', '素材', '在庫', '販売']
         }
+    },
+    github: {
+        api: {
+            name: 'GitHub REST API',
+            docs: 'https://docs.github.com/en/rest',
+            official: true,
+            freeTier: true,
+            qualityScore: 92,
+            subRoles: ['backup', 'logs'],
+            features: ['バックアップ控え', '進捗ログ']
+        }
     }
 };
 

@@ -517,6 +517,33 @@ section {
     color: #3730a3;
 }
 
+.agent-capability-board {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+}
+.agent-capability-board .cap-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 11rem) 1fr;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-left: 3px solid var(--areglm-border);
+    background: color-mix(in srgb, var(--areglm-surface) 92%, var(--areglm-border));
+    font-size: 0.88rem;
+}
+.agent-capability-board .cap-row strong { font-weight: 600; }
+.agent-capability-board .cap-ok { border-left-color: #3f9d6d; }
+.agent-capability-board .cap-warn { border-left-color: #c8a13c; }
+.agent-capability-board .cap-standby { border-left-color: #64748b; }
+.agent-capability-board .cap-stop { border-left-color: #c45c26; }
+.agent-capability-board .cap-no { border-left-color: #94a3b8; opacity: 0.92; }
+@media (max-width: 640px) {
+    .agent-capability-board .cap-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 .activity-list {
     list-style: none;
     max-height: 240px;
@@ -10094,3 +10121,47 @@ html[data-theme] .chat-bubble.user {
     color: #fff;
     border-color: var(--areglm-accent, #6366f1);
 }
+
+/* ===== 今日の運用・お金の帳面・投稿ログ・更新記録 ===== */
+.task-item:has(.task-detail) { flex-wrap: wrap; }
+.task-detail { flex-basis: 100%; font-size: 0.8rem; }
+.task-detail summary { cursor: pointer; color: var(--areglm-muted, #666); }
+.task-detail-row { display: grid; grid-template-columns: 7em 1fr; gap: 0.5rem; margin-top: 0.35rem; }
+.task-detail-row ol, .task-checks { margin: 0; padding-left: 1.2em; }
+.task-checks { list-style: none; padding-left: 0; }
+.task-item.task-resume { outline: 2px solid var(--areglm-accent, #3b82f6); }
+
+.today-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem; list-style: none; padding: 0; margin: 0.5rem 0; }
+.kpi-item { display: flex; flex-direction: column; padding: 0.6rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }
+.kpi-item small { color: var(--areglm-muted, #666); }
+.kpi-item.done { border-color: #16a34a; background: rgba(22, 163, 74, 0.08); }
+.kpi-mark { font-weight: 700; }
+.kpi-item.done .kpi-mark { color: #16a34a; }
+.today-resume { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 0.75rem; margin: 0.5rem 0; border-radius: 8px; background: rgba(59, 130, 246, 0.08); font-size: 0.85rem; }
+.progress-form, .ledger-form, .ledger-price { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.progress-form input[type="text"], .ledger-form input[type="text"], .ledger-form textarea { flex: 1 1 200px; }
+.ledger-form textarea { min-width: 100%; }
+.ledger-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.5rem; margin: 0.5rem 0; }
+.ledger-sum { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }
+.ledger-sum span { font-size: 0.75rem; color: var(--areglm-muted, #666); }
+.ledger-sum.minus strong, .ledger-minus td { color: #dc2626; }
+.ledger-table { font-size: 0.8rem; }
+.ledger-table th, .ledger-table td { padding: 0.4rem 0.5rem; }
+.ledger-recent { list-style: none; padding: 0; margin: 0; font-size: 0.82rem; }
+.ledger-recent li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid var(--areglm-border, #eee); }
+.update-size { font-size: 0.72rem; padding: 0 0.4rem; border-radius: 4px; background: var(--areglm-surface, #f3f4f6); margin: 0 0.4rem; }
+.update-size.large { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+
+/* ===== JARVISの機能 ===== */
+.home-devices { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; margin: 0.5rem 0; }
+.home-device { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }
+.home-device small { color: var(--areglm-muted, #666); }
+.home-device-btns { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.system-diagnosis { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.35rem; font-size: 0.82rem; }
+.system-diagnosis li { padding: 0.4rem 0.6rem; border-radius: 6px; background: rgba(22, 163, 74, 0.08); }
+.system-diagnosis li.ng { background: rgba(220, 38, 38, 0.1); }
+.jarvis-state { font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 4px; white-space: nowrap; }
+.jarvis-state-ok { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+.jarvis-state-alt { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+.jarvis-state-part { background: rgba(234, 179, 8, 0.15); color: #a16207; }
+.jarvis-state-no { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
