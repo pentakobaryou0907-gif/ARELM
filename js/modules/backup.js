@@ -28,7 +28,13 @@ const AREGLM_BACKUP_KEYS = [
     'areglm_personalize',
     'areglm_personalize_history',
     'areglm_console_phrases',
-    'areglm_health'
+    'areglm_health',
+    'areglm_sales',
+    'areglm_expenses',
+    'areglm_ledger_settings',
+    'areglm_post_log',
+    'areglm_progress_log',
+    'areglm_update_log'
 ];
 
 function initBackup() {

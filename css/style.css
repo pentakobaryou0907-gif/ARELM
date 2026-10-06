@@ -10121,3 +10121,33 @@ html[data-theme] .chat-bubble.user {
     color: #fff;
     border-color: var(--areglm-accent, #6366f1);
 }
+
+/* ===== 今日の運用・お金の帳面・投稿ログ・更新記録 ===== */
+.task-item:has(.task-detail) { flex-wrap: wrap; }
+.task-detail { flex-basis: 100%; font-size: 0.8rem; }
+.task-detail summary { cursor: pointer; color: var(--areglm-muted, #666); }
+.task-detail-row { display: grid; grid-template-columns: 7em 1fr; gap: 0.5rem; margin-top: 0.35rem; }
+.task-detail-row ol, .task-checks { margin: 0; padding-left: 1.2em; }
+.task-checks { list-style: none; padding-left: 0; }
+.task-item.task-resume { outline: 2px solid var(--areglm-accent, #3b82f6); }
+
+.today-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem; list-style: none; padding: 0; margin: 0.5rem 0; }
+.kpi-item { display: flex; flex-direction: column; padding: 0.6rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }
+.kpi-item small { color: var(--areglm-muted, #666); }
+.kpi-item.done { border-color: #16a34a; background: rgba(22, 163, 74, 0.08); }
+.kpi-mark { font-weight: 700; }
+.kpi-item.done .kpi-mark { color: #16a34a; }
+.today-resume { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 0.75rem; margin: 0.5rem 0; border-radius: 8px; background: rgba(59, 130, 246, 0.08); font-size: 0.85rem; }
+.progress-form, .ledger-form, .ledger-price { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.progress-form input[type="text"], .ledger-form input[type="text"], .ledger-form textarea { flex: 1 1 200px; }
+.ledger-form textarea { min-width: 100%; }
+.ledger-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.5rem; margin: 0.5rem 0; }
+.ledger-sum { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; border: 1px solid var(--areglm-border, #ddd); border-radius: 8px; }
+.ledger-sum span { font-size: 0.75rem; color: var(--areglm-muted, #666); }
+.ledger-sum.minus strong, .ledger-minus td { color: #dc2626; }
+.ledger-table { font-size: 0.8rem; }
+.ledger-table th, .ledger-table td { padding: 0.4rem 0.5rem; }
+.ledger-recent { list-style: none; padding: 0; margin: 0; font-size: 0.82rem; }
+.ledger-recent li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid var(--areglm-border, #eee); }
+.update-size { font-size: 0.72rem; padding: 0 0.4rem; border-radius: 4px; background: var(--areglm-surface, #f3f4f6); margin: 0 0.4rem; }
+.update-size.large { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }

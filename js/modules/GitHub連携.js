@@ -98,6 +98,7 @@ async function GitHubへ控えを上げる(種類) {
         const 活動 = localStorage.getItem('areglm_activity_log') || '[]';
         const タスク = localStorage.getItem('areglm_tasks') || '[]';
         const メモ = localStorage.getItem('areglm_memos') || '[]';
+        const 読む = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
         content = JSON.stringify({
             app: 'ARELM',
             種類: '進捗ログ',
@@ -105,6 +106,9 @@ async function GitHubへ控えを上げる(種類) {
             活動: JSON.parse(活動),
             タスク: JSON.parse(タスク),
             メモ: JSON.parse(メモ),
+            現在地: 読む('areglm_progress_log'),
+            投稿ログ: 読む('areglm_post_log'),
+            更新記録: 読む('areglm_update_log'),
         }, null, 2);
         path = `areglm-logs/${日付}/progress_${時刻}.json`;
         message = `ARELM: 進捗ログ ${日付}`;
