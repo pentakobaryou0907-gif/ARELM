@@ -67,16 +67,27 @@ Node.js（https://nodejs.org の LTS）が入っていないとサーバーが�
 
 | ここはアプリではない | ここがアプリ本体 |
 |------|------|
-| `OneDrive\デスクトップ\AReGLM\AIツール開発プロジェクト\README.md`（メモ用） | `C:\Users\<名前>\AReGLM\`（中に `見張り.ps1` と `server` がある） |
+| `OneDrive\デスクトップ\AReGLM\AIツール開発プロジェクト\README.md`（メモ用） | `OneDrive\デスクトップ\AReGLM\ツール本体\`（中に `見張り.ps1` と `server` がある） |
 
-**PowerShell を開いて、次をそのまま貼り付けて Enter**（Git が入っていること）:
+**本物は GitHub のこのリポジトリです**（非公開）: https://github.com/pentakobaryou0907-gif/ARELM  
+ブランチ `cursor/windows-app-shell-1936` に Windows 向けの入口があります。  
+非公開のため、ログインなしの `irm … | iex` は **404 で動きません**。
+
+**いちばん簡単（ブラウザ・GitHub ログイン済み）:**
+
+1. https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-app-shell-1936 を開く  
+2. 緑の **Code → Download ZIP**  
+3. 解凍した中身を `OneDrive\デスクトップ\AReGLM\ツール本体\` へ入れる（メモ用の `AIツール開発プロジェクト` はそのまま）  
+4. `ツール本体\AReGLMをホーム画面に置く.bat` を開く → デスクトップに **AReGLM** ができます  
+
+**Git があるとき（PowerShell）:**
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force
-irm https://raw.githubusercontent.com/pentakobaryou0907-gif/ARELM/cursor/windows-app-shell-1936/Windows%E3%81%AB%E3%82%A2%E3%83%97%E3%83%AA%E3%82%92%E5%85%A5%E3%82%8C%E3%82%8B.ps1 | iex
+$dest = "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
+New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+git clone --branch cursor/windows-app-shell-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git $dest
+& "$dest\AReGLMをホーム画面に置く.bat"
 ```
-
-終わると `C:\Users\<名前>\AReGLM` に本体が入り、デスクトップに **AReGLM** アイコンができます。
 
 #### Windows に新しい版が来ないとき（すでに本体がある場合）
 

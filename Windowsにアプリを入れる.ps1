@@ -1,26 +1,32 @@
 ﻿# AReGLM をこの Windows に入れる（本物のツール本体）
 #
-# いま開いている「AIツール開発プロジェクト\README.md」はメモ用です。
-# 中身は空に近く、アプリのコードは入っていません。
-# このスクリプトは GitHub から本物を「AReGLM\ツール本体」へ入れ、
-# デスクトップにアイコンを置きます。
+# ※ このリポジトリは非公開です。
+#   ログインなしの「irm … | iex」は 404 になり動きません。
+#   GitHub にログインした状態で、下のどちらかを使ってください。
 #
-# PowerShell で実行:
+# 【いちばん簡単】ブラウザで ZIP を落とす
+#   1) https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-app-shell-1936
+#   2) 緑の Code → Download ZIP
+#   3) 解凍した中身を OneDrive\デスクトップ\AReGLM\ツール本体 へ入れる
+#   4) ツール本体\AReGLMをホーム画面に置く.bat を開く
+#
+# 【Git があるとき】PowerShell でこのファイルを実行、または:
 #   Set-ExecutionPolicy -Scope Process Bypass -Force
-#   irm https://raw.githubusercontent.com/pentakobaryou0907-gif/ARELM/cursor/windows-app-shell-1936/Windows%E3%81%AB%E3%82%A2%E3%83%97%E3%83%AA%E3%82%92%E5%85%A5%E3%82%8C%E3%82%8B.ps1 | iex
+#   git clone --branch cursor/windows-app-shell-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $Repo = 'https://github.com/pentakobaryou0907-gif/ARELM.git'
 $Branch = 'cursor/windows-app-shell-1936'
+$ZipPage = "https://github.com/pentakobaryou0907-gif/ARELM/archive/refs/heads/$Branch.zip"
+$BranchPage = "https://github.com/pentakobaryou0907-gif/ARELM/tree/$Branch"
 
 function Write-Step([string]$msg) {
     Write-Host ''
     Write-Host "=== $msg ===" -ForegroundColor Cyan
 }
 
-# ユーザーが見ている OneDrive\デスクトップ\AReGLM の下に「ツール本体」を作る
 function Get-AreglmHome {
     foreach ($候補 in @(
         (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ\AReGLM'),
@@ -30,7 +36,6 @@ function Get-AreglmHome {
     )) {
         if ($候補 -and (Test-Path -LiteralPath $候補)) { return $候補 }
     }
-    # フォルダが無ければ OneDrive デスクトップ優先で作る
     foreach ($親 in @(
         (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
         (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
@@ -47,50 +52,132 @@ function Get-AreglmHome {
     return $家
 }
 
-try { Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue } catch { }
+function Show-ZipGuide([string]$Dest) {
+    $文 = @"
+このリポジトリは非公開のため、ネットからの自動取得に失敗しました。
 
-Write-Step '前置の確認'
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    $文 = "Git が入っていません。`r`nhttps://git-scm.com/download/win から入れてから、もう一度実行してください。"
-    Write-Host $文 -ForegroundColor Red
-    try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null } catch { }
-    exit 1
+GitHub にログインしたブラウザで ZIP を落としてください。
+
+1) $BranchPage
+2) 緑の「Code」→「Download ZIP」
+3) 解凍したフォルダの中身を、次へコピー:
+   $Dest
+4) その中の「AReGLMをホーム画面に置く.bat」を開く
+
+いま開いている「AIツール開発プロジェクト\README.md」はメモ用です。触らなくて大丈夫です。
+"@
+    Write-Host $文 -ForegroundColor Yellow
+    try {
+        Start-Process $BranchPage
+        Start-Process $ZipPage
+    } catch { }
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — GitHub から入れる', 'OK', 'Information') | Out-Null
+    } catch { }
 }
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host 'Node.js がまだありません。あとで https://nodejs.org の LTS を入れてください。' -ForegroundColor Yellow
+
+function Install-FromZip([string]$Dest, [string]$HomeDir) {
+    Write-Step 'ZIP で入れます（GitHub ログインが必要）'
+    $tmp = Join-Path $env:TEMP ("areglm-zip-" + [guid]::NewGuid().ToString('N'))
+    $zip = Join-Path $env:TEMP ("areglm-" + $Branch.Replace('/', '-') + ".zip")
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    try {
+        # ブラウザと同じセッションは使えない。gh か、手動 ZIP に任せる。
+        if (Get-Command gh -ErrorAction SilentlyContinue) {
+            Write-Host 'gh で ZIP を取得します…'
+            & gh api "repos/pentakobaryou0907-gif/ARELM/zipball/$Branch" -H 'Accept: application/vnd.github+json' --output $zip
+        } else {
+            return $false
+        }
+        if (-not (Test-Path -LiteralPath $zip) -or ((Get-Item -LiteralPath $zip).Length -lt 1000)) {
+            return $false
+        }
+        Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
+        $中身 = Get-ChildItem -LiteralPath $tmp -Directory | Select-Object -First 1
+        if (-not $中身) { return $false }
+        if (Test-Path -LiteralPath $Dest) {
+            $使用済み = Join-Path $HomeDir '使用済み'
+            New-Item -ItemType Directory -Force -Path $使用済み | Out-Null
+            $退避 = Join-Path $使用済み ("ツール本体_旧_" + (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
+            Move-Item -LiteralPath $Dest -Destination $退避 -Force
+        }
+        New-Item -ItemType Directory -Force -Path $Dest | Out-Null
+        Copy-Item -Path (Join-Path $中身.FullName '*') -Destination $Dest -Recurse -Force
+        return (Test-Path -LiteralPath (Join-Path $Dest '見張り.ps1'))
+    } catch {
+        Write-Host ("ZIP 取得に失敗: " + $_.Exception.Message) -ForegroundColor Yellow
+        return $false
+    } finally {
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+    }
 }
+
+try { Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue } catch { }
 
 $HomeDir = Get-AreglmHome
 $Dest = Join-Path $HomeDir 'ツール本体'
 Write-Step "本物のツールをここに入れます → $Dest"
 Write-Host '（「AIツール開発プロジェクト」はメモのまま残します。触りません）'
+Write-Host 'リポジトリは非公開です。GitHub ログイン済みの Git / gh / ZIP を使います。'
 
-if (Test-Path -LiteralPath (Join-Path $Dest '.git')) {
-    Push-Location $Dest
-    git fetch origin $Branch
-    git checkout $Branch
-    git pull origin $Branch
-    Pop-Location
-} elseif (Test-Path -LiteralPath $Dest) {
-    # 中身が違うフォルダなら、使用済みへ移してから入れ直す（消さない）
-    $使用済み = Join-Path $HomeDir '使用済み'
-    New-Item -ItemType Directory -Force -Path $使用済み | Out-Null
-    $退避 = Join-Path $使用済み ("ツール本体_旧_" + (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
-    Move-Item -LiteralPath $Dest -Destination $退避 -Force
-    git clone --branch $Branch --single-branch $Repo $Dest
+$入れた = $false
+
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    Write-Step 'Git で GitHub から取得'
+    try {
+        if (Test-Path -LiteralPath (Join-Path $Dest '.git')) {
+            Push-Location $Dest
+            git fetch origin $Branch
+            git checkout $Branch
+            git pull origin $Branch
+            Pop-Location
+            $入れた = $true
+        } elseif (Test-Path -LiteralPath $Dest) {
+            $使用済み = Join-Path $HomeDir '使用済み'
+            New-Item -ItemType Directory -Force -Path $使用済み | Out-Null
+            $退避 = Join-Path $使用済み ("ツール本体_旧_" + (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
+            Move-Item -LiteralPath $Dest -Destination $退避 -Force
+            git clone --branch $Branch --single-branch $Repo $Dest
+            $入れた = $true
+        } else {
+            git clone --branch $Branch --single-branch $Repo $Dest
+            $入れた = $true
+        }
+    } catch {
+        Write-Host ("git clone に失敗: " + $_.Exception.Message) -ForegroundColor Yellow
+        $入れた = $false
+        if (Get-Location | Where-Object { $_.Path -eq $Dest }) { Pop-Location -ErrorAction SilentlyContinue }
+    }
 } else {
-    git clone --branch $Branch --single-branch $Repo $Dest
+    Write-Host 'Git が入っていません。gh または ZIP に切り替えます。' -ForegroundColor Yellow
+}
+
+if (-not $入れた -or -not (Test-Path -LiteralPath (Join-Path $Dest '見張り.ps1'))) {
+    $入れた = Install-FromZip -Dest $Dest -HomeDir $HomeDir
+}
+
+if (-not $入れた -or -not (Test-Path -LiteralPath (Join-Path $Dest '見張り.ps1'))) {
+    Show-ZipGuide -Dest $Dest
+    # 案内テキストだけ先に置いておく
+    $案内 = Join-Path $HomeDir 'ここがアプリです_ツール本体を開いてください.txt'
+    @"
+AReGLM のアプリ本体は、隣のフォルダ「ツール本体」です（まだ空なら GitHub の ZIP を入れてください）。
+
+GitHub（ログイン必須・非公開リポジトリ）:
+$BranchPage
+緑の Code → Download ZIP → 解凍した中身を「ツール本体」へ
+
+× AIツール開発プロジェクト\README.md  … メモ用
+○ ツール本体\                        … 本物（見張り.ps1・server など）
+"@ | Set-Content -LiteralPath $案内 -Encoding UTF8
+    explorer.exe $HomeDir
+    exit 2
 }
 
 $ps1 = Join-Path $Dest '見張り.ps1'
-if (-not (Test-Path -LiteralPath $ps1)) {
-    $文 = "入れに失敗しました。見張り.ps1 がありません。`r`n$Dest"
-    Write-Host $文 -ForegroundColor Red
-    try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null } catch { }
-    exit 1
-}
 
-# メモ用フォルダの隣に案内を置く（README を書き換えない）
 $案内 = Join-Path $HomeDir 'ここがアプリです_ツール本体を開いてください.txt'
 @"
 AReGLM のアプリ本体は、隣のフォルダ「ツール本体」です。
@@ -126,7 +213,7 @@ foreach ($d in @(
 
 Write-Host ''
 Write-Host '========================================' -ForegroundColor Green
-Write-Host ' できました'
+Write-Host ' できました（GitHub から入れました）'
 Write-Host " 本物の場所: $Dest"
 Write-Host ' エクスプローラーで「ツール本体」を開きます'
 Write-Host ' （AIツール開発プロジェクト ではありません）'
@@ -135,7 +222,6 @@ if ($置いた.Count -gt 0) {
 }
 Write-Host '========================================' -ForegroundColor Green
 
-# 本物のフォルダを開いて見せる（メモの README ではなく）
 explorer.exe $Dest
 if ($置いた.Count -gt 0) {
     Start-Sleep -Seconds 1
