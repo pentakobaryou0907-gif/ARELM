@@ -30,6 +30,13 @@
   `ARELM_DATA_DIR=… ARELM_ACCOUNTS_FILE=… ARELM_NOLOGIN_FILE=… ARELM_LOGIN_HINT_FILE=… ARELM_MEMORY_DIR=… ARELM_BACKUP_DIR=… PORT=8099 node server/index.js`
 - 直したあと、AIエンジン（Python）は、再起動しないと古いコードのまま動く。
 
+## どこでも使う（Tailscale）— 門番のいちばん危ない所
+- 目的: 同じWi-Fiの外からも、**本人の端末だけ**で開ける。仕組みは `server/Tailscale.js`（管理者権限なしの「ユーザー空間モード」。置き場は `~/.tailscale/`）と、設定ページ「どこでも」（`js/modules/三端末.js`）。窓口は `/api/anywhere/*`（変更はMac本体の画面からだけ）。
+- **`tailscale serve` は、遠くの端末の通信を 127.0.0.1 から出し直す。** 「接続元がMacなら通す」と書くと、合言葉もMac専用の操作も素通しになる。門番は `中継された通信か(req)`（転送ヘッダー／宛先がlocalhost系でない）を見て、遠くの端末として扱う。`本体からか()` も同じ。この2つを緩めない（`tools/ストッパー.js` の「中継の素通し」が止める）。
+- `tailscale funnel`（インターネットへの公開）は使わない。ログイン（Tailscaleのアカウント認証）は本人がする。私たちが認証情報を入れない。
+- 合言葉が無いまま開けない（既存の決まり）。端末の許可・パスワードの決め直しは、これからもMac本体だけ。
+- 検証は、別サーバー（`PORT=8099 APP_PORT=8098 HTTPS_PORT=8498`）に、`X-Forwarded-For` と `Host: *.ts.net` を付けた curl で「止まること」を確かめる。
+
 ## 触らない・コミットしない・AIに渡さない
 - `server/data/`（本人のデータ・アカウント・合言葉・学習データ）、`*.log`
 - `server/certs/` の秘密鍵（いまはGitに入っている。Cursor等のクラウドのAIに渡さない）

@@ -180,6 +180,24 @@ function 自分の端末か(住所) {
 }
 
 /**
+ * 接続元はこのMac自身でも、「他の端末の通信を中継したもの」か。
+ *
+ * tailscale serve・SSHの転送・リバースプロキシは、遠くの端末の通信を
+ * このMacの中(127.0.0.1)から出し直す。接続元だけ見ると、Macの前にいる本人と
+ * 見分けがつかず、合言葉もMac専用の操作も素通りになってしまう。
+ * 中継の印（転送ヘッダー）が付いているか、宛先の名前（Host）が
+ * localhost系でないものは、中継されたものとして扱う。
+ * Macのブラウザが直接開いた通信には、どちらも付かない。
+ */
+function 中継された通信か(req) {
+    const h = (req && req.headers) || {};
+    if (h['x-forwarded-for'] || h['x-forwarded-host'] || h['x-forwarded-proto'] || h['forwarded']
+        || h['x-real-ip'] || h['via'] || h['tailscale-user-login']) return true;
+    const host = String(h['host'] || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+    return !['localhost', '127.0.0.1', '::1'].includes(host);
+}
+
+/**
  * この相手は、Tailscale（本人だけの端末をつなぐVPN）の中か。
  *
  * Tailscaleは 100.64.0.0/10（100.64.0.0〜100.127.255.255）という
@@ -444,11 +462,18 @@ const この端末だけの口 = [
 
 function 門番を置く(app, 他の端末を許しているか, Tailscaleを許しているか) {
     app.use((req, res, next) => {
-        const 住所 = (req.socket && req.socket.remoteAddress) || '';
+        const 接続元 = (req.socket && req.socket.remoteAddress) || '';
+        const 中継 = 自分の端末か(接続元) && 中継された通信か(req);
 
-        // 自分の端末は、いつでもそのまま通す。
+        // Macの前にいる本人（このMac自身から、中継なしで来た通信）は、いつでもそのまま通す。
         // ここを閉じると、自分が自分の道具を使えなくなる。
-        if (自分の端末か(住所)) return next();
+        if (自分の端末か(接続元) && !中継) return next();
+
+        // 中継された通信（tailscale serve 等）は、遠くの端末として扱う。
+        // 接続元は常にこのMacに見えるので、相手の区別と締め出しには、
+        // 中継が付けた「元の相手」の住所を使う（無ければ「中継」という名前）。
+        const 元の住所 = 中継 ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
+        const 住所 = 中継 ? (元の住所 || '中継') : 接続元;
 
         /*
          * どの経路から来たかで、許しているかどうかを分けて見る。
@@ -464,7 +489,9 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
          * 「Tailscaleの自分の端末だけ許したい。同じWi-Fiの人には
          * 入口も見せたくない」という使い方ができるようにするため。
          */
-        const Tailscale経由 = Tailscaleの中か(住所);
+        // 中継は、Macの設定した tailscale serve から来たものだけを想定している
+        // （本人の端末だけがつながる閉じたネットワーク）ので、Tailscale経由として扱う。
+        const Tailscale経由 = 中継 || Tailscaleの中か(住所);
         const 普通のLAN経由 = !Tailscale経由 && 同じLANか(住所);
 
         // 強い口は、原則として外からは通さない。
@@ -578,6 +605,7 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
 module.exports = {
     この端末だけの口,
     門番を置く,
+    中継された通信か,
     合言葉を決める,
     合言葉が合うか,
     設定を読む,

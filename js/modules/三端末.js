@@ -49,6 +49,134 @@ function 端末の枠(題, 状態文, 良いか) {
     return 枠;
 }
 
+/**
+ * 🌍 どこでも（外出先・別のWi-Fi）
+ *
+ * Tailscale（本人の端末だけをつなぐ閉じた回線）を使い、同じWi-Fiの外からも開けるようにする。
+ * ボタン1つで: Tailscaleを起こす → ログインのリンクを出す → ログインできたら自動で出す。
+ * ログインそのもの（アカウントでの認証）は、ご自身で行う。設定を変えられるのは、このMacの画面だけ。
+ */
+let どこでもの見張り = null;
+
+async function どこでもの枠を作る(再描画) {
+    if (どこでもの見張り) { clearInterval(どこでもの見張り); どこでもの見張り = null; }
+    const 状 = typeof アカウントAPI === 'function' ? await アカウントAPI('/api/anywhere/status') : { ok: false };
+    const 枠 = 端末の枠('🌍 どこでも（外出先・別のWi-Fi）', '', false);
+    const 文 = 枠.querySelector('p');
+    const 手順 = (行たち) => {
+        const ol = document.createElement('ol');
+        行たち.forEach((t) => ol.appendChild(render三端末の行('li', t)));
+        return ol;
+    };
+    const 住所の行 = (住所) => {
+        const p = render三端末の行('p', 住所);
+        p.style.cssText = 'user-select:all;word-break:break-all;font-weight:600';
+        return p;
+    };
+
+    if (!状.ok) {
+        文.textContent = 状.訳 || '様子を読めませんでした（ログインし直してください）';
+        return 枠;
+    }
+    if (!状.入っている) {
+        文.textContent = 'Tailscale がこのMacに入っていません。';
+        枠.appendChild(render三端末の行('p', 'ターミナルで brew install tailscale を実行すると入ります（そのあと、この画面を開き直してください）。', 'hint'));
+        return 枠;
+    }
+
+    const 出している = !!状.公開中;
+    文.textContent = 出している
+        ? '使えます。Tailscale につないだ、ご自身の端末なら、どこからでも開けます。'
+        : `いまは、まだ外から開けません（Tailscale: ${状.段階}）`;
+    文.className = 出している ? 'guard-off' : 'guard-on';
+
+    if (出している) {
+        枠.appendChild(render三端末の行('p', '外から開くアドレス:'));
+        枠.appendChild(住所の行(状.公開中));
+    }
+
+    const 進み = render三端末の行('p', '', 'hint');
+    const リンク欄 = document.createElement('p');
+
+    const 最後まで進める = async () => {
+        // 段階1: 起こして、ログインのリンクをもらう
+        進み.textContent = 'Tailscale を起こしています…';
+        const a = await アカウントAPI('/api/anywhere/start', {});
+        if (!a.ok) { 進み.textContent = a.訳 || '始められませんでした'; return; }
+
+        if (!a.済み) {
+            const 場所 = document.createElement('a');
+            場所.href = a.認証URL;
+            場所.target = '_blank';
+            場所.rel = 'noopener noreferrer';
+            場所.textContent = '👉 ここを開いて、Tailscale にログイン（ご自身のアカウントで）';
+            場所.className = 'btn btn-sm btn-secondary';
+            リンク欄.textContent = '';
+            リンク欄.appendChild(場所);
+            進み.textContent = 'ログインが終わるのを待っています…（このまま、この画面を開いておいてください）';
+            // ログインが済んだら、自動で次へ（最大15分）
+            const 待つ上限 = Date.now() + 15 * 60 * 1000;
+            await new Promise((resolve) => {
+                どこでもの見張り = setInterval(async () => {
+                    const t = await アカウントAPI('/api/anywhere/status');
+                    if (t.ok && t.段階 === 'つながっている') { clearInterval(どこでもの見張り); どこでもの見張り = null; resolve(true); }
+                    else if (Date.now() > 待つ上限) { clearInterval(どこでもの見張り); どこでもの見張り = null; resolve(false); }
+                }, 3000);
+            }).then((済) => { if (!済) throw new Error('時間切れ'); }).catch(() => { 進み.textContent = 'ログインが確認できませんでした。もう一度、ボタンを押してください。'; throw null; });
+            リンク欄.textContent = '';
+        }
+
+        // 段階2: 出す
+        進み.textContent = '外から開けるようにしています…';
+        const b = await アカウントAPI('/api/anywhere/enable', {});
+        if (b.ok) { showNotification?.('どこでも使えるようになりました', 'success'); 再描画(); return; }
+        if (b.設定が要る && b.リンク) {
+            const 場所 = document.createElement('a');
+            場所.href = b.リンク; 場所.target = '_blank'; 場所.rel = 'noopener noreferrer';
+            場所.textContent = '👉 ここを開いて、Tailscale の HTTPS（serve）を1回だけ許す';
+            場所.className = 'btn btn-sm btn-secondary';
+            リンク欄.textContent = '';
+            リンク欄.appendChild(場所);
+        }
+        進み.textContent = b.訳 || '出せませんでした';
+    };
+
+    if (状.Mac本体から) {
+        const ボタン = render三端末の行('button', 出している ? '外から開けるのをやめる' : (状.段階 === 'つながっている' ? '外から開けるようにする' : '🌍 どこでも使えるようにする'), 'btn btn-secondary');
+        ボタン.type = 'button';
+        ボタン.addEventListener('click', async () => {
+            ボタン.disabled = true;
+            try {
+                if (出している) {
+                    const r = await アカウントAPI('/api/anywhere/disable', {});
+                    showNotification?.(r.訳 || '', r.ok ? 'success' : 'error');
+                    再描画();
+                } else {
+                    await 最後まで進める();
+                }
+            } catch { /* 進みの欄に理由を出してある */ }
+            ボタン.disabled = false;
+        });
+        枠.append(ボタン, 進み, リンク欄);
+    } else {
+        枠.appendChild(render三端末の行('p', '設定を変えるのは、このMacの画面からだけです（外から勝手に変えられないようにするため）。', 'hint'));
+    }
+
+    if ((状.端末たち || []).length) {
+        枠.appendChild(render三端末の行('h5', 'つながっている、ご自身の端末'));
+        状.端末たち.forEach((x) => 枠.appendChild(render三端末の行('p', `${x.オンライン ? '🟢' : '⚪'} ${x.名前}（${x.OS || '?'}）`)));
+    }
+
+    枠.appendChild(render三端末の行('h5', 'iPad・Windows・iPhone を、外でも使えるようにする'));
+    枠.appendChild(手順([
+        'その端末に Tailscale のアプリを入れる（iPad・iPhone: App Storeで「Tailscale」／Windows: tailscale.com/download）',
+        'Macと同じアカウントでログインする（アプリを開いて、ログインするだけです）',
+        '上の「外から開くアドレス」を、その端末のブラウザで開く → 「Macで許可してもらう」→ Macの画面で許可',
+    ]));
+    枠.appendChild(render三端末の行('p', 'Mac が起きていて、ARELM が動いていれば、どこからでも使えます（Mac の電源が切れていると、開けません）。', 'hint'));
+    return 枠;
+}
+
 async function render三端末() {
     const 箱 = document.getElementById('devices-panel');
     if (!箱) return;
@@ -102,6 +230,9 @@ async function render三端末() {
         'デスクトップに「ARELM」のアイコンができます'].forEach((t) => ol2.appendChild(render三端末の行('li', t)));
     win.appendChild(ol2);
     箱.appendChild(win);
+
+    /* ---- どこでも（外出先・別のWi-Fi） ---- */
+    箱.appendChild(await どこでもの枠を作る(render三端末));
 
     /* ---- 開くアドレス ---- */
     if (d && (d['このMacの住所'] || []).length) {

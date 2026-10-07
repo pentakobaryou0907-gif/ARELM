@@ -107,7 +107,8 @@ function 入場券を取り出す(req) {
 }
 function 本体からか(req) {
     const a = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-    return a === '127.0.0.1' || a === '::1';
+    // 中継（tailscale serve 等）された遠くの端末の通信は、Mac本体とは認めない。
+    return (a === '127.0.0.1' || a === '::1') && !門番.中継された通信か(req);
 }
 
 /**
@@ -487,6 +488,54 @@ app.post('/api/other-devices', (req, res) => {
         Tailscale使う,
         訳: (訳たち.join('。') || '設定を保存しました') + '。本体を再起動すると有効になります。',
     });
+});
+
+/**
+ * どこでも使う（同じWi-Fiの外からも、本人の端末だけで）
+ *
+ * 様子を見るのは、ログイン中の本人なら、どの端末からでもよい。
+ * 設定を変える（ログインを始める・出す・やめる）のは、Mac本体の画面からだけ。
+ * 出したあとの入口は、本人のTailscaleにつないだ端末だけ。インターネットには出ない。
+ */
+const Tailscale = require('./Tailscale');
+
+function Tailscale使うを書く(入) {
+    let 今 = { 使う: false, Tailscale使う: false };
+    try { 今 = JSON.parse(fs.readFileSync(他の端末設定, 'utf8')); } catch { /* 既定のまま */ }
+    fs.writeFileSync(他の端末設定, JSON.stringify({ 使う: 今.使う === true, Tailscale使う: 入 === true }, null, 2));
+}
+
+app.get('/api/anywhere/status', async (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const 様子 = await Tailscale.状態();
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, ...様子, Mac本体から: 本体のブラウザからか(req), 許している: Tailscaleを許しているか() });
+});
+
+app.post('/api/anywhere/start', async (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体の画面からだけできます' });
+    if (!本人だけ(req, res)) return;
+    res.json(await Tailscale.ログインを始める());
+});
+
+app.post('/api/anywhere/enable', async (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体の画面からだけできます' });
+    if (!本人だけ(req, res)) return;
+    // 他の経路と同じ決まり: 合言葉が無いまま開けることは、絶対にしない。
+    if (!門番.設定を読む().合言葉) {
+        return res.status(400).json({ ok: false, 訳: '先に合言葉を決めてください（「他の端末」の設定）。合言葉なしで開くことはできません。' });
+    }
+    const r = await Tailscale.公開する(APP_PORT);
+    if (r.ok) Tailscale使うを書く(true);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
+app.post('/api/anywhere/disable', async (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体の画面からだけできます' });
+    if (!本人だけ(req, res)) return;
+    const r = await Tailscale.公開をやめる();
+    if (r.ok) Tailscale使うを書く(false);
+    res.json(r);
 });
 
 /**
@@ -3706,8 +3755,13 @@ if (Tailscaleを許しているか()) {
             console.warn(`Tailscale経由の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
         });
     } else {
-        console.warn('[Tailscale] 「Tailscaleから使う」が入になっていますが、'
-            + 'Tailscaleのアドレスが見つかりません。Tailscaleが起動しているか確かめてください。');
+        // ユーザー空間モード（管理者権限なし）のTailscaleは、このMacにアドレスを持たず、
+        // tailscale serve が中継する。デーモンを起こしてから、出している様子を見る。
+        Tailscale.起動時に整える().then(() => Tailscale.状態()).then((s) => {
+            if (s.公開中) console.log(`Tailscale経由（自分の端末だけ・https）: ${s.公開中}`);
+            else console.warn('[Tailscale] 「Tailscaleから使う」が入になっていますが、まだ出ていません。'
+                + '設定の「どこでも」から、もう一度「使えるようにする」を押してください。');
+        }).catch(() => { /* 様子が取れなくても、サーバー自体は動く */ });
     }
 }
 
