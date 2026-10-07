@@ -1368,7 +1368,10 @@ app.get('/api/https-info', (req, res) => {
 
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
+    // frame-ancestors は <meta> に書いてもブラウザが無視する。ヘッダーで送る。
+    // 'self' にする理由: Windows のアプリ枠（アプリ枠.html）が、同じ道具の本編を内側に表示するため。
+    // よそのサイトからの埋め込みは、今も許さない（X-Frame-Options は CSP と二重にしない）。
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
 
     // HTML・CSS・JS はブラウザに溜め込ませない。
     // 溜まると「直したのに画面が変わらない」が起きるため。
