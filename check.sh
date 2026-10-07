@@ -123,10 +123,18 @@ fi
 # --- 6. サーバー ---
 echo
 echo "[6] サーバーの稼働"
-if curl -s -m 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
-    ok "Node ゲートウェイ (8080)"
+if curl -s -m 3 http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
+    ok "Node ゲートウェイ (8090・アプリ用の入口。8080は他のアプリに取られていることがあるため、こちらで確認)"
 else
     warn "Node ゲートウェイが停止しています"
+fi
+# アプリ起動口（8090）。launch.sh / 自己点検はここを正とする。
+# 8080だけ生きていて8090が死んでいると「アプリを開けない」のに
+# 健全性チェックは通ってしまうことがあった（2026-10-07 に実測）。
+if curl -s -m 3 http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
+    ok "アプリ用の入口 (8090)"
+else
+    ng "アプリ用の入口 (8090) が止まっています（launch.sh が開けません）"
 fi
 if curl -s -m 3 http://127.0.0.1:8765/health >/dev/null 2>&1; then
     ok "自作AIエンジン (8765)"

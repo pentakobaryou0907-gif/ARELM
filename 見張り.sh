@@ -63,8 +63,13 @@ alive() { curl -s -m 2 -o /dev/null "$1" 2>/dev/null; }
 SERVER_PID=""
 AI_PID=""
 
+# サーバーが生きているかは、アプリ用の入口（8090）で見る。
+#
+# 8080 は、同じMac内の別のアプリ（エディタ等）が 127.0.0.1 で先に持つことがあり、
+# そのアプリが「動いています」と返すため、ARELMが止まっていても生きていると
+# 誤判定して、立て直されなかった。8090 はARELM本体と同じプロセスが持つ。
 while true; do
-    if ! alive "http://127.0.0.1:8080/api/health"; then
+    if ! alive "http://127.0.0.1:8090/api/health"; then
         if [ -z "$SERVER_PID" ] || ! kill -0 "$SERVER_PID" 2>/dev/null; then
             cd "$TOOL" && nohup /bin/bash "$TOOL/start_server.sh" >> "$LOGDIR/server.log" 2>&1 &
             SERVER_PID=$!

@@ -3467,8 +3467,12 @@ app.listen(APP_PORT, '127.0.0.1', () => {
     console.warn(`アプリ用の入口（${APP_PORT}番）を開けませんでした: ${e.message}`);
 });
 
-app.listen(PORT, HOST, () => {
-    console.log(`ARELM: http://localhost:${PORT}`);
+let 起動後の処理を済ませた = false;
+
+function 起動後の処理(待ち受け先) {
+    if (起動後の処理を済ませた) return;
+    起動後の処理を済ませた = true;
+    console.log(`ARELM: http://localhost:${PORT}（待ち受け: ${待ち受け先}）`);
     バックアップ.毎日の控えを始める();
 
     // 他の端末から使う設定のとき、電源につないでいる間は、Macが眠って届かなくならないようにする。
@@ -3496,7 +3500,26 @@ app.listen(PORT, HOST, () => {
     }
 
     console.log('API Gateway 稼働 — 公式APIプロキシ有効');
+}
+
+/**
+ * 同じポート（8080）を、同じMacの別のアプリ（エディタ等）が 127.0.0.1 だけで先に持っていると、
+ * 「全部の入口（0.0.0.0）」では開けず、サーバーごと起動に失敗していた。
+ * そのときは、Macの各ネットワークのアドレス（Wi-Fi等）ごとに個別に開く。
+ * 他の端末から使う入口は、これで保たれる（このMac自身は、アプリ用の入口8090で使える）。
+ */
+const 本体の入口 = app.listen(PORT, HOST, () => 起動後の処理(HOST));
+本体の入口.on('error', (e) => {
+    if (e.code !== 'EADDRINUSE' || HOST !== '0.0.0.0') throw e;
+    const 番号たち = lanAddresses();
+    console.warn(`[起動] ${PORT}番は、別のアプリが先に使っています。ネットワークのアドレスごとに開きます: ${番号たち.join(', ') || '(なし)'}`);
+    if (!番号たち.length) throw e;
+    番号たち.forEach((ip) => {
+        app.listen(PORT, ip, () => 起動後の処理(ip))
+            .on('error', (e2) => console.warn(`[起動] ${ip}:${PORT} を開けませんでした: ${e2.message}`));
+    });
 });
+
 
 /**
  * Tailscale専用の入口。
