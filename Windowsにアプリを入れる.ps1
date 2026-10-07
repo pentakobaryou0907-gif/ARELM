@@ -1,47 +1,70 @@
-﻿# AReGLM をこの Windows のホーム画面（デスクトップ）に置く
+﻿# AReGLM をこの Windows に入れる（本物のツール本体）
 #
-# いま開いている「AIツール開発プロジェクト\README.md」のフォルダは、
-# チャット整理用のメモ置き場です。アプリ本体ではありません。
-# このスクリプトは、GitHub から本物のツールを入れ、デスクトップに
-# Mac の AReGLM.app と同じ役割のアイコンを置きます。
+# いま開いている「AIツール開発プロジェクト\README.md」はメモ用です。
+# 中身は空に近く、アプリのコードは入っていません。
+# このスクリプトは GitHub から本物を「AReGLM\ツール本体」へ入れ、
+# デスクトップにアイコンを置きます。
 #
-# 使い方（PowerShell）:
+# PowerShell で実行:
 #   Set-ExecutionPolicy -Scope Process Bypass -Force
 #   irm https://raw.githubusercontent.com/pentakobaryou0907-gif/ARELM/cursor/windows-app-shell-1936/Windows%E3%81%AB%E3%82%A2%E3%83%97%E3%83%AA%E3%82%92%E5%85%A5%E3%82%8C%E3%82%8B.ps1 | iex
-#
-# または、このファイルを保存して:
-#   powershell -NoProfile -ExecutionPolicy Bypass -File .\Windowsにアプリを入れる.ps1
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $Repo = 'https://github.com/pentakobaryou0907-gif/ARELM.git'
 $Branch = 'cursor/windows-app-shell-1936'
-# OneDrive のデスクトップ下（AIツール開発プロジェクト）には置かない。
-# クラウド同期の途中で入口が欠けて、アプリが消えたように見えるため。
-$Dest = Join-Path $env:USERPROFILE 'AReGLM'
 
 function Write-Step([string]$msg) {
     Write-Host ''
     Write-Host "=== $msg ===" -ForegroundColor Cyan
 }
 
-try {
-    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
-} catch { }
+# ユーザーが見ている OneDrive\デスクトップ\AReGLM の下に「ツール本体」を作る
+function Get-AreglmHome {
+    foreach ($候補 in @(
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ\AReGLM'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop\AReGLM'),
+        (Join-Path $env:USERPROFILE 'Desktop\AReGLM'),
+        (Join-Path $env:USERPROFILE 'デスクトップ\AReGLM')
+    )) {
+        if ($候補 -and (Test-Path -LiteralPath $候補)) { return $候補 }
+    }
+    # フォルダが無ければ OneDrive デスクトップ優先で作る
+    foreach ($親 in @(
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
+        [Environment]::GetFolderPath('Desktop')
+    )) {
+        if ($親 -and (Test-Path -LiteralPath $親)) {
+            $家 = Join-Path $親 'AReGLM'
+            New-Item -ItemType Directory -Force -Path $家 | Out-Null
+            return $家
+        }
+    }
+    $家 = Join-Path $env:USERPROFILE 'AReGLM'
+    New-Item -ItemType Directory -Force -Path $家 | Out-Null
+    return $家
+}
+
+try { Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue } catch { }
 
 Write-Step '前置の確認'
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    $文 = "Git が入っていません。`r`nhttps://git-scm.com/ から入れてから、もう一度この手順を実行してください。"
+    $文 = "Git が入っていません。`r`nhttps://git-scm.com/download/win から入れてから、もう一度実行してください。"
     Write-Host $文 -ForegroundColor Red
     try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null } catch { }
     exit 1
 }
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host 'Node.js がまだありません。あとで https://nodejs.org の LTS を入れてください（サーバー起動に必要）。' -ForegroundColor Yellow
+    Write-Host 'Node.js がまだありません。あとで https://nodejs.org の LTS を入れてください。' -ForegroundColor Yellow
 }
 
-Write-Step "ツール本体を入れます → $Dest"
+$HomeDir = Get-AreglmHome
+$Dest = Join-Path $HomeDir 'ツール本体'
+Write-Step "本物のツールをここに入れます → $Dest"
+Write-Host '（「AIツール開発プロジェクト」はメモのまま残します。触りません）'
+
 if (Test-Path -LiteralPath (Join-Path $Dest '.git')) {
     Push-Location $Dest
     git fetch origin $Branch
@@ -49,24 +72,37 @@ if (Test-Path -LiteralPath (Join-Path $Dest '.git')) {
     git pull origin $Branch
     Pop-Location
 } elseif (Test-Path -LiteralPath $Dest) {
-    $文 = "$Dest は既にありますが、Git のリポジトリではありません。`r`n名前を変えるか移してから、もう一度実行してください。"
-    Write-Host $文 -ForegroundColor Red
-    try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null } catch { }
-    exit 1
+    # 中身が違うフォルダなら、使用済みへ移してから入れ直す（消さない）
+    $使用済み = Join-Path $HomeDir '使用済み'
+    New-Item -ItemType Directory -Force -Path $使用済み | Out-Null
+    $退避 = Join-Path $使用済み ("ツール本体_旧_" + (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
+    Move-Item -LiteralPath $Dest -Destination $退避 -Force
+    git clone --branch $Branch --single-branch $Repo $Dest
 } else {
     git clone --branch $Branch --single-branch $Repo $Dest
 }
 
 $ps1 = Join-Path $Dest '見張り.ps1'
-$bat = Join-Path $Dest 'AReGLMをホーム画面に置く.bat'
 if (-not (Test-Path -LiteralPath $ps1)) {
-    $文 = "本物のツールが入っていません（見張り.ps1 が無い）。`r`n$Dest"
+    $文 = "入れに失敗しました。見張り.ps1 がありません。`r`n$Dest"
     Write-Host $文 -ForegroundColor Red
     try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Error') | Out-Null } catch { }
     exit 1
 }
 
-Write-Step 'サーバーの部品（初回だけ）'
+# メモ用フォルダの隣に案内を置く（README を書き換えない）
+$案内 = Join-Path $HomeDir 'ここがアプリです_ツール本体を開いてください.txt'
+@"
+AReGLM のアプリ本体は、隣のフォルダ「ツール本体」です。
+
+× AIツール開発プロジェクト\README.md  … メモ用（中身はほぼ空）
+○ ツール本体\                        … 本物（見張り.ps1・server などがある）
+
+デスクトップの「AReGLM」アイコンから開くか、
+「ツール本体」の中の「AReGLMをホーム画面に置く.bat」を開いてください。
+"@ | Set-Content -LiteralPath $案内 -Encoding UTF8
+
+Write-Step 'サーバーの部品（初回）'
 $server = Join-Path $Dest 'server'
 if ((Get-Command npm -ErrorAction SilentlyContinue) -and -not (Test-Path -LiteralPath (Join-Path $server 'node_modules\express\package.json'))) {
     Push-Location $server
@@ -74,52 +110,34 @@ if ((Get-Command npm -ErrorAction SilentlyContinue) -and -not (Test-Path -Litera
     Pop-Location
 }
 
-Write-Step 'デスクトップ（ホーム画面）に AReGLM アイコンを置く（確認ウィンドウなし）'
+Write-Step 'デスクトップに AReGLM アイコンを置く'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ps1 -アプリにする -静かに
-if ($LASTEXITCODE -ne 0) {
-    $auto = Join-Path $Dest '自動でホーム画面に置く.bat'
-    if (Test-Path -LiteralPath $auto) {
-        Write-Host '自動配置 bat から再試行します…'
-        & cmd.exe /c "`"$auto`""
-    } elseif (Test-Path -LiteralPath $bat) {
-        Write-Host 'bat から再試行します…'
-        & cmd.exe /c "`"$bat`""
-    }
-}
 
-# ホーム画面（デスクトップ / OneDrive デスクトップ）にアイコンがあるか確かめる
-$置いた先 = @()
+$置いた = @()
 foreach ($d in @(
-    [Environment]::GetFolderPath('Desktop'),
-    (Join-Path $env:USERPROFILE 'Desktop'),
-    (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
     (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
-    (Join-Path $env:USERPROFILE 'デスクトップ')
+    (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
+    [Environment]::GetFolderPath('Desktop'),
+    (Join-Path $env:USERPROFILE 'Desktop')
 )) {
-    if ($d -and (Test-Path -LiteralPath (Join-Path $d 'AReGLM.lnk'))) {
-        $置いた先 += (Join-Path $d 'AReGLM.lnk')
-    }
+    $lnk = Join-Path $d 'AReGLM.lnk'
+    if ($d -and (Test-Path -LiteralPath $lnk)) { $置いた += $lnk }
 }
 
-$文 = if ($置いた先.Count -gt 0) {
-    @"
-できました。Windows のホーム画面（デスクトップ）に AReGLM を置きました。
-
-・ツール本体: $Dest
-・アプリの場所:
-$($置いた先 | ForEach-Object { "  $_" } | Out-String)
-次はデスクトップの「AReGLM」をダブルクリックしてください。
-（「AIツール開発プロジェクト\README.md」はメモ用で、アプリではありません）
-"@
-} else {
-    @"
-本体は $Dest に入りましたが、デスクトップへの配置を確認できませんでした。
-エクスプローラーでそのフォルダを開き、「AReGLMをホーム画面に置く.bat」を一度実行してください。
-"@
+Write-Host ''
+Write-Host '========================================' -ForegroundColor Green
+Write-Host ' できました'
+Write-Host " 本物の場所: $Dest"
+Write-Host ' エクスプローラーで「ツール本体」を開きます'
+Write-Host ' （AIツール開発プロジェクト ではありません）'
+if ($置いた.Count -gt 0) {
+    Write-Host ' デスクトップの AReGLM アイコンからも開けます'
 }
-Write-Host $文
-# 確認ウィンドウは出さない（ユーザー作業を増やさない）。デスクトップを開いてアイコンを見せる。
-$desk = [Environment]::GetFolderPath('Desktop')
-if (-not $desk) { $desk = Join-Path $env:USERPROFILE 'OneDrive\デスクトップ' }
-if ($desk -and (Test-Path -LiteralPath $desk)) { explorer.exe $desk }
-else { explorer.exe $Dest }
+Write-Host '========================================' -ForegroundColor Green
+
+# 本物のフォルダを開いて見せる（メモの README ではなく）
+explorer.exe $Dest
+if ($置いた.Count -gt 0) {
+    Start-Sleep -Seconds 1
+    explorer.exe /select,$($置いた[0])
+}
