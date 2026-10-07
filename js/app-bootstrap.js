@@ -12,6 +12,7 @@ window.loadPageData = function (pageName) {
             // 「歯止めを確かめる」（外部通信が止まっているかの実チェック）は
             // このページを実際に開いたときだけ行う（引き継ぎ.js 参照）。
             if (typeof render引き継ぎ === 'function') render引き継ぎ();
+            if (typeof renderチーム画面 === 'function') renderチーム画面();
             break;
         case 'chat':
             populateAiSelects();

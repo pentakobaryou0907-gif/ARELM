@@ -320,6 +320,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/health':
             return self._send(200, {'ok': True, 'service': 'ARELM AI Engine', 'local': True})
 
+        # ---- チーム（係で手分けして、実際の操作を進める）: 係の一覧 ----
+        if self.path == '/team/roster':
+            import チーム
+            import 係たち
+            return self._send(200, {
+                'ok': True, '司令': チーム.司令, '係たち': チーム.一覧(),
+                '働かせ方': 係たち.働かせ方たち,
+                '使える作業': sorted(チーム.使える作業の名前と題().items()),
+            })
+
         # ---- マルチエージェント化 第2段: 裏で進めている作業の一覧 ----
         if self.path == '/agent-task/list':
             import バックグラウンド作業
@@ -722,6 +732,42 @@ class Handler(BaseHTTPRequestHandler):
                         data.get('使える作業') or [],
                     )
                 return self._send(200, 決めた)
+
+            # ---- チーム: 頼んだら誰がやるかの下見（動かさない）----
+            if self.path == '/team/preview':
+                import チーム
+                import 段取り
+                import 頼みを分ける
+                発言 = (data.get('text') or '').strip()
+                if not 発言:
+                    return self._send(400, {'ok': False, '訳': '頼みを入れてください'})
+                本文 = チーム.チーム言葉を除く(発言) or 発言
+                段 = None
+                結果 = 頼みを分ける.手順に直す(本文, ChatEngine._言葉から拾う) if 段取り.頼まれているか(本文) else None
+                if 結果:
+                    段 = {'label': f'頼まれた作業（{len(結果["steps"])}手）', 'summary': '', 'steps': 結果['steps']}
+                else:
+                    段 = チーム.一手だけの段取り(発言, ChatEngine._言葉から拾う)
+                if not 段:
+                    return self._send(200, {'ok': True, '分かった': False,
+                                            '訳': '頼みを、動かせる作業として読み取れませんでした。「〜して」の形で、もう少し具体的に書いてみてください。'})
+                チーム化 = チーム.チームにする(段)
+                if not チーム化:
+                    return self._send(200, {'ok': True, '分かった': False,
+                                            '訳': '受け持つ係のいない作業が含まれています。この頼みは、チームではなく、これまでどおり一人で進めます。'})
+                return self._send(200, {'ok': True, '分かった': True, '段取り': チーム化,
+                                        '分からなかった': (結果 or {}).get('分からなかった', [])})
+
+            # ---- チーム: 係を足す・外す（足せるのは「相談」の見方まで。専任の作業は、はじめの係だけ）----
+            if self.path == '/team/agent/add':
+                import チーム
+                return self._send(200, チーム.係を足す(
+                    data.get('名前'), data.get('得意'), data.get('呼ばれる言葉'),
+                    data.get('受け持つ作業'), data.get('見方')))
+
+            if self.path == '/team/agent/remove':
+                import チーム
+                return self._send(200, チーム.係を外す(data.get('名前')))
 
             # ---- 一文に、いくつもの頼みが入っているか（画面側が、会話へ回すか決めるために聞く）----
             #

@@ -37,6 +37,7 @@ import tone
 import 段取り
 import 頼みを分ける
 import 係たち
+import チーム
 import 失敗から直す
 import 自分で覚える
 import 覚えた作業
@@ -274,6 +275,12 @@ class ChatEngine:
         # --- 「それ」「さっきの」を、直前の話に結びつける ---
         text, 結びつけた先 = conversation.前の話に結びつける(text, 会話体)
 
+        # --- 「チームで〜して」: 名指しされたら、その言葉は取り除いて、本来の頼みにする ---
+        # 「みんなで意見を出して」（相談）は、チームの合図ではない（係たち.py と同じ扱い）。
+        チームを名指し = チーム.チームを頼まれたか(text)
+        if チーム._チーム言葉.search(text):
+            text = チーム.チーム言葉を除く(text) or text
+
         # --- 脇に置いた作業へ戻るか ---
         #
         # 別の話に移ったあと、「戻る」「続き」と言われたら、
@@ -315,10 +322,10 @@ class ChatEngine:
         教わった, 教わり確度 = 覚えた作業.見つける(text)
         if 教わった and 教わり確度 >= 0.6 and 段取り.頼まれているか(text):
             段 = 覚えた作業.段取りの形にする(教わった)
+            段 = self._チームにする(段, チームを名指し, context)
             文 = [f'「{段["label"]}」ですね。あなたに教わった手順です。', '',
                   '次の順で進めます:', '']
-            for i, h in enumerate(段['steps'], 1):
-                文.append(f'{i}. {h["why"]}')
+            文 += self._手の一覧の文(段)
 
             # 本人が「確認なしで最後まで進める」を選んでいるときは、そのまま進める
             自動 = bool((context or {}).get('自動で進める'))
@@ -346,6 +353,7 @@ class ChatEngine:
             if 段取り.頼まれているか(text):
                 自動 = bool((context or {}).get('自動で進める'))
                 答え = 段取り.段取りの返事(型, text, 段取りの確からしさ, 自動=自動)
+                答え = self._答えをチームにする(答え, チームを名指し, context)
                 # 自動のときは、すぐ進めるので、「実行してと言われるのを待つ」状態にはしない
                 会話体.待っている段取り = None if 自動 else 答え['plan']
                 会話体.加える('私', 答え['answer'])
@@ -362,18 +370,24 @@ class ChatEngine:
         # 質問には反応しない。分からなかった部分は、推測で埋めず、そのまま伝える。
         if 段取り.頼まれているか(text):
             複数 = 頼みを分ける.手順に直す(text, ChatEngine._言葉から拾う)
-            if 複数:
+            一手 = None
+            if not 複数 and チームを名指し:
+                # 「チームで在庫を見て」: 一つの頼みでも、名指しされたら、チームの形で受ける
+                一手 = チーム.一手だけの段取り(text, ChatEngine._言葉から拾う)
+            if 複数 or 一手:
                 自動 = bool((context or {}).get('自動で進める'))
                 段 = {
                     'name': 'adhoc',
-                    'label': f'頼まれた作業（{len(複数["steps"])}手）',
-                    'summary': '頼まれたことを、順番に進めます。',
-                    'steps': 複数['steps'],
+                    'label': f'頼まれた作業（{len(複数["steps"])}手）' if 複数 else 一手['label'],
+                    'summary': '頼まれたことを、順番に進めます。' if 複数 else 一手['summary'],
+                    'steps': 複数['steps'] if 複数 else 一手['steps'],
                 }
+                if not 複数:
+                    複数 = {'steps': 段['steps'], '分からなかった': []}
+                段 = self._チームにする(段, チームを名指し, context)
                 文 = [f'{len(複数["steps"])}つの頼みとして受け取りました。', '',
                       'そのまま、次の順で進めます:' if 自動 else '次の順で進めます:', '']
-                for i, h in enumerate(段['steps'], 1):
-                    文.append(f'{i}. {h["why"]}')
+                文 += self._手の一覧の文(段)
                 if 複数['分からなかった']:
                     文 += ['', '次の部分は分からなかったので、行いません:']
                     文 += [f'・「{x}」' for x in 複数['分からなかった']]
@@ -1308,6 +1322,50 @@ class ChatEngine:
             会話体.脇に置いた = None
 
         return None
+
+    def _チームにする(self, 段, 名指し, context):
+        """
+        チームで進める設定のとき（または、チームを名指しされたとき）、段取りに担当を付ける。
+
+        受け持つ係のいない手があれば、そのまま（これまでどおり一人で進める）。
+        名指しされていないときは、係が二つ以上に分かれるときだけチームにする
+        （一つの係だけなら、手分けする意味が無く、画面が賑やかになるだけのため）。
+        """
+        if not (名指し or (context or {}).get('チームで進める')):
+            return 段
+        t = チーム.チームにする(段)
+        if not t:
+            return 段
+        if not 名指し and len(t['team']['agents']) < 2:
+            return 段
+        return t
+
+    def _答えをチームにする(self, 答え, 名指し, context):
+        """段取りの返事（plan つき）を、チームの段取りに差し替える。返事の文も、担当つきにする。"""
+        段 = 答え.get('plan') if isinstance(答え, dict) else None
+        if not 段:
+            return 答え
+        チーム化 = self._チームにする(段, 名指し, context)
+        if 'team' not in チーム化:
+            return 答え
+        答え['plan'] = チーム化
+        行たち = 答え['answer'].split('\n')
+        # 番号つきの手の一覧（「1. …」の連続）を、担当つきの一覧に置き換える
+        始め = next((i for i, x in enumerate(行たち) if re.match(r'^\d+\. ', x)), None)
+        if 始め is not None:
+            終わり = 始め
+            while 終わり < len(行たち) and re.match(r'^\d+\. ', 行たち[終わり]):
+                終わり += 1
+            答え['answer'] = '\n'.join(行たち[:始め] + チーム.受け持ちの文(チーム化) + 行たち[終わり:])
+        # 「実行して」を待つ場合は、待っている段取りも、チームの形に
+        # （ここでは会話体を持たないので、呼び出し側で差し替える）
+        return 答え
+
+    def _手の一覧の文(self, 段):
+        """手の一覧（人に見せる文）。チームなら担当つき。"""
+        if 'team' in 段:
+            return チーム.受け持ちの文(段)
+        return [f'{i}. {h["why"]}' for i, h in enumerate(段['steps'], 1)]
 
     def _段取りの実行を受け取る(self, text, 会話体):
         """

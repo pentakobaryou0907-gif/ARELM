@@ -654,6 +654,121 @@ def test_compound_requests():
     check('お任せの返事: 例と進め方を出す', '在庫を確認して' in r['answer'] and '確認なしで' in r['answer'])
 
 
+def test_team():
+    """
+    チーム（係で手分けして進める）。
+    決まり: 全技能に専任がいる／同じ係は順に・違う係は同時に／前の結果に頼る手は待つ／
+    画面を切り替える手は頼まれた順／失敗で止める準備がある／設定とチームの名指しで切り替わる。
+    """
+    import skills
+    import チーム as T
+    import 係たち as 係
+    import 頼みを分ける as K
+    from chat_engine import ChatEngine
+    拾う = ChatEngine._言葉から拾う
+
+    # --- 専任の表（作ったのに誰も使えない、を防ぐ） ---
+    いない = [x.name for x in skills.SKILLS if T.担当を決める(x.action) is None]
+    check('チーム: 専任のいない技能は teach_task だけ（新しい技能を足したら、専任を決める）', いない == ['teach_task'], str(いない))
+    数 = {}
+    for 名, 作業たち in T.専任の表.items():
+        for a in 作業たち:
+            数[a] = 数.get(a, 0) + 1
+    check('チーム: 一つの作業に、専任は一人だけ', all(n == 1 for n in 数.values()))
+    実在 = {x.action for x in skills.SKILLS}
+    check('チーム: 専任の作業は、実在する技能だけ', all(a in 実在 for a in 数))
+    名簿の名前 = {x['名前'] for x in T.名簿()}
+    check('チーム: 専任のいる係は、名簿に全員居る（古い保存ファイルでも）', set(T.専任の表) <= 名簿の名前)
+
+    # --- 割り振りと待ち先 ---
+    def 段(text):
+        r = K.手順に直す(text, 拾う)
+        return T.チームにする({'label': 'x', 'steps': r['steps']})
+
+    t = 段('在庫を確認して、少ないものをやることに入れて')
+    check('チーム: 在庫は在庫係、やることは段取り係', [h['agent_name'] for h in t['steps']] == ['在庫係', '段取り係'])
+    check('チーム: 関わりのない二つは、同時に進む', t['team']['同時に動く'] and [h['wave'] for h in t['steps']] == [0, 0])
+
+    t = 段('新しいTシャツを登録して、説明文も作って')
+    check('チーム: 同じ商品名を使う手は、前の手を待つ', t['steps'][1]['wait'] == [0] and t['steps'][1]['wave'] == 1)
+
+    t = 段('バックアップを取って、ひらめき箱を見せて、今日の状況も見せて')
+    check('チーム: 同じ係の手は、同じ波に入らない（頼まれた順に一つずつ）',
+          t['steps'][0]['agent_name'] == t['steps'][1]['agent_name'] and t['steps'][1]['wave'] > t['steps'][0]['wave'])
+
+    t = T.チームにする({'steps': [
+        {'action': 'show_inventory', 'why': 'a', 'params': {}},
+        {'action': 'show_schedule', 'why': 'b', 'params': {}},
+        {'action': 'self_check', 'why': 'c', 'params': {}},
+    ]})
+    check('チーム: 画面を切り替える手は、前の画面の手を待つ（頼まれた順に見せる）',
+          t['steps'][1]['wait'] == [0] and t['steps'][2]['wait'] == [1])
+
+    t = T.チームにする({'steps': [
+        {'action': 'add_task', 'why': 'a', 'params': {'title': 'テスト題'}},
+        {'action': 'add_memo', 'why': 'b', 'params': {'body': '別の中身'}, 'confirm': True},
+    ]})
+    check('チーム: 戻しにくい手は、前の手がすべて終わってから', t['steps'][1]['wait'] == [0])
+
+    check('チーム: 受け持つ係のいない作業が混ざれば、チームにしない（一人で進める）',
+          T.チームにする({'steps': [{'action': 'add_task', 'why': 'a', 'params': {}},
+                                  {'action': '道具:読む', 'why': 'b', 'params': {}}]}) is None)
+    check('チーム: 手が空なら、チームにしない', T.チームにする({'steps': []}) is None)
+
+    # 待ち先は前にしか向かない（後ろを待つと、永久に終わらない）
+    r = K.手順に直す('在庫を見て値段を考えてやることに入れて', 拾う)
+    t = T.チームにする({'steps': r['steps']})
+    check('チーム: 待ち先は、必ず前の手だけ（行き止まりを作らない）',
+          all(w < j for j, h in enumerate(t['steps']) for w in h['wait']))
+
+    # --- 助詞（「バックアップも取って」が、一つも当たらず、後ろの頼みが消えていた） ---
+    check('助詞: 「バックアップも取って」は、バックアップを取る頼み', [x.name for x, _ in skills.ranked('バックアップも取って')][:1] == ['backup_now'])
+    check('助詞: 「ひらめき箱も見せて」は、ひらめき箱を見る頼み', [x.name for x, _ in skills.ranked('ひらめき箱も見せて')][:1] == ['show_inbox'])
+    check('助詞: 言葉の中の「も」（少ないものを）は、読み替えない', skills.助詞をそろえる('少ないものをやることに入れて') == '少ないものをやることに入れて')
+    r = K.手順に直す('在庫を確認して、少ないものをやることに入れて、バックアップも取って', 拾う)
+    check('助詞: 三つ目の「〜も取って」も、手順に入る', r and [h['action'] for h in r['steps']] == ['show_inventory', 'add_task', 'backup_now'])
+
+    # --- 言葉 ---
+    check('チーム: 「チームで」「手分けして」で名指し', T.チームを頼まれたか('チームで在庫を見て') and T.チームを頼まれたか('手分けして進めて'))
+    check('チーム: 「同時に」も、係たちと同じ合図', T.チームを頼まれたか('同時に在庫を見て'))
+    check('チーム: 「みんなで意見を」（相談）は、チームの合図にしない', not T.チームを頼まれたか('みんなで意見を出して'))
+    check('チーム: 名指しの言葉は、頼みから取り除く', T.チーム言葉を除く('チームで在庫を見て、やることに入れて') == '在庫を見て、やることに入れて')
+
+    # --- 会話 ---
+    基本 = {'today': '2026-10-07', 'products': [], 'tasks': [], 'events': []}
+    文 = '在庫を確認して、少ないものをやることに入れて'
+    e = ChatEngine(knowledge=KnowledgeBase())
+    r = e.respond(文, dict(基本, session_id='tm1', 自動で進める=True, チームで進める=True))
+    check('チーム会話: 設定がオンなら、担当つきで進める', r.get('run') is True and 'team' in r['plan'] and '在庫係' in r['answer'])
+    r = e.respond(文, dict(基本, session_id='tm2', 自動で進める=True))
+    check('チーム会話: 設定がオフなら、これまでどおり（担当なし）', 'team' not in r['plan'] and '在庫係' not in r['answer'])
+    r = e.respond('チームで' + 文, dict(基本, session_id='tm3', 自動で進める=True))
+    check('チーム会話: 名指しなら、設定がオフでもチームで進める', 'team' in r['plan'] and '在庫係' in r['answer'])
+    r = e.respond('チームで在庫を見て', dict(基本, session_id='tm4', 自動で進める=True))
+    check('チーム会話: 名指しの一つの頼みも、チームの形で受ける', r.get('run') is True and len(r['plan']['steps']) == 1 and 'team' in r['plan'])
+    r = e.respond('在庫を見て、商品を全部消して', dict(基本, session_id='tm5', 自動で進める=True, チームで進める=True))
+    check('チーム会話: 消す頼みは、チームでも断る', not r.get('plan') and '行いません' in r['answer'])
+    r = e.respond(文, dict(基本, session_id='tm6', チームで進める=True))
+    check('チーム会話: 自動でなければ、担当を見せて、実行と言われるのを待つ', 'team' in r['plan'] and not r.get('run') and '実行して' in r['answer'])
+
+    # --- 係の足し引き（本物の名簿は書き換えない） ---
+    import tempfile, os
+    元 = 係.置き場
+    with tempfile.TemporaryDirectory() as 場所:
+        係.置き場 = os.path.join(場所, '係たち.json')
+        try:
+            check('係: はじめの係と同じ名前では足せない', not T.係を足す('在庫係', '', ['在庫'], [], '')['ok'])
+            check('係: 持っていない作業を持たせた係は足せない', not T.係を足す('法務係', '契約', ['契約'], ['存在しない作業'], '権利を見る')['ok'])
+            ok = T.係を足す('法務係', '契約', ['契約', '商標'], ['add_memo'], '権利に引っかからないかを先に見ます')
+            check('係: 相談役の係を足せる', ok['ok'] and any(x['名前'] == '法務係' and x['専任'] == [] for x in T.一覧()))
+            check('係: 足した係は、専任の作業を持たない（同じ作業が二人に当たらない）',
+                  T.担当を決める('add_memo') == '記録係')
+            check('係: はじめの係は外せない', not T.係を外す('在庫係')['ok'])
+            check('係: 足した係は外せる', T.係を外す('法務係')['ok'] and all(x['名前'] != '法務係' for x in T.一覧()))
+        finally:
+            係.置き場 = 元
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -661,7 +776,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

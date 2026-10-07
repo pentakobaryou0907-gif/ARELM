@@ -8229,6 +8229,65 @@ html[data-theme] .chat-bubble.user {
 .agent-summary.failed  { border: 1px solid #dc2626; background: rgba(220,38,38,0.07); }
 
 /* ==========================================================
+   チーム（係で手分けして進める）
+   ========================================================== */
+
+.team-board, .team-roster {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 0.45rem;
+    margin: 0.4rem 0;
+}
+.team-roster { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); margin: 0.7rem 0; }
+.team-card {
+    display: grid;
+    gap: 0.15rem;
+    align-content: start;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--tone-line, var(--areglm-border));
+    border-radius: 10px;
+    background: var(--tone-card, #fff);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+.team-card b { font-size: 0.86rem; }
+.team-card small { font-size: 0.74rem; color: var(--tone-ink-dim, var(--areglm-muted)); }
+.team-card .team-own { color: inherit; }
+.team-card.commander { border-style: dashed; }
+.team-card.idle { opacity: 0.8; }
+.team-card.waiting { border-color: var(--areglm-muted, #888); }
+.team-card.working { border-color: var(--areglm-warn); background: rgba(245,158,11,0.07); }
+.team-card.asking  { border-color: var(--areglm-warn); border-style: dashed; }
+.team-card.done    { border-color: #2e7d4f; background: rgba(46,125,79,0.08); opacity: 1; }
+.team-card.failed  { border-color: #dc2626; background: rgba(220,38,38,0.07); opacity: 1; }
+.team-checker {
+    margin: 0.3rem 0 0.5rem;
+    font-size: 0.76rem;
+    color: var(--tone-ink-dim, var(--areglm-muted));
+}
+.team-report {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--tone-line, var(--areglm-border));
+    border-radius: 10px;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    display: grid;
+    gap: 0.1rem;
+}
+.team-preview, .team-log, .team-add { margin-top: 0.9rem; }
+.team-preview h4, .team-log h4 { font-size: 0.88rem; margin: 0 0 0.35rem; }
+.team-preview-out ol { margin: 0.4rem 0; padding-left: 1.3rem; font-size: 0.82rem; line-height: 1.7; }
+.team-add summary { cursor: pointer; font-size: 0.86rem; font-weight: 600; }
+.team-add fieldset { border: 1px solid var(--tone-line, var(--areglm-border)); border-radius: 8px; margin: 0.5rem 0; padding: 0.4rem 0.6rem; }
+.team-add fieldset legend { font-size: 0.76rem; padding: 0 0.3rem; }
+.team-add .checkbox-label { display: inline-flex; gap: 0.2rem; margin: 0.1rem 0.7rem 0.1rem 0; font-size: 0.78rem; }
+@media (prefers-reduced-motion: no-preference) {
+    .team-card.working { animation: チームの動き 1.4s ease-in-out infinite; }
+}
+@keyframes チームの動き { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+
+/* ==========================================================
    声と話し方
    ========================================================== */
 

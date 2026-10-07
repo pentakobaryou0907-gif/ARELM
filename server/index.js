@@ -2274,6 +2274,14 @@ function エージェントを自動で進めるか() {
     } catch { return true; }
 }
 
+/** チーム（係で手分けして進める）を使うか。既定は使う。'0'のときだけ、これまでどおり一人で順に進める。 */
+function エージェントがチームで進めるか() {
+    try {
+        const e = 同期の中身を読む().areglm_agent_team;
+        return !(e && (e.value === '0' || e.value === 'false'));
+    } catch { return true; }
+}
+
 /** 自作AIエンジンへの中継ルートをまとめて定義する */
 function proxyToAiEngine(method, route) {
     const handler = async (req, res) => {
@@ -2284,7 +2292,7 @@ function proxyToAiEngine(method, route) {
                 let 本文 = req.body || {};
                 // 会話では、確認なしで進める設定かどうかを、エンジンに伝える
                 if (route === '/chat') {
-                    本文 = { ...本文, context: { ...(本文.context || {}), 自動で進める: エージェントを自動で進めるか() } };
+                    本文 = { ...本文, context: { ...(本文.context || {}), 自動で進める: エージェントを自動で進めるか(), チームで進める: エージェントがチームで進めるか() } };
                 }
                 opts.body = JSON.stringify(本文);
             }
@@ -2319,6 +2327,10 @@ proxyToAiEngine('GET', '/generate/templates');
 proxyToAiEngine('POST', '/generate');
 proxyToAiEngine('POST', '/chat');
 proxyToAiEngine('POST', '/split-request');
+proxyToAiEngine('GET', '/team/roster');
+proxyToAiEngine('POST', '/team/preview');
+proxyToAiEngine('POST', '/team/agent/add');
+proxyToAiEngine('POST', '/team/agent/remove');
 proxyToAiEngine('POST', '/warm');
 proxyToAiEngine('POST', '/deal-check');
 proxyToAiEngine('POST', '/generate/learn-style');
