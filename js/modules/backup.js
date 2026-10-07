@@ -40,11 +40,14 @@ const AREGLM_BACKUP_KEYS = [
 function initBackup() {
     document.getElementById('backup-export-btn')?.addEventListener('click', exportBackup);
     document.getElementById('backup-import-file')?.addEventListener('change', importBackup);
+    document.getElementById('backup-restore-drill-btn')?.addEventListener('click', () => 復元訓練を走らせる(true));
 
     // 起動直後と以降30分ごとに、この端末内へ自動スナップショットを保存
     setTimeout(saveSnapshotToServer, 5000);
     setInterval(saveSnapshotToServer, 30 * 60 * 1000);
     refreshSnapshotInfo();
+    復元訓練の様子を出す();
+    容量とホーム画面の注意を出す();
 }
 
 function collectBackupData() {
@@ -89,6 +92,68 @@ async function refreshSnapshotInfo() {
     } catch {
         /* 表示のみの機能なので失敗は無視 */
     }
+}
+
+async function 復元訓練の様子を出す() {
+    const el = document.getElementById('restore-drill-info');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/snapshot/restore-drill');
+        if (!res.ok) return;
+        const d = await res.json();
+        const 様子 = d.様子;
+        if (!様子) {
+            el.textContent = '復元訓練: まだ一度も走っていません（控えが溜まると自動で月1回走ります）';
+            return;
+        }
+        const いつ = 様子.時刻 ? new Date(様子.時刻).toLocaleString('ja-JP') : '';
+        el.textContent = `復元訓練: ${様子.ok ? '成功' : '失敗'}（${いつ}）— ${様子.訳 || ''}`;
+    } catch {
+        /* 表示のみ */
+    }
+}
+
+async function 復元訓練を走らせる(強制) {
+    try {
+        const res = await fetch('/api/snapshot/restore-drill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 強制: !!強制 }),
+        });
+        const d = await res.json();
+        setBackupStatus(d.訳 || (d.ok ? '復元訓練に成功しました' : '復元訓練に失敗しました'));
+        if (typeof showNotification === 'function') {
+            showNotification(d.訳 || '', d.ok ? 'success' : 'error');
+        }
+        復元訓練の様子を出す();
+    } catch (e) {
+        setBackupStatus('復元訓練に失敗しました: ' + e.message);
+    }
+}
+
+function 容量とホーム画面の注意を出す() {
+    const el = document.getElementById('storage-home-hint');
+    if (!el) return;
+    const 行 = [];
+    if (window.AReGLM_物置) {
+        const s = AReGLM_物置.様子();
+        行.push(`ブラウザ内の保存: 約 ${Math.round(s.量 / 1024)} KB / ${Math.round(s.上限 / 1024 / 1024)} MB`
+            + (s.物置の数 ? `（大きいもの ${s.物置の数} 件は IndexedDB）` : ''));
+    }
+    // iPhone / iPad の Safari は、7日使わないとブラウザ内のデータを消すことがある。
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (iOS) {
+        const ホームから = navigator.standalone === true
+            || window.matchMedia('(display-mode: standalone)').matches;
+        行.push(ホームから
+            ? 'ホーム画面から開いています（ブラウザ内のデータが消えにくい使い方です）。消えてもサーバーから戻ります。'
+            : 'iPhone / iPad では「ホーム画面に追加」してから開いてください。Safari のまま7日使わないと、ブラウザ内のデータが消えることがあります。消えてもサーバーが正なので、次に開くと戻ります。');
+    }
+    if (window.AReGLM_SYNC && AReGLM_SYNC.まだ送れていない数() > 0) {
+        行.push(`サーバーへまだ送れていない変更が ${AReGLM_SYNC.まだ送れていない数()} 件あります（繋がり次第送り直します）`);
+    }
+    el.textContent = 行.join(' ');
 }
 
 function exportBackup() {
@@ -186,3 +251,5 @@ function setBackupStatus(msg) {
 
 window.initBackup = initBackup;
 window.exportBackup = exportBackup;
+window.saveSnapshotToServer = saveSnapshotToServer;
+window.復元訓練を走らせる = 復元訓練を走らせる;

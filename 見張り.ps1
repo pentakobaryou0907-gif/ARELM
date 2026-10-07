@@ -166,22 +166,59 @@ function Install-HomeShortcut {
 
     # サインインのたびに見張りを裏で立ち上げる（Mac版の常駐と同じ役目）。
     # 見張りは起動時にデスクトップのアイコンを確かめ、無ければ置き直す。
-    try {
-        $startup = [Environment]::GetFolderPath('Startup')
-        if ($startup) {
-            $shell = New-Object -ComObject WScript.Shell
-            $sc = $shell.CreateShortcut((Join-Path $startup 'AReGLM見張り.lnk'))
-            $sc.TargetPath = $powershell
-            $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$SCRIPT`""
-            $sc.WorkingDirectory = $TOOL
-            $sc.WindowStyle = 7
-            $sc.Description = 'AReGLM の見張り（サーバーを保ち、ホーム画面のアイコンを戻す）'
-            if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
-            $sc.Save()
-            Write-Log "サインイン時の見張りを登録しました"
+    # 本体がデスクトップ・書類・OneDrive の下にあるときは登録しない
+    # （クラウド同期の一時的な欠落で、無いパスを指したまま立ち上がろうとするため。
+    # Mac の LaunchAgent 登録と同じ判断）。
+    $同期の下 = $false
+    foreach ($印 in @('\Desktop\', '\デスクトップ\', '\Documents\', '\書類\', '\OneDrive\')) {
+        if ($TOOL -like "*$印*") { $同期の下 = $true; break }
+    }
+    if ($同期の下) {
+        Write-Log "本体がデスクトップ／書類／OneDrive の下にあるので、サインイン時の見張りは登録しません: $TOOL"
+    } else {
+        try {
+            $startup = [Environment]::GetFolderPath('Startup')
+            if ($startup) {
+                $shell = New-Object -ComObject WScript.Shell
+                $sc = $shell.CreateShortcut((Join-Path $startup 'AReGLM見張り.lnk'))
+                $sc.TargetPath = $powershell
+                $sc.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$SCRIPT`""
+                $sc.WorkingDirectory = $TOOL
+                $sc.WindowStyle = 7
+                $sc.Description = 'AReGLM の見張り（サーバーを保ち、ホーム画面のアイコンを戻す）'
+                if (Test-Path -LiteralPath $ico) { $sc.IconLocation = "$ico,0" }
+                $sc.Save()
+                Write-Log "サインイン時の見張りを登録しました（スタートアップ）"
+            }
+        } catch {
+            Write-Log "サインイン時の見張りを登録できませんでした: $($_.Exception.Message)"
         }
-    } catch {
-        Write-Log "サインイン時の見張りを登録できませんでした: $($_.Exception.Message)"
+
+        # Startup のショートカットは「落ちたら立ち上がり直す」が無い。
+        # Mac の KeepAlive と同じく、タスクスケジューラで 1 分ごとに
+        # 「動いていなければ起こす」ようにする（常時二重起動は Take-Lock で防ぐ）。
+        try {
+            $任務名 = 'AReGLM見張り'
+            $起こす = @"
+`$ps1 = '$($SCRIPT.Replace("'","''"))'
+`$powershell = Join-Path `$env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+`$pidFile = Join-Path `$env:LOCALAPPDATA 'AReGLM\logs\見張り.lock\pid'
+if (Test-Path -LiteralPath `$pidFile) {
+  `$既存 = Get-Content -LiteralPath `$pidFile -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (`$既存 -and (Get-Process -Id `$既存 -ErrorAction SilentlyContinue)) { exit 0 }
+}
+Start-Process -FilePath `$powershell -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',`$ps1)
+"@
+            $起こすPath = Join-Path $LOGDIR '見張りを起こす.ps1'
+            Set-Content -LiteralPath $起こすPath -Value $起こす -Encoding UTF8
+            $action = New-ScheduledTaskAction -Execute $powershell -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$起こすPath`""
+            $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration ([TimeSpan]::MaxValue)
+            $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
+            Register-ScheduledTask -TaskName $任務名 -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+            Write-Log "サインイン時の見張りを登録しました（タスクスケジューラ・1分ごとに確認）"
+        } catch {
+            Write-Log "タスクスケジューラへの登録はスキップしました: $($_.Exception.Message)"
+        }
     }
     return $作った
 }

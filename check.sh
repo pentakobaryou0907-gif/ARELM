@@ -268,6 +268,15 @@ else
     ng "画面の流れで期待と違うところがあります:"; echo "$OUT" | grep "✗" | sed 's/^/      /'
 fi
 
+# --- 12. 同期のまとめ（id ごとの統合） ---
+echo
+echo "[12] 同期のまとめの自動テスト"
+if OUT=$(node tools/同期のまとめの自動テスト.js 2>&1); then
+    ok "$(echo "$OUT" | tail -1)"
+else
+    ng "同期のまとめで期待と違うところがあります:"; echo "$OUT" | grep "✗" | sed 's/^/      /'
+fi
+
 echo
 echo "════════════════════════════════════════"
 if [ $FAIL -eq 0 ]; then
