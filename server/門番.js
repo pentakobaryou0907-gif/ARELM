@@ -252,7 +252,19 @@ function 合った(住所) {
 
 /* ---------- 入口の画面 ---------- */
 
-function 合言葉を聞く画面(訳) {
+/** ブラウザの情報から、端末の呼び名を推す（合言葉の画面の「端末の名前」の初期値） */
+function 端末名を推す(ua) {
+    const u = String(ua || '');
+    const タッチ = /Macintosh/.test(u) && /Mobile\//.test(u);      // iPadOS は Mac を名乗ることがある
+    if (/iPhone/.test(u)) return 'iPhone';
+    if (/iPad/.test(u) || タッチ) return 'iPad';
+    if (/Android/.test(u)) return 'Android';
+    if (/Windows/.test(u)) return 'Windowsのパソコン';
+    if (/Macintosh|Mac OS X/.test(u)) return 'Mac';
+    return '';
+}
+
+function 合言葉を聞く画面(訳, 初期の名前 = '') {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ARELM</title>
@@ -276,7 +288,7 @@ function 合言葉を聞く画面(訳) {
   <p>この端末は、まだ許可されていません。<br>合言葉を入れてください。</p>
   ${訳 ? `<p class="err">${訳}</p>` : ''}
   <input type="password" name="合言葉" autocomplete="current-password" autofocus required>
-  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off">
+  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off" value="${String(初期の名前).replace(/[&<>"']/g, '')}">
   <button type="submit">入る</button>
   <p>合っていれば、この端末を${印の日数}日間おぼえます。<br>
      このツールは外部へ一切送信しません。</p>
@@ -430,7 +442,7 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
             if (!合言葉が合うか(言葉)) {
                 間違えた(住所);
                 res.status(401).type('text/html; charset=utf-8');
-                return res.end(合言葉を聞く画面('合言葉が違います。'));
+                return res.end(合言葉を聞く画面('合言葉が違います。', 端末名を推す(req.headers['user-agent'])));
             }
 
             合った(住所);
@@ -450,7 +462,7 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // まだなら、合言葉を聞く。
         // ここで next() してしまうと、画面のファイルが誰でも取れてしまう。
         res.status(401).type('text/html; charset=utf-8');
-        return res.end(合言葉を聞く画面(''));
+        return res.end(合言葉を聞く画面('', 端末名を推す(req.headers['user-agent'])));
     });
 }
 

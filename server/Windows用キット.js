@@ -105,4 +105,4 @@ function キットを作る(ポート, 番号たち) {
     return zipにする(項目);
 }
 
-module.exports = { キットを作る };
+module.exports = { キットを作る, Macの名前 };

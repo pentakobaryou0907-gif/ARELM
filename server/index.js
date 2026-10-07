@@ -127,6 +127,33 @@ function 本体のブラウザからか(req) {
     return ['localhost', '127.0.0.1', '::1'].includes(host);
 }
 
+/** 自分のユーザー名（秘密ではない）。忘れたときに、画面で思い出せるように。ログイン中の本人だけ。 */
+app.get('/api/account/me', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    res.json({ ok: true, 名前: アカウント.ユーザー名() });
+});
+
+/**
+ * ユーザー名とパスワードを決め直す（いまのパスワードは要らない）。
+ * 「思い出せない」ときの手当てなので、次の両方のときだけ。
+ *   ・このMac本体のブラウザから直接来た通信
+ *   ・本人が「ログインなしで使う」を選んでいる（このMacの前にいる人は本人、と決めてある）
+ * 他の端末からは、合言葉を通っていても、できない。
+ */
+app.post('/api/account/reset', (req, res) => {
+    if (!本体のブラウザからか(req) || !アカウント.ログインなしか()) {
+        return res.status(403).json({ ok: false, 訳: 'この操作は、このMacで「ログインなしで使う」を選んでいるときの、このMacの画面からだけできます' });
+    }
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    const { 名前, パスワード } = req.body || {};
+    const r = アカウント.決め直す(名前, パスワード);
+    if (!r.ok) return res.status(400).json(r);
+    const 入 = アカウント.ログインなしで入る();      // 新しい入場券
+    res.json({ ok: true, 訳: r.訳, 名前: r.名前, 役: 入.役, 入場券: 入.入場券 });
+});
+
 app.get('/api/account/status', (req, res) => {
     res.json({
         ok: true,
@@ -178,6 +205,67 @@ app.post('/api/account/logout', (req, res) => {
 
 // 指紋・Face ID（パスキー）
 function 身元(req) { return { origin: req.headers['origin'] || '' }; }
+
+/**
+ * iPad・iPhone用の、ホーム画面アイコンのプロファイル（Web Clip）。
+ * 開く先は、いま開いている住所と同じ（iPadが実際に届いている住所）。
+ * Mac本体（localhost）から開いたときは、iPadが使える住所（Macの名前.local）にする。
+ * 入っているのは、アイコンと住所だけ。鍵・データは入っていない。
+ * 他の端末からは、門番（合言葉）を通った後でしか届かない。
+ */
+app.get('/ipad.mobileconfig', (req, res) => {
+    try {
+        const host = String(req.headers.host || '');
+        const 本体の名前 = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
+        let 行き先;
+        if (!/^[A-Za-z0-9.\-:\[\]]+$/.test(host)) return res.status(400).end('住所が正しくありません');
+        if (本体の名前) {
+            const 名 = require('./Windows用キット').Macの名前();
+            行き先 = 名 ? `${名}:${PORT}` : (lanAddresses()[0] ? `${lanAddresses()[0]}:${PORT}` : null);
+            if (!行き先) return res.status(500).end('このMacの住所が分かりません');
+        } else {
+            行き先 = host;
+        }
+        const 絵 = fs.readFileSync(path.join(ROOT, 'images', 'icon-512x512.png')).toString('base64');
+        const uuid = () => require('crypto').randomUUID().toUpperCase();
+        const 逃がす = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>PayloadContent</key><array><dict>
+<key>FullScreen</key><true/>
+<key>Icon</key><data>${絵}</data>
+<key>IsRemovable</key><true/>
+<key>Label</key><string>ARELM</string>
+<key>PayloadDescription</key><string>ARELMをホーム画面に追加します</string>
+<key>PayloadDisplayName</key><string>ARELM（ホーム画面のアイコン）</string>
+<key>PayloadIdentifier</key><string>jp.arelm.webclip.main</string>
+<key>PayloadType</key><string>com.apple.webClip.managed</string>
+<key>PayloadUUID</key><string>${uuid()}</string>
+<key>PayloadVersion</key><integer>1</integer>
+<key>Precomposed</key><true/>
+<key>URL</key><string>${逃がす('http://' + 行き先 + '/')}</string>
+</dict></array>
+<key>PayloadDescription</key><string>ARELMのアイコンを、ホーム画面に追加します。入れても、設定は何も変わりません。いつでも削除できます。</string>
+<key>PayloadDisplayName</key><string>ARELM</string>
+<key>PayloadIdentifier</key><string>jp.arelm.webclip</string>
+<key>PayloadOrganization</key><string>ARELM</string>
+<key>PayloadRemovalDisallowed</key><false/>
+<key>PayloadType</key><string>Configuration</string>
+<key>PayloadUUID</key><string>${uuid()}</string>
+<key>PayloadVersion</key><integer>1</integer>
+</dict></plist>
+`;
+        res.set({
+            'Content-Type': 'application/x-apple-aspen-config',
+            'Content-Disposition': 'attachment; filename="ARELM-iPad.mobileconfig"',
+            'Cache-Control': 'no-store',
+        });
+        res.send(xml);
+    } catch (e) {
+        res.status(500).type('text/plain; charset=utf-8').end('作れませんでした: ' + e.message);
+    }
+});
 
 // Windows PC用の起動アプリ。他の端末からは、門番（合言葉）を通った後でしか届かない。
 // 中身は起動用のバッチファイルとアイコンだけ（鍵・データは入っていない）。
