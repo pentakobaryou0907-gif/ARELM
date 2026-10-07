@@ -11,13 +11,13 @@ cd /d "%~dp0"
 
 if not exist "%~dp0見張り.ps1" goto missing
 
-echo デスクトップとスタートメニューに AReGLM を置きます…
+echo デスクトップに AReGLM アプリ（アイコン付き）を置きます…
 echo.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -ホームに置く
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする
 if errorlevel 1 goto fail
 
 echo.
-echo できました。デスクトップの「AReGLM」を開いてください。
+echo できました。デスクトップの「AReGLM」がアプリです。それを開いてください。
 echo このウィンドウは閉じても構いません。
 ping -n 4 127.0.0.1 >nul
 endlocal

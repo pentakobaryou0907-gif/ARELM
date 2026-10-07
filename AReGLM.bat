@@ -1,13 +1,13 @@
 @echo off
-REM ARELM ランチャー（デスクトップPC / Windows）
+REM AReGLM（Windows の入口）
 REM
-REM 「AReGLM」と書いてあるこのファイル（または AReGLM.bat）をダブルクリックすると:
+REM このファイルの名前は「AReGLM」です（拡張子を隠しているとそう見えます）。
+REM ダブルクリックすると:
 REM   1. デスクトップにアイコン付きのアプリ（AReGLM）を置く
-REM   2. サーバーと自作AIが止まっていれば起動する
-REM   3. ログイン画面を開く
+REM   2. サーバーを起こしてログイン画面を開く
 REM
 REM このファイル自体はデスクトップへ移さないでください。
-REM アプリはデスクトップへ自動で置かれます。
+REM 隣の server フォルダを見失うためです。アプリは下の処理がデスクトップへ置きます。
 
 chcp 65001 >nul
 setlocal
@@ -20,35 +20,42 @@ echo AReGLM をアプリとしてデスクトップに置き、開きます…
 echo.
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする
-if errorlevel 1 (
-    echo アプリの配置で問題がありました。続けて起動を試みます…
-)
+if errorlevel 1 goto fail_place
 
 start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0見張り.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -ブラウザを開く
-if errorlevel 1 goto fail
+if errorlevel 1 goto fail_open
 
 echo.
-echo ログイン画面を開きました。
+echo できました。
 echo デスクトップの「AReGLM」（アイコン付き）がアプリです。次からはそちらを開いてください。
 echo このウィンドウは閉じても構いません。
-ping -n 3 127.0.0.1 >nul
+ping -n 4 127.0.0.1 >nul
 endlocal
 exit /b 0
 
 :missing
 echo ツールのフォルダの中から開いてください。
+echo （見張り.ps1 と server フォルダが隣にある場所です）
 echo.
 pause
 endlocal
 exit /b 1
 
-:fail
-echo.
-echo サーバーが応答しなかったため、画面を開けませんでした。
+:fail_place
+echo デスクトップにアプリを置けませんでした。
 echo ログ: %LOCALAPPDATA%\AReGLM\logs\見張り.log
-echo Node.js が入っていないときは、入れてからデスクトップの「AReGLM」を開いてください。
-echo https://nodejs.org/
+echo.
+pause
+endlocal
+exit /b 1
+
+:fail_open
+echo.
+echo アプリのアイコンは置きましたが、サーバーが応答しませんでした。
+echo ログ: %LOCALAPPDATA%\AReGLM\logs\見張り.log
+echo Node.js が無いときは https://nodejs.org/ の LTS を入れてから、
+echo デスクトップの「AReGLM」をもう一度開いてください。
 echo.
 pause
 endlocal
