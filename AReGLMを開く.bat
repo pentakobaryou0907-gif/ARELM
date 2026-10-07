@@ -1,29 +1,55 @@
 @echo off
-REM ARELM ランチャー（Windows版）
+REM ARELM ランチャー（デスクトップPC / Windows）
 REM
-REM ダブルクリックすると:
-REM   1. サーバーと自作AIが止まっていれば起動する（見張り.ps1）
-REM   2. Chromeで開く（無ければ既定のブラウザで開く）
+REM 「AReGLM」と書いてあるこのファイル（または AReGLM.bat）をダブルクリックすると:
+REM   1. デスクトップにアイコン付きのアプリ（AReGLM）を置く
+REM   2. サーバーと自作AIが止まっていれば起動する
+REM   3. ログイン画面を開く
 REM
-REM 実機のWindowsでは検証できていない。うまく動かないときは、
-REM このファイルではなく 見張り.ps1 の中身を見直してほしい。
+REM このファイル自体はデスクトップへ移さないでください。
+REM アプリはデスクトップへ自動で置かれます。
 
+chcp 65001 >nul
 setlocal
-set TOOL=%~dp0
+cd /d "%~dp0"
 
-REM 見張りを（動いていなければ）裏で起動する
-start "" /min powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%TOOL%見張り.ps1"
+if not exist "%~dp0見張り.ps1" goto missing
+if not exist "%~dp0server\index.js" goto missing
 
-REM 立ち上がるまで少し待つ
-timeout /t 3 /nobreak >nul
+echo AReGLM をアプリとしてデスクトップに置き、開きます…
+echo.
 
-set URL=http://127.0.0.1:8090
-
-where chrome >nul 2>nul
-if %ERRORLEVEL%==0 (
-    start "" chrome "%URL%"
-) else (
-    start "" "%URL%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする
+if errorlevel 1 (
+    echo アプリの配置で問題がありました。続けて起動を試みます…
 )
 
+start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0見張り.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -ブラウザを開く
+if errorlevel 1 goto fail
+
+echo.
+echo ログイン画面を開きました。
+echo デスクトップの「AReGLM」（アイコン付き）がアプリです。次からはそちらを開いてください。
+echo このウィンドウは閉じても構いません。
+ping -n 3 127.0.0.1 >nul
 endlocal
+exit /b 0
+
+:missing
+echo ツールのフォルダの中から開いてください。
+echo.
+pause
+endlocal
+exit /b 1
+
+:fail
+echo.
+echo サーバーが応答しなかったため、画面を開けませんでした。
+echo ログ: %LOCALAPPDATA%\AReGLM\logs\見張り.log
+echo Node.js が入っていないときは、入れてからデスクトップの「AReGLM」を開いてください。
+echo https://nodejs.org/
+echo.
+pause
+endlocal
+exit /b 1

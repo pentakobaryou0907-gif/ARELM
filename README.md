@@ -3,6 +3,24 @@
 過去のファッション制作情報をまとめ、**搭載AIと連携**する社内ハブです。  
 （Base44型の **API Gateway** で公式APIのみ安全に利用）
 
+## Windows にアプリを置く（メモの README ではない）
+
+いま OneDrive の `AIツール開発プロジェクト\README.md` を開いている場合、それは**メモ用**です。アプリ本体ではありません。
+
+1. GitHub にログインした状態で、このブランチの ZIP を落とす:  
+   https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-on-main-1936  
+   （緑の **Code → Download ZIP**）
+2. 解凍した中身を `OneDrive\デスクトップ\AReGLM\ツール本体\` へ入れる
+3. `ツール本体\AReGLMをホーム画面に置く.bat` を開く → デスクトップに **AReGLM** ができる
+
+リポジトリは非公開のため、ログインなしの `irm` は動きません。Git がある場合:
+
+```powershell
+$dest = "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
+git clone --branch cursor/windows-on-main-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git $dest
+& "$dest\AReGLMをホーム画面に置く.bat"
+```
+
 ## 起動方法（重要）
 
 ```bash
