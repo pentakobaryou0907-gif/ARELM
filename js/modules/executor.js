@@ -166,6 +166,100 @@ const 作業の中身 = {
         };
     },
 
+    /* ---------- 今日足した機能（バックアップ・ひらめき箱・制作の進捗） ---------- */
+
+    /** バックアップを、いま取る */
+    async backup_now() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: 'バックアップの仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/backup/now', {});
+        if (!r.ok) return { ok: false, 文: r.訳 || 'バックアップを取れませんでした' };
+        return { ok: true, 文: `バックアップを取りました（${r.ファイル数}ファイル）。置き場: ${r.場所}` };
+    },
+
+    /** バックアップの状況を答える */
+    async show_backup() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: 'バックアップの仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/backup/status');
+        if (!r.ok) return { ok: false, 文: r.訳 || '状況を読めませんでした' };
+        const 日時 = (iso) => new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const 行 = [r.最新 ? `最後のバックアップ: ${日時(r.最新.作成)}（${r.最新.種類}）` : 'まだバックアップがありません'];
+        行.push(`置き場: ${r.場所}${r.iCloudか ? '（iCloud Drive）' : '（このMacの中だけ）'} ／ 控えは${r.件数}件`);
+        if (r.古すぎる) 行.push('⚠ 2日以上、控えが取れていません。「バックアップを取って」と言ってください。');
+        return { ok: true, 文: 行.join('\n') };
+    },
+
+    /** ひらめき箱に入れる */
+    async add_inbox(材料) {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: 'ひらめき箱の仕組みが読み込まれていません' };
+        // 「ひらめき箱に〜を入れて」から、頼み言葉を取り除いて、中身だけにする
+        let 本文 = String(材料.body || 材料.text || '');
+        本文 = 本文.replace(/ひらめき箱(に|へ)?|ひらめき(を|に)?入れ|思いつき(を)?入れ|ひらめきメモ/g, ' ')
+            .replace(/(の)?(を|と)?(入れといて|入れておいて|入れて|追加して|しまって|放り込んで)(ください)?$/g, ' ')
+            .replace(/(を|と)?(入れといて|入れておいて|入れて|追加して|しまって|放り込んで)(ください)?/g, ' ')
+            .replace(/\s+/g, ' ').trim().replace(/^[:：、。,\s]+|[:：、。,\s]+$/g, '');
+        if (!本文) return { ok: false, 文: '何を入れるか、聞き取れませんでした' };
+        const 本体 = { 文: 本文, 端末: typeof 続き用の端末名 === 'function' ? 続き用の端末名() : '' };
+        if (/^https?:\/\/\S+$/.test(本文)) 本体.種類 = 'URL';
+        const r = await アカウントAPI('/api/inbox/add', 本体);
+        if (!r.ok) return { ok: false, 文: r.訳 || 'ひらめき箱に入れられませんでした' };
+        描き直す('renderひらめき箱');
+        return { ok: true, 文: `ひらめき箱に入れました:「${本文.slice(0, 30)}${本文.length > 30 ? '…' : ''}」` };
+    },
+
+    /** ひらめき箱の、未整理を答える */
+    async show_inbox() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: 'ひらめき箱の仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/inbox/list');
+        if (!r.ok) return { ok: false, 文: r.訳 || '読めませんでした' };
+        const 未 = r.一覧.filter((x) => x.状態 !== '整理済み');
+        if (!未.length) return { ok: true, 文: 'ひらめき箱に、未整理のものはありません。' };
+        const 行 = 未.slice(0, 5).map((x) => `・[${x.種類}] ${(x.文 || x.url || '（写真）').slice(0, 40)}`);
+        return { ok: true, 文: `ひらめき箱: 未整理 ${未.length}件\n${行.join('\n')}${未.length > 5 ? '\n…ほか' + (未.length - 5) + '件' : ''}` };
+    },
+
+    /** TUDURI・INTGLMの進捗と、公開前チェックの状況を答える */
+    show_production() {
+        const P = window.AREGLM_PREPUBLISH;
+        if (!P) return { ok: false, 文: '公開前チェックの仕組みが読み込まれていません' };
+        const 全部 = 蓄えを読む('areglm_production_log');
+        const 数 = (状) => 全部.filter((x) => x.状態 === 状).length;
+        const 行 = [`次のTUDURIの番号は No.${P.次のTUDURIの番号(全部)} です。`,
+            `記録: 全${全部.length}件（案 ${数('案')} ／ 公開前チェック済み ${数('公開可')} ／ 公開済み ${数('公開済み')} ／ 見送り ${数('見送り')}）`];
+        全部.filter((x) => x.状態 === '案').slice(0, 5).forEach((x) => {
+            const j = P.判定(x, 全部);
+            const 名 = x.series === 'TUDURI' ? `TUDURI No.${x.no ?? '？'} ${x.name}` : `INTGLM ${x.name}`;
+            行.push(`・${名}: ${j.完了できる ? '完了できます' : `直すところ ${j.直すところ}件 ／ 目で確認 ${j.未確認}件`}`);
+        });
+        行.push('※ SUZURIの「商品を公開する」ボタンは、あなた自身が押します。');
+        return { ok: true, 文: 行.join('\n') };
+    },
+
+    /** 制作の進捗に、「案」として記録する（公開前チェックには触れない） */
+    add_production(材料) {
+        const P = window.AREGLM_PREPUBLISH;
+        if (!P) return { ok: false, 文: '制作の進捗の仕組みが読み込まれていません' };
+        const 元 = String(材料.name || 材料.text || '');
+        const series = /INTGLM/i.test(元) ? 'INTGLM' : 'TUDURI';
+        let 名 = 元.replace(/TUDURI|INTGLM|制作(を)?記録|作品(を)?記録|制作(の進捗)?(に)?(追加|記録)|に追加|に記録|して/gi, ' ')
+            .replace(/\s+/g, ' ').trim().replace(/^[:：、。,\s]+|[:：、。,\s]+$/g, '');
+        if (!名) return { ok: false, 文: '作品の名前が聞き取れませんでした' };
+        const 一覧 = 蓄えを読む('areglm_production_log');
+        const 作品 = {
+            id: 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            series, no: series === 'TUDURI' ? P.次のTUDURIの番号(一覧) : null, keitou: '',
+            name: 名, item: '', price: 0, material: '', silhouette: '', palette: '', decoration: '', notes: '',
+            状態: '案', 確認: {}, createdAt: new Date().toISOString(),
+        };
+        一覧.push(作品);
+        書く('areglm_production_log', 一覧);
+        描き直す('render制作の進捗');
+        return {
+            ok: true,
+            文: `制作の進捗に「案」として記録しました:「${名}」（${series}${作品.no ? ' No.' + 作品.no : ''}）\n`
+                + '品目・価格・系統などは、制作の進捗の画面（ホーム→計画）で入れてください。公開はしていません。',
+        };
+    },
+
     /** 覚えたことを忘れる */
     async forget(材料) {
         const 語 = (材料.term || '').trim();

@@ -41,7 +41,19 @@ const 触れてよいもの = {
     ブランド: 'brands',
     投稿: 'areglm_sns_queue',
     ほしいもの: 'areglm_wishlist',
+    制作: 'areglm_production_log',
+    制作の進捗: 'areglm_production_log',
 };
+
+/**
+ * 読むだけで、書き換えない項目。
+ *
+ * 制作の進捗は、公開前チェック（目で確かめる項目）を経て状態が進む。
+ * 汎用の「書く」道具で状態を直接書き換えると、そのチェックを飛ばして
+ * 「公開前チェック済み」にできてしまうため、読む・数える・探すだけにする。
+ * 記録を足すのは、専用の作業（add_production）か、画面から行う。
+ */
+const 読むだけの鍵 = ['areglm_production_log'];
 
 /** 記録 */
 const 道具の記録の鍵 = 'areglm_tool_log';
@@ -124,6 +136,9 @@ const 道具たち = {
     書く(材料) {
         const 鍵 = _鍵にする(材料.何を);
         if (!鍵) return { ok: false, 文: `「${材料.何を}」は扱えません` };
+        if (読むだけの鍵.includes(鍵)) {
+            return { ok: false, 文: `「${材料.何を}」は、読むだけです（公開前チェックを飛ばさないため）。足すときは「制作に追加」と言うか、画面から行ってください` };
+        }
         if (!材料.中身 || typeof 材料.中身 !== 'object') {
             return { ok: false, 文: '書く中身がありません' };
         }
