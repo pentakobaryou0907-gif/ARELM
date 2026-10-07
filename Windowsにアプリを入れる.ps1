@@ -87,15 +87,39 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
-$文 = @"
-できました。
+# ホーム画面（デスクトップ / OneDrive デスクトップ）にアイコンがあるか確かめる
+$置いた先 = @()
+foreach ($d in @(
+    [Environment]::GetFolderPath('Desktop'),
+    (Join-Path $env:USERPROFILE 'Desktop'),
+    (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
+    (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
+    (Join-Path $env:USERPROFILE 'デスクトップ')
+)) {
+    if ($d -and (Test-Path -LiteralPath (Join-Path $d 'AReGLM.lnk'))) {
+        $置いた先 += (Join-Path $d 'AReGLM.lnk')
+    }
+}
+
+$文 = if ($置いた先.Count -gt 0) {
+    @"
+できました。Windows のホーム画面（デスクトップ）に AReGLM を置きました。
 
 ・ツール本体: $Dest
-・デスクトップの「AReGLM」がアプリです（Mac のホーム画面と同じ役割）
-
-次はデスクトップの AReGLM をダブルクリックしてください。
-（今開いている「AIツール開発プロジェクト\README.md」はメモ用で、アプリではありません）
+・アプリの場所:
+$($置いた先 | ForEach-Object { "  $_" } | Out-String)
+次はデスクトップの「AReGLM」をダブルクリックしてください。
+（「AIツール開発プロジェクト\README.md」はメモ用で、アプリではありません）
 "@
+} else {
+    @"
+本体は $Dest に入りましたが、デスクトップへの配置を確認できませんでした。
+エクスプローラーでそのフォルダを開き、「AReGLMをホーム画面に置く.bat」を一度実行してください。
+"@
+}
 Write-Host $文
-try { [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — ホーム画面に置きました', 'OK', 'Information') | Out-Null } catch { }
-explorer.exe $Dest
+# 確認ウィンドウは出さない（ユーザー作業を増やさない）。デスクトップを開いてアイコンを見せる。
+$desk = [Environment]::GetFolderPath('Desktop')
+if (-not $desk) { $desk = Join-Path $env:USERPROFILE 'OneDrive\デスクトップ' }
+if ($desk -and (Test-Path -LiteralPath $desk)) { explorer.exe $desk }
+else { explorer.exe $Dest }

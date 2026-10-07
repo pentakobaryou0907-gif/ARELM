@@ -151,12 +151,14 @@ function Install-HomeShortcut {
     }
 
     $場所一覧 = New-Object System.Collections.Generic.List[string]
+    # OneDrive の「デスクトップ」がホーム画面になっている Windows が多いので、先にそこへ置く。
     foreach ($候補 in @(
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
         [Environment]::GetFolderPath('Desktop'),
         (Join-Path $env:USERPROFILE 'Desktop'),
-        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
-        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
-        (Join-Path $env:USERPROFILE 'デスクトップ')
+        (Join-Path $env:USERPROFILE 'デスクトップ'),
+        [Environment]::GetFolderPath('CommonDesktopDirectory')
     )) {
         if ($候補 -and (Test-Path -LiteralPath $候補) -and -not $場所一覧.Contains($候補)) {
             $場所一覧.Add($候補)
