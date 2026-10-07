@@ -355,11 +355,19 @@ if ($ホームに置く) {
         exit 1
     }
     $一覧 = ($作った | ForEach-Object { "・$_" }) -join "`r`n"
-    $文 = "AReGLM をアプリとして置きました。`r`n`r`n$一覧`r`n`r`nデスクトップの「AReGLM」（アイコン付き）を開いてログインしてください。`r`nツールのフォルダにある「AReGLM」と書いてあるファイルは、移さずその場所に置いたままにしてください。"
+    $文 = @"
+Mac のホーム画面の AReGLM と同じ役割のアプリを、この Windows のホーム画面（デスクトップ）に置きました。
+
+$一覧
+
+次からはデスクトップの「AReGLM」をダブルクリックするだけで開けます。
+README.md は説明文です（アプリではありません）。
+ツールのフォルダのファイルは、デスクトップへ移さないでください。
+"@
     Write-Host $文
     try {
         Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Information') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — ホーム画面に置きました', 'OK', 'Information') | Out-Null
     } catch { }
     exit 0
 }
