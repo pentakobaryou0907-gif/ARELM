@@ -3,6 +3,31 @@
 過去のファッション制作情報をまとめ、**搭載AIと連携**する社内ハブです。  
 （Base44型の **API Gateway** で公式APIのみ安全に利用）
 
+## 三端末（Mac / Windows / iPad）で使う
+
+いま OneDrive の `AIツール開発プロジェクト\README.md` を開いている場合、それは**メモ用**です。アプリ本体ではありません。
+
+| 端末 | ホーム画面への置き方 | 開き方 |
+|------|----------------------|--------|
+| **Mac** | `三端末に置く.command` または `ホーム画面に置く.command` | デスクトップの **AReGLM.app** |
+| **Windows** | `AReGLMをホーム画面に置く.bat` | デスクトップの **AReGLM** |
+| **iPad** | Safari で開く → 共有 → **ホーム画面に追加** | ホーム画面の **AReGLM** |
+
+詳しい手順は `三端末に置く.txt` を見てください。  
+ブランチ: https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936
+
+### Windows（ZIP）
+
+1. GitHub ログイン済みで **Code → Download ZIP**（上のブランチ）
+2. `OneDrive\デスクトップ\AReGLM\ツール本体\` へ解凍
+3. `AReGLMをホーム画面に置く.bat` を開く
+
+### iPad（要点）
+
+1. Mac と iPad に Tailscale（同じアカウント）
+2. Mac の設定 → 他の端末 → Tailscale を入
+3. Safari で表示された `https://100.x.x.x:8443` を開く → ホーム画面に追加
+
 ## 起動方法（重要）
 
 ```bash

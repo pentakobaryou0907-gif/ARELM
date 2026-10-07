@@ -9,14 +9,15 @@
 
 cd "$(dirname "$0")" || exit 1
 
-URL="http://127.0.0.1:8080"
+BASE="http://127.0.0.1:8080"
 UID_NUM=$(id -u)
 
 echo "ARELM を起動します…"
+echo "（README.md は説明文です。開くのはアプリ枠の画面です）"
 echo
 
 # --- Node ゲートウェイ ---
-if curl -s -m 2 "$URL/api/health" > /dev/null 2>&1; then
+if curl -s -m 2 "$BASE/api/health" > /dev/null 2>&1; then
     echo "  ✓ サーバー: 稼働中"
 else
     echo "  … サーバーを起動しています"
@@ -24,9 +25,9 @@ else
         || launchctl bootstrap "gui/$UID_NUM" ~/Library/LaunchAgents/com.ari.areglm.server.plist 2>/dev/null
     for _ in $(seq 1 15); do
         sleep 1
-        curl -s -m 2 "$URL/api/health" > /dev/null 2>&1 && break
+        curl -s -m 2 "$BASE/api/health" > /dev/null 2>&1 && break
     done
-    if curl -s -m 2 "$URL/api/health" > /dev/null 2>&1; then
+    if curl -s -m 2 "$BASE/api/health" > /dev/null 2>&1; then
         echo "  ✓ サーバー: 起動しました"
     else
         echo "  ✗ サーバーを起動できませんでした"
@@ -54,9 +55,21 @@ else
     fi
 fi
 
+# アプリ用の入口（8090）があれば優先。アプリ枠が無ければ本編を直接開く。
+curl -s -m 2 "http://127.0.0.1:8090/api/health" > /dev/null 2>&1 && BASE="http://127.0.0.1:8090"
+URL="$BASE/アプリ枠.html"
+curl -s -m 2 -o /dev/null "$URL" || URL="$BASE/"
+
 echo
-echo "ブラウザで開きます: $URL"
-open "$URL"
+echo "アプリ画面を開きます: $URL"
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+if [ -x "$CHROME_BIN" ]; then
+    "$CHROME_BIN" --app="$URL" >/dev/null 2>&1 &
+elif [ -d "/Applications/Google Chrome.app" ]; then
+    open -na "Google Chrome" --args --app="$URL"
+else
+    open "$URL"
+fi
 
 # 他の端末から使うためのアドレスも出しておく
 LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)

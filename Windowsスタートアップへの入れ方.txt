@@ -1,0 +1,32 @@
+AReGLM — Windows で「ユーザー操作ゼロ」に近づける限界
+
+このフォルダに「自動でホーム画面に置く.bat」があります。
+中身は、デスクトップへ AReGLM アイコンを置く処理だけです（確認は出しません）。
+
+■ できること（このフォルダが Windows に届いたあと）
+  ・「自動でホーム画面に置く.bat」を一度実行 → デスクトップに AReGLM が付く
+  ・すでに見張りが動いていれば、サインイン後にデスクトップ欠落を直すこともあります
+
+■ Windows 上でしかできないこと（ここが限界）
+  スタートアップ（サインイン時の自動実行）への登録は、Windows 側のフォルダにしか書けません。
+  Mac のエージェントやクラウドからは、Windows の
+    %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+  を直接書き換えられません。
+
+■ スタートアップへ入れる（Windows で一度だけ）
+  1. Win+R → shell:startup → Enter
+  2. このフォルダの「自動でホーム画面に置く.bat」へのショートカットを作って入れる
+     （ファイル本体は動かさない。ショートカットだけ）
+  3. 次回サインインから、デスクトップに AReGLM が無ければ自動で置かれます
+
+■ もっと簡単に入れる方法
+  ツール本体が入っているフォルダで「AReGLMをホーム画面に置く.bat」を一度開くと、
+  デスクトップ配置に加えて、可能な範囲で見張りの自動起動も登録します。
+
+■ まだ本体が無いとき（OneDrive\...\AIツール開発プロジェクト だけ見えているとき）
+  そこはメモ用です。アプリではありません。
+  PowerShell で次を一度実行すると、%USERPROFILE%\AReGLM に本体が入り、
+  デスクトップにも置かれます:
+
+    Set-ExecutionPolicy -Scope Process Bypass -Force
+    irm https://raw.githubusercontent.com/pentakobaryou0907-gif/ARELM/cursor/windows-app-shell-1936/Windows%E3%81%AB%E3%82%A2%E3%83%97%E3%83%AA%E3%82%92%E5%85%A5%E3%82%8C%E3%82%8B.ps1 | iex

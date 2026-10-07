@@ -88,6 +88,8 @@ app.get('/api/other-devices', (req, res) => {
     let 設定 = { 使う: false, Tailscale使う: false };
     try { 設定 = JSON.parse(fs.readFileSync(他の端末設定, 'utf8')); } catch { /* 既定のまま */ }
     const 門 = 門番.設定を読む();
+    const ts = tailscaleアドレス();
+    const https口 = httpsAvailable ? Number(HTTPS_PORT_VALUE) : null;
     res.json({
         使う: 設定.使う === true,
         Tailscale使う: 設定.Tailscale使う === true,
@@ -96,9 +98,17 @@ app.get('/api/other-devices', (req, res) => {
             名前: d.名前, 許した日: d.許した日, 期限: d.期限,
         })),
         このMacの住所: lanAddresses(),
-        Tailscaleの住所: tailscaleアドレス(),
+        Tailscaleの住所: ts,
         入口: PORT,
         アプリ入口: APP_PORT,
+        HTTPS口: https口,
+        HTTPSあり: httpsAvailable,
+        // iPad は Safari の「ホーム画面に追加」用。HTTPS があればマイクも使える。
+        iPad用URL: (設定.Tailscale使う && ts)
+            ? (httpsAvailable
+                ? `https://${ts}:${HTTPS_PORT_VALUE}`
+                : `http://${ts}:${APP_PORT}`)
+            : null,
     });
 });
 
@@ -1368,7 +1378,10 @@ app.get('/api/https-info', (req, res) => {
 
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
+    // frame-ancestors は <meta> に書いてもブラウザが無視する。ヘッダーで送る。
+    // 'self' にする理由: Windows のアプリ枠（アプリ枠.html）が、同じ道具の本編を内側に表示するため。
+    // よそのサイトからの埋め込みは、今も許さない（X-Frame-Options は CSP と二重にしない）。
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
 
     // HTML・CSS・JS はブラウザに溜め込ませない。
     // 溜まると「直したのに画面が変わらない」が起きるため。

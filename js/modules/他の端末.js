@@ -55,8 +55,13 @@ async function render他の端末() {
     if (d.使う && d.このMacの住所?.length) {
         const 入口 = document.createElement('p');
         入口.className = 'hint';
-        入口.innerHTML = 'スマホや別のPCのChromeで、次を開いてください:<br>'
-            + d.このMacの住所.map((ip) => `<b>http://${ip}:${d.入口}</b>`).join('<br>')
+        const http行 = d.このMacの住所.map((ip) => `<b>http://${ip}:${d.アプリ入口 || d.入口}</b>`).join('<br>');
+        const https行 = (d.HTTPSあり && d.HTTPS口)
+            ? ('<br>マイク用（初回は証明書の警告が出ます）:<br>'
+                + d.このMacの住所.map((ip) => `<b>https://${ip}:${d.HTTPS口}</b>`).join('<br>'))
+            : '';
+        入口.innerHTML = '同じWi-Fiの iPad / 別PC のブラウザで、次を開いてください:<br>'
+            + http行 + https行
             + '<br>最初の一度だけ合言葉を聞きます。';
         箱.appendChild(入口);
     }
@@ -164,7 +169,11 @@ async function render他の端末() {
         TS状態.textContent = 'いまTailscaleのアドレスが見つかりません（Tailscaleが起動していないか、未接続です）。';
     } else if (d.Tailscale使う) {
         TS状態.className = 'guard-off';
-        TS状態.innerHTML = `Tailscale経由で使えます:<br><b>http://${d.Tailscaleの住所}:${d.アプリ入口}</b>`;
+        const http = `http://${d.Tailscaleの住所}:${d.アプリ入口}`;
+        const https = (d.HTTPSあり && d.HTTPS口)
+            ? `<br>iPad・マイク用: <b>https://${d.Tailscaleの住所}:${d.HTTPS口}</b>`
+            : '<br>（HTTPS証明書が無いと iPad のマイクは使えません。Macで server/certs/make-cert.sh を実行）';
+        TS状態.innerHTML = `Tailscale経由で使えます:<br><b>${http}</b>${https}`;
     } else {
         TS状態.className = 'guard-on';
         TS状態.textContent = `Tailscaleのアドレスは見つかっています（${d.Tailscaleの住所}）が、まだ許可していません。`;
@@ -220,6 +229,38 @@ async function render他の端末() {
         TS行.appendChild(TS閉じる);
     }
     箱.appendChild(TS行);
+
+    /* ==========================================================
+       三端末のホーム画面（Mac / Windows / iPad）
+       ========================================================== */
+    const 家区切り = document.createElement('hr');
+    箱.appendChild(家区切り);
+
+    const 家見出し = document.createElement('h4');
+    家見出し.textContent = '三端末のホーム画面に置く';
+    箱.appendChild(家見出し);
+
+    const 家説明 = document.createElement('div');
+    家説明.className = 'hint';
+    const iPadURL = d.iPad用URL
+        || (d.使う && d.このMacの住所?.[0]
+            ? ((d.HTTPSあり && d.HTTPS口)
+                ? `https://${d.このMacの住所[0]}:${d.HTTPS口}`
+                : `http://${d.このMacの住所[0]}:${d.アプリ入口 || d.入口}`)
+            : null);
+    家説明.innerHTML = [
+        '<b>Mac</b>（このPC）: ツール本体の「ホーム画面に置く.command」を開く → デスクトップとアプリケーションに AReGLM.app',
+        '<b>Windows</b>: ツール本体の「AReGLMをホーム画面に置く.bat」を開く → デスクトップに AReGLM',
+        '<b>iPad</b>（Safari のみ）:',
+        iPadURL
+            ? `1) Safari で <b>${iPadURL}</b> を開く（合言葉を入れる）`
+            : '1) 上で「他の端末」か「Tailscale」を入にしてから、表示された住所を Safari で開く',
+        '2) 共有ボタン → 「ホーム画面に追加」→ 追加',
+        '3) ホーム画面の ARELM から開く（スタンドアロン表示）',
+        '※ iPad はサーバーを持てません。Mac（または Windows）側のサーバーが動いている必要があります。',
+        '※ 外から使うなら Tailscale を三端末とも同じアカウントで入れてください。',
+    ].map((t) => `${t}<br>`).join('');
+    箱.appendChild(家説明);
 
     // --- 許した端末 ---
     if (d.許した端末?.length) {
