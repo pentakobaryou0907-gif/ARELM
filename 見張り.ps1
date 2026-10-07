@@ -14,7 +14,9 @@ param(
     [switch]$ホームから,
     [switch]$ホームに置く,
     # 「アプリにする」は「ホームに置く」と同じ。名前を分かりやすくした入口。
-    [switch]$アプリにする
+    [switch]$アプリにする,
+    # 確認ウィンドウを出さない（スタートアップや自動配置用）
+    [switch]$静かに
 )
 if ($アプリにする) { $ホームに置く = $true }
 
@@ -365,10 +367,12 @@ README.md は説明文です（アプリではありません）。
 ツールのフォルダのファイルは、デスクトップへ移さないでください。
 "@
     Write-Host $文
-    try {
-        Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — ホーム画面に置きました', 'OK', 'Information') | Out-Null
-    } catch { }
+    if (-not $静かに) {
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — ホーム画面に置きました', 'OK', 'Information') | Out-Null
+        } catch { }
+    }
     exit 0
 }
 

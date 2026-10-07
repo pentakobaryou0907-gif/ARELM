@@ -20,7 +20,7 @@ if not exist "%~dp0見張り.ps1" goto missing
 if not exist "%~dp0server\index.js" goto missing
 
 REM コンソールを出さず、見張りにデスクトップ配置だけさせる
-powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする
+powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする -静かに
 endlocal
 exit /b %ERRORLEVEL%
 
