@@ -16,7 +16,8 @@ cd /d "%~dp0"
 if not exist "%~dp0見張り.ps1" goto missing
 if not exist "%~dp0server\index.js" goto missing
 
-echo AReGLM をアプリとしてデスクトップに置き、開きます…
+echo AReGLM をアプリとしてデスクトップに置き、アプリ画面を開きます…
+echo （README.md は説明文です。開くのはこのファイルです）
 echo.
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0見張り.ps1" -アプリにする

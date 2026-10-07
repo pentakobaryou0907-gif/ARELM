@@ -1463,7 +1463,9 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     // frame-ancestors は <meta> に書いてもブラウザが無視する（毎回コンソールに警告が出ていた）。ヘッダーで送る。
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    // 'self' にする理由: Windows のアプリ枠（アプリ枠.html）が、同じ道具の本編（index.html）を
+    // 内側に表示するため。よそのサイトからの埋め込みは、今も許さない。
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
 
     // HTML・CSS・JS はブラウザに溜め込ませない。
     // 溜まると「直したのに画面が変わらない」が起きるため。
@@ -3783,24 +3785,50 @@ app.listen(APP_PORT, '127.0.0.1', () => {
 });
 
 /**
- * Mac では、サーバーが立ち上がったときにデスクトップの AReGLM.app を確かめ、
- * このツールが作ったもの（Resources/areglm-launcher の印）でなければ置き直す。
- * Windows は 見張り.ps1 が同じことをするので、ここでは扱わない。
+ * デスクトップ（ホーム画面）にアプリの入口が無ければ置く。
+ *   Mac: AReGLM.app（ホーム画面に置く.command）
+ *   Windows: アイコン付きの AReGLM.lnk（見張り.ps1 -アプリにする）
+ * README.md は説明文なので、ここでは触らない。
  */
-function Macのデスクトップにアプリを置く() {
-    if (process.platform !== 'darwin' || process.env.AREGLM_NO_DESKTOP_APP === '1') return;
-    const 印 = path.join(os.homedir(), 'Desktop', 'AReGLM.app', 'Contents', 'Resources', 'areglm-launcher');
-    const 置く道具 = path.join(__dirname, '..', 'ホーム画面に置く.command');
-    if (fs.existsSync(印) || !fs.existsSync(置く道具)) return;
-    execFile('/bin/bash', [置く道具], { timeout: 60000 }, (e, out) => {
-        if (e) console.warn(`デスクトップに AReGLM を置けませんでした: ${e.message}`);
-        else console.log(`デスクトップに AReGLM を置きました\n${out}`);
-    });
+function デスクトップにアプリを置く() {
+    if (process.env.AREGLM_NO_DESKTOP_APP === '1') return;
+    const 家 = os.homedir();
+
+    if (process.platform === 'darwin') {
+        const 印 = path.join(家, 'Desktop', 'AReGLM.app', 'Contents', 'Resources', 'areglm-launcher');
+        const 置く道具 = path.join(__dirname, '..', 'ホーム画面に置く.command');
+        if (fs.existsSync(印) || !fs.existsSync(置く道具)) return;
+        execFile('/bin/bash', [置く道具], { timeout: 60000 }, (e, out) => {
+            if (e) console.warn(`デスクトップに AReGLM を置けませんでした: ${e.message}`);
+            else console.log(`デスクトップに AReGLM を置きました\n${out}`);
+        });
+        return;
+    }
+
+    if (process.platform === 'win32') {
+        const デスクトップ候補 = [
+            path.join(process.env.USERPROFILE || 家, 'Desktop'),
+            path.join(process.env.USERPROFILE || 家, 'OneDrive', 'Desktop'),
+            path.join(process.env.USERPROFILE || 家, 'OneDrive', 'デスクトップ'),
+            path.join(家, 'Desktop'),
+        ];
+        const もうある = デスクトップ候補.some((d) => fs.existsSync(path.join(d, 'AReGLM.lnk')));
+        if (もうある) return;
+        const ps1 = path.join(__dirname, '..', '見張り.ps1');
+        if (!fs.existsSync(ps1)) return;
+        execFile('powershell.exe', [
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+            '-File', ps1, '-アプリにする',
+        ], { timeout: 60000, windowsHide: true }, (e, out) => {
+            if (e) console.warn(`デスクトップに AReGLM を置けませんでした: ${e.message}`);
+            else console.log(`デスクトップに AReGLM を置きました（Windows）\n${out || ''}`);
+        });
+    }
 }
 
 app.listen(PORT, HOST, () => {
     console.log(`ARELM: http://localhost:${PORT}`);
-    setTimeout(Macのデスクトップにアプリを置く, 3000);
+    setTimeout(デスクトップにアプリを置く, 3000);
 
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {

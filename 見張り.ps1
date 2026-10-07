@@ -14,7 +14,9 @@ param(
     [switch]$ホームから,
     [switch]$ホームに置く,
     # 「アプリにする」は「ホームに置く」と同じ。名前を分かりやすくした入口。
-    [switch]$アプリにする
+    [switch]$アプリにする,
+    # 確認ウィンドウを出さない（スタートアップや自動配置用）
+    [switch]$静かに
 )
 if ($アプリにする) { $ホームに置く = $true }
 
@@ -149,12 +151,14 @@ function Install-HomeShortcut {
     }
 
     $場所一覧 = New-Object System.Collections.Generic.List[string]
+    # OneDrive の「デスクトップ」がホーム画面になっている Windows が多いので、先にそこへ置く。
     foreach ($候補 in @(
+        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
         [Environment]::GetFolderPath('Desktop'),
         (Join-Path $env:USERPROFILE 'Desktop'),
-        (Join-Path $env:USERPROFILE 'OneDrive\Desktop'),
-        (Join-Path $env:USERPROFILE 'OneDrive\デスクトップ'),
-        (Join-Path $env:USERPROFILE 'デスクトップ')
+        (Join-Path $env:USERPROFILE 'デスクトップ'),
+        [Environment]::GetFolderPath('CommonDesktopDirectory')
     )) {
         if ($候補 -and (Test-Path -LiteralPath $候補) -and -not $場所一覧.Contains($候補)) {
             $場所一覧.Add($候補)
@@ -355,12 +359,22 @@ if ($ホームに置く) {
         exit 1
     }
     $一覧 = ($作った | ForEach-Object { "・$_" }) -join "`r`n"
-    $文 = "AReGLM をアプリとして置きました。`r`n`r`n$一覧`r`n`r`nデスクトップの「AReGLM」（アイコン付き）を開いてログインしてください。`r`nツールのフォルダにある「AReGLM」と書いてあるファイルは、移さずその場所に置いたままにしてください。"
+    $文 = @"
+Mac のホーム画面の AReGLM と同じ役割のアプリを、この Windows のホーム画面（デスクトップ）に置きました。
+
+$一覧
+
+次からはデスクトップの「AReGLM」をダブルクリックするだけで開けます。
+README.md は説明文です（アプリではありません）。
+ツールのフォルダのファイルは、デスクトップへ移さないでください。
+"@
     Write-Host $文
-    try {
-        Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM', 'OK', 'Information') | Out-Null
-    } catch { }
+    if (-not $静かに) {
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.MessageBox]::Show($文, 'AReGLM — ホーム画面に置きました', 'OK', 'Information') | Out-Null
+        } catch { }
+    }
     exit 0
 }
 
@@ -389,15 +403,21 @@ if ($ブラウザを開く -or $ホームから) {
 
     # Mac のランチャーと同じく、キャッシュの影響を受けない 8090 を優先する。
     # 8090 が開いていなければ、本来の入口 8080 で開く。
-    # どちらもログイン画面（index.html）が最初に出る。
-    $URL = 'http://127.0.0.1:8080/'
+    # Windows では「アプリ枠」を開く（黒いまわりの中に本編の画面）。
+    # README.md は説明文なのでアプリではない。開くのは アプリ枠.html。
+    $入口 = 'http://127.0.0.1:8080'
     if (Test-Alive 'http://127.0.0.1:8090/api/health') {
-        $URL = 'http://127.0.0.1:8090/'
+        $入口 = 'http://127.0.0.1:8090'
+    }
+    $URL = "$入口/アプリ枠.html"
+    if (-not (Test-Alive $URL)) {
+        # 古い版に アプリ枠.html が無いときだけ、本編を直接開く。
+        $URL = "$入口/"
     }
 
     Open-LoginWindow $URL
-    Write-Host "ログイン画面を開きました: $URL"
-    Write-Host "デスクトップとスタートメニューに AReGLM を置きました。次からはそのアイコンからログインできます。"
+    Write-Host "アプリ画面を開きました: $URL"
+    Write-Host "デスクトップの「AReGLM」がアプリです。次からはそのアイコンから開けます。"
     exit 0
 }
 

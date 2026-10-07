@@ -91,9 +91,10 @@ if (ある 'ffmpeg') {
     winget install --id Gyan.FFmpeg -e --silent --accept-source-agreements --accept-package-agreements | Out-Null
 }
 
-# --- デスクトップに置く ---
+# --- デスクトップ（ホーム画面）に Mac と同じ役割のアプリを置く ---
 Write-Host ''
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $TOOL '見張り.ps1') -ホームに置く
+Write-Host 'デスクトップに AReGLM アプリを置きます（README.md は説明文のままです）…'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $TOOL '見張り.ps1') -アプリにする
 
 Write-Host ''
 if ($足りない.Count -eq 0) {
@@ -103,6 +104,7 @@ if ($足りない.Count -eq 0) {
     $足りない | ForEach-Object { Write-Host "  ・$_" }
 }
 Write-Host ''
+Write-Host 'デスクトップの「AReGLM」がアプリです。それを開いてログインしてください。'
 Write-Host 'アカウントと鍵（GitHub・SwitchBot・SUZURI など）は、ご自身で作ってから'
 Write-Host 'AReGLM の 設定 →「準備の状態」に並んでいる順に入れてください。'
 Write-Host ''

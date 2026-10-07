@@ -25,7 +25,9 @@ UID_NUM=$(id -u)
 #   HTTPS だと証明書の警告が出て、アプリの窓では回避しづらい。
 #
 # つまりこの入口が、警告なし・マイク可・キャッシュの影響なし で最も確実。
-URL="http://127.0.0.1:8090"
+# README.md は開かない。アプリ枠（本編の画面）を開く。
+BASE="http://127.0.0.1:8090"
+URL="$BASE/アプリ枠.html"
 
 start_service() {
     local label="$1" plist="$2"
@@ -55,21 +57,17 @@ fi
 
 # --- アプリ用の入口が応答しなければ、従来の入口で開く ---
 if ! curl -s -m 3 "http://127.0.0.1:8090/api/health" > /dev/null 2>&1; then
-    URL="http://127.0.0.1:8080"
+    BASE="http://127.0.0.1:8080"
 fi
+URL="$BASE/アプリ枠.html"
+curl -s -m 2 -o /dev/null "$URL" || URL="$BASE/"
 
-# --- Chrome で開く ---
-#
-# 以前は --app（アドレスバーの無い窓）で開いていたが、
-# その窓ではスクロールできない不具合が出た。
-# 普通のタブでは問題なく動くため、普通の窓で開くようにする。
-#
-# また open -n（新しいChromeをもう一つ起動する）もやめる。
-# すでにChromeが動いているときに二重起動すると、
-# 指定したアドレスが無視されることがあるため。
-CHROME="/Applications/Google Chrome.app"
-if [ -d "$CHROME" ]; then
-    open -a "$CHROME" --new "$URL"
+# --- Chrome のアプリ窓で開く（タブバー無し。中身のスクロールは本編側で行う） ---
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+if [ -x "$CHROME_BIN" ]; then
+    "$CHROME_BIN" --app="$URL" >/dev/null 2>&1 &
+elif [ -d "/Applications/Google Chrome.app" ]; then
+    open -na "Google Chrome" --args --app="$URL"
 else
     open "$URL"
 fi
