@@ -260,6 +260,33 @@ const 作業の中身 = {
         };
     },
 
+    /** 永久の記憶の中から、言葉で探す */
+    async recall_history(材料) {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: '記憶を探す仕組みが読み込まれていません' };
+        const 語 = String(材料.query || 材料.text || '')
+            .replace(/(について|のこと|に関して|を探して|を調べて|を見せて|を教えて)+$/g, '').trim();
+        if (!語) return { ok: false, 文: '何について探すか、聞き取れませんでした' };
+        const r = await アカウントAPI('/api/memory/search?q=' + encodeURIComponent(語));
+        if (!r.ok) return { ok: false, 文: r.訳 || '探せませんでした' };
+        if (!r.見つかった数) return { ok: true, 文: `「${語}」に当たる記録は、永久の記憶にはありませんでした。` };
+        const 一行 = (x) => {
+            const c = x.中身 || {};
+            const 本文 = c.あなた ? `あなた:「${c.あなた}」` : (c.body || c.message || c.title || c.name || c.text || c.内容 || JSON.stringify(c));
+            return `・${new Date(x.とき).toLocaleDateString('ja-JP')} [${x.分類}] ${String(本文).replace(/\s+/g, ' ').slice(0, 70)}`;
+        };
+        return { ok: true, 文: `「${語}」の記録が${r.見つかった数}件ありました（新しい順）。\n${r.結果.slice(0, 5).map(一行).join('\n')}` };
+    },
+
+    /** 永久の記憶の状況を答える */
+    async show_memory() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: '記憶の仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/memory/status');
+        if (!r.ok) return { ok: false, 文: r.訳 || '読めませんでした' };
+        const 行 = [`永久の記憶: ${r.合計件数}件（${r.分類の数}種類・約${Math.max(1, Math.round(r.合計バイト / 1024))}KB）。消えません。毎日のバックアップにも入ります。`];
+        r.分類.slice(0, 6).forEach((x) => 行.push(`・${x.分類}: ${x.件数}件`));
+        return { ok: true, 文: 行.join('\n') };
+    },
+
     /** 覚えたことを忘れる */
     async forget(材料) {
         const 語 = (材料.term || '').trim();

@@ -111,7 +111,7 @@ import os
         '呼ばれる言葉': ['予定', 'やること', 'タスク', '今日', '明日', '締切', '段取り', 'いつ'],
         '受け持つ作業': ['show_schedule', 'add_task', 'next_steps', '道具:読む',
                     'show_production', 'add_production', 'add_inbox', 'show_inbox',
-                    'backup_now', 'show_backup'],
+                    'backup_now', 'show_backup', 'recall_history', 'show_memory'],
         '見方': '全部やろうとせず、「いま手を付けるべき一つ」を選びます。'
               '並べるだけでは進みません。',
     },

@@ -41,7 +41,7 @@ const 取るファイル = [
     '直したやり方.json',
     '権利のある資料.json',
 ];
-const 取るフォルダ = ['ひらめき箱', 'techpack_decks'];
+const 取るフォルダ = ['ひらめき箱', 'techpack_decks', '永久の記憶'];
 const 自動で戻すもの = ['sync_store.json', 'ひらめき箱'];
 
 let データの場所 = null;
@@ -126,7 +126,10 @@ function 控えを取る(種類 = '手動') {
             記録.push({ 名前: f, bytes: 中身.length, sha256: ハッシュ(中身) });
         }
         for (const d of 取るフォルダ) {
-            フォルダごと写す(path.join(データの場所, d), path.join(作業中, d), 記録, データの場所);
+            // 永久の記憶は、置き場を切り替えているとき（検証用）は、そちらを控える
+            const 元の場所 = (d === '永久の記憶' && process.env.ARELM_MEMORY_DIR)
+                ? process.env.ARELM_MEMORY_DIR : path.join(データの場所, d);
+            フォルダごと写す(元の場所, path.join(作業中, d), 記録, 元の場所 === path.join(データの場所, d) ? データの場所 : path.dirname(元の場所));
         }
         fs.writeFileSync(path.join(作業中, 'manifest.json'), JSON.stringify({
             作成: new Date().toISOString(), 種類, ファイル: 記録,

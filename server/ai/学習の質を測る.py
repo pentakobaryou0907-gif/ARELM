@@ -23,6 +23,7 @@
 外部へは一切問い合わせない。すべてこの端末の中で完結する。
 """
 
+import 永久の記憶
 import json
 import os
 import sys
@@ -232,4 +233,4 @@ if __name__ == '__main__':
         except Exception:
             履歴 = []
     履歴.append({k: (v if not isinstance(v, dict) else v['点']) for k, v in r.items()})
-    json.dump(履歴[-50:], open(控え, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    json.dump(永久の記憶.切り詰める('学習の質の記録', 履歴, 50), open(控え, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)

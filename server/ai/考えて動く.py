@@ -39,6 +39,7 @@
 外部へは一切問い合わせません。すべてこの端末の中で完結します。
 """
 
+import 永久の記憶
 import json
 import os
 
@@ -64,7 +65,7 @@ def _記録を残す(中身):
     場所 = os.path.dirname(os.path.abspath(置き場))
     os.makedirs(場所, exist_ok=True)
     with open(置き場, 'w', encoding='utf-8') as f:
-        json.dump(記録[-100:], f, ensure_ascii=False, indent=2)
+        json.dump(永久の記憶.切り詰める('考えて動いた記録', 記録, 100), f, ensure_ascii=False, indent=2)
 
 
 def 記録を出す():

@@ -437,6 +437,9 @@ def test_skill_routing():
         ('制作の進捗を見せて', 'show_production'),
         ('公開前チェックの状況', 'show_production'),
         ('TUDURIに追加 ネイビーのロゴT', 'add_production'),
+        ('前に話した黒いパンツのこと', 'recall_history'),
+        ('昔の会話を探して', 'recall_history'),
+        ('永久の記憶の状況を教えて', 'show_memory'),
         ('今日の状況', 'show_schedule'),
         ('点検して', 'self_check'),
         ('千鳥格子の柄を作って', 'make_pattern'),
@@ -476,6 +479,54 @@ def test_boundaries():
         check(f'正当な頼みは断らない: 「{言葉}」', not ChatEngine._決まりに触れるか(言葉))
 
 
+def test_permanent_memory():
+    """
+    永久の記憶: 捨てる前に必ず残ること。書き足すだけで、消えないこと。
+    （本物の置き場を汚さないよう、一時フォルダで試す）
+    """
+    import json
+    import tempfile
+    import 永久の記憶
+
+    with tempfile.TemporaryDirectory() as 一時:
+        os.environ['ARELM_MEMORY_DIR'] = 一時
+        try:
+            check('1件残せる', 永久の記憶.残す('試験', {'x': 1}, '理由'))
+            行 = open(os.path.join(一時, '試験.jsonl'), encoding='utf-8').read().strip().split('\n')
+            check('残した中身が読める', json.loads(行[0])['中身'] == {'x': 1})
+
+            # 切り詰め: 新しい側だけが本体に残り、外れた古い側は永久の記憶へ
+            残った = 永久の記憶.切り詰める('切り詰め試験', list(range(10)), 3)
+            check('本体は新しい3件に保たれる', 残った == [7, 8, 9])
+            外れ = [json.loads(x)['中身'] for x in open(os.path.join(一時, '切り詰め試験.jsonl'), encoding='utf-8').read().strip().split('\n')]
+            check('外れた7件は、すべて永久の記憶に残る', 外れ == [0, 1, 2, 3, 4, 5, 6])
+            check('上限以下なら何も外さない', 永久の記憶.切り詰める('切り詰め試験2', [1, 2], 5) == [1, 2]
+                  and not os.path.exists(os.path.join(一時, '切り詰め試験2.jsonl')))
+
+            # 追記専用: 2回目は上書きでなく、足される
+            永久の記憶.残す('試験', {'x': 2})
+            check('追記専用（前のものは消えない）',
+                  len(open(os.path.join(一時, '試験.jsonl'), encoding='utf-8').read().strip().split('\n')) == 2)
+
+            # 個人情報・鍵は、残す前に伏せる
+            永久の記憶.残す('伏せ試験', {'t': 'カード 4111 1111 1111 1111 と sk_abcdefghijklmnopqrstuv と AIzaSyA1234567890abcdefghijklmnopqrstuvw'})
+            中 = open(os.path.join(一時, '伏せ試験.jsonl'), encoding='utf-8').read()
+            check('カード番号は伏せる', '4111' not in 中)
+            check('APIキーは伏せる', 'sk_abcdefghijklmnopqrstuv' not in 中 and 'AIzaSyA1234567890' not in 中)
+
+            # 会話は、すべて残す
+            永久の記憶.会話を残す('s1', 'バックアップを取って', {'answer': '実行します', 'skill': 'backup_now', 'certainty': 'confirmed'})
+            会話 = json.loads(open(os.path.join(一時, '会話.jsonl'), encoding='utf-8').read().strip().split('\n')[-1])
+            check('会話が残る（言ったこと・答え・技能）',
+                  会話['中身']['あなた'] == 'バックアップを取って' and 会話['中身']['技能'] == 'backup_now')
+
+            # 書けない置き場でも、例外を出さず、元の処理を止めない
+            os.environ['ARELM_MEMORY_DIR'] = '/dev/null/書けない場所'
+            check('書けなくても例外を出さない', 永久の記憶.残す('試験', {'x': 3}) is False)
+        finally:
+            os.environ.pop('ARELM_MEMORY_DIR', None)
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -483,7 +534,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

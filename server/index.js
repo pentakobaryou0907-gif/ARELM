@@ -28,6 +28,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     const バックアップ = require('./バックアップ');
     const ひらめき箱 = require('./ひらめき箱');
     バックアップ.場所を教える(DATA_DIR);
+    require('./永久の記憶').場所を教える(DATA_DIR);
     ひらめき箱.場所を教える(DATA_DIR);
 })();
 
@@ -47,6 +48,7 @@ const 門番 = require('./門番');
 const アカウント = require('./アカウント');
 const バックアップ = require('./バックアップ');
 const ひらめき箱 = require('./ひらめき箱');
+const 永久の記憶 = require('./永久の記憶');
 const 他の端末設定 = path.join(DATA_DIR, '他の端末.json');
 
 function 他の端末を許しているか() {
@@ -191,6 +193,17 @@ app.get('/windows-kit.zip', (req, res) => {
     } catch (e) {
         res.status(500).type('text/plain; charset=utf-8').end('作れませんでした: ' + e.message);
     }
+});
+
+// 永久の記憶（読むだけ。ログイン中の本人だけ）
+app.get('/api/memory/status', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    res.json(永久の記憶.状況());
+});
+app.get('/api/memory/search', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    res.set('Cache-Control', 'no-store');
+    res.json(永久の記憶.探す(String(req.query.q || ''), 10));
 });
 
 // 控え（バックアップ）。戻す操作もあるので、ログイン中の本人だけ。
@@ -395,6 +408,10 @@ app.post('/api/sync/push', (req, res) => {
     // 後勝ち。ただし、届いた方が古ければ黙って捨てる
     // （通信の順番が入れ替わって、新しい値が古い値に上書きされるのを防ぐ）。
     if (!既存 || updatedAt >= 既存.updatedAt) {
+        // 前の値から外れた項目は、永久の記憶へ移す（画面側の切り詰め・編集・削除を、記憶から失わない）
+        if (既存 && typeof 既存.value === 'string' && typeof value === 'string' && 既存.value !== value) {
+            永久の記憶.差分を残す(key, 既存.value, value);
+        }
         店[key] = { value, updatedAt };
         try {
             fs.writeFileSync(SYNC_PATH, JSON.stringify(店));

@@ -30,6 +30,7 @@
 外部へは一切問い合わせません。すべてこの端末の中で完結します。
 """
 
+import 永久の記憶
 import json
 import os
 import re
@@ -58,7 +59,7 @@ def _書く(一覧):
     場所 = os.path.dirname(os.path.abspath(置き場))
     os.makedirs(場所, exist_ok=True)
     with open(置き場, 'w', encoding='utf-8') as f:
-        json.dump(一覧[-200:], f, ensure_ascii=False, indent=2)
+        json.dump(永久の記憶.切り詰める('失敗から直した記録', 一覧, 200), f, ensure_ascii=False, indent=2)
 
 
 def 一覧を出す():

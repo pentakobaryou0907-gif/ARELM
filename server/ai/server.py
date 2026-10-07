@@ -49,6 +49,7 @@ import skills                              # noqa: E402
 from knowledge import KnowledgeBase        # noqa: E402
 from learner import OnlineLearner          # noqa: E402
 import ローカルLLM                          # noqa: E402
+import 永久の記憶                          # noqa: E402
 from semantics import SemanticModel        # noqa: E402
 from similarity import SimilarityEngine    # noqa: E402
 
@@ -524,6 +525,11 @@ class Handler(BaseHTTPRequestHandler):
                 #   term     … その語を完全に消す
                 #   category … そのカテゴリごと消す
                 #   all=true … 全部消す
+                # 「忘れる」は、本体から取り除くだけにして、取り除く前の状態は永久の記憶に残す。
+                永久の記憶.残す('忘れる操作', {k: data.get(k) for k in ('all', 'term', 'category', 'text') if data.get(k)},
+                              'あなたの指示で忘れた（このあと本体から取り除く）')
+                if data.get('all') or data.get('category'):
+                    永久の記憶.ファイルを写して残す('学習の状態', MODEL_PATH)
                 with _lock:
                     if data.get('all'):
                         result = learner.forget_all()
@@ -824,6 +830,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = chat_engine.respond(text, ctx)
                     # 会話の内容もそのまま学習させる
                     learner.learn(text, 'chat:user')
+                # 会話は、すべて永久の記憶に残す（会話の続きの期限が切れても、記録は残る）。
+                永久の記憶.会話を残す(ctx.get('session_id'), text, result)
                 return self._send(200, result)
 
             # ---- 文章生成（自作・型ベース）----
@@ -959,6 +967,10 @@ class Handler(BaseHTTPRequestHandler):
 
             if self.path == '/knowledge/forget':
                 with _lock:
+                    # 消す前の1件を、永久の記憶に残す
+                    for e in knowledge.entries:
+                        if e.get('id') == data.get('id'):
+                            永久の記憶.残す('忘れた知識', e, 'あなたの指示で知識メモから取り除いた')
                     result = knowledge.forget(data.get('id'))
                     knowledge.save()
                 return self._send(200, result)
