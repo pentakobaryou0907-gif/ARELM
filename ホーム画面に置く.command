@@ -209,4 +209,12 @@ echo "それを開くと、アプリツール画面（黒い枠の中に本編�
 echo "README.md は説明文のままです（アプリにはしません）。"
 echo "前の AReGLM は次の場所に残してあります: $USED"
 osascript -e 'display notification "デスクトップの AReGLM がアプリです" with title "AReGLM"' 2>/dev/null
+# Finder でデスクトップのアイコンを前面に出す
+if [ -d "$HOME/Desktop/AReGLM.app" ]; then
+    open -R "$HOME/Desktop/AReGLM.app"
+elif [ -d "$HOME/デスクトップ/AReGLM.app" ]; then
+    open -R "$HOME/デスクトップ/AReGLM.app"
+elif [ -d "$HOME/Applications/AReGLM.app" ]; then
+    open -R "$HOME/Applications/AReGLM.app"
+fi
 sleep 2

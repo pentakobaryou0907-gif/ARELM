@@ -23,17 +23,26 @@ AReGLM を Mac / Windows / iPad の三端末で使う
 5) Tailscale アプリを Mac に入れ、ログインしておく
 
 ────────────────────────────────
-2. Windows（ホーム画面に AReGLM）
+2. Windows（デスクトップに AReGLM を出す）
 ────────────────────────────────
-1) GitHub にログインして ZIP を落とす:
-   https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936
+いま README.md（メモ）しか見えないとき:
+
+A) Git がある場合 — PowerShell にそのまま貼る:
+
+$dest = "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
+git clone --branch cursor/three-devices-home-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git $dest
+& "$dest\デスクトップにAReGLMを出す.bat"
+
+B) ZIP の場合:
+1) https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936
    緑の Code → Download ZIP
-2) 解凍した中身を:
-   OneDrive\デスクトップ\AReGLM\ツール本体
-3) 「AReGLMをホーム画面に置く.bat」を開く
-4) デスクトップの AReGLM を開く
-5) （iPad と共有するなら）Tailscale を Windows にも入れ、
-   Mac と同じアカウントでログインする
+2) 解凍した中身を OneDrive\デスクトップ\AReGLM\ツール本体 へ
+3) 「デスクトップにAReGLMを出す.bat」を開く
+   （または「メモフォルダからデスクトップへ.bat」を
+    AIツール開発プロジェクト の中にコピーして開く）
+
+できたらデスクトップに「AReGLM」アイコンが出ます。
+（iPad と共有するなら Tailscale を Windows にも入れる）
 
 ────────────────────────────────
 3. iPad（ホーム画面に ARELM）

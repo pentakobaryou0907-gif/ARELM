@@ -198,7 +198,12 @@ if ((Get-Command npm -ErrorAction SilentlyContinue) -and -not (Test-Path -Litera
 }
 
 Write-Step 'デスクトップに AReGLM アイコンを置く'
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ps1 -アプリにする -静かに
+$出す = Join-Path $Dest 'デスクトップにAReGLMを出す.ps1'
+if (Test-Path -LiteralPath $出す) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $出す
+} else {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ps1 -アプリにする -静かに
+}
 
 $置いた = @()
 foreach ($d in @(
