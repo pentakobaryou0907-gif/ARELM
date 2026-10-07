@@ -169,6 +169,26 @@ function この端末の呼び名() {
  *
  * @returns {Promise<boolean>} 使ってよいか
  */
+/**
+ * サーバーが、もう本人の端末と認めているか。
+ *
+ * 次の二つは、本人が自分で選んだ信頼で、サーバー側で確かめてある（この画面の合言葉より強い）:
+ *   ・Macで「ログインも省く」を選んで許した端末
+ *   ・Mac本体のブラウザで、「ログインなしで使う」を選んでいるとき
+ * この二つなら、ここで合言葉をもう一度聞かない。
+ * 聞いていたころは、合言葉を覚えていない本人が、新しい端末（iPadのアイコン・Windows）を開くたびに
+ * 答えられず、画面が隠れていた（この設定は、端末間で同期されるため、全端末に効く）。
+ * それ以外の端末（合言葉だけで入った端末など）は、これまでどおり聞く。
+ */
+async function サーバーが本人と認めた端末か() {
+    try {
+        const r = await fetch('/api/account/status', { cache: 'no-store' });
+        if (!r.ok) return false;
+        const s = await r.json();
+        return s.ログインなし === true || s.端末でログイン省略 === true;
+    } catch { return false; }
+}
+
 async function この端末を確かめる() {
     const 守 = 守りを読む();
     if (!守.使う || !守.合言葉) return true;
@@ -176,9 +196,19 @@ async function この端末を確かめる() {
     const 印 = await この端末の印();
     if (守.覚えた端末.some((d) => d.印 === 印)) return true;
 
-    const 言葉 = window.prompt(
-        '覚えのない端末です。\n合言葉を入れてください。\n\n'
-        + '（合っていれば、この端末を覚えます。次からは聞きません）');
+    if (await サーバーが本人と認めた端末か()) {
+        守.覚えた端末.push({ 印, 名前: この端末の呼び名(), 覚えた日: new Date().toISOString(), 経路: 'サーバーが認めた端末' });
+        守りを書く(守);
+        return true;
+    }
+
+    // 入力欄が出せない環境（一部の埋め込みブラウザ等）では、聞けないので、確かめられなかったことにする
+    let 言葉;
+    try {
+        言葉 = window.prompt(
+            '覚えのない端末です。\n合言葉を入れてください。\n\n'
+            + '（合っていれば、この端末を覚えます。次からは聞きません）');
+    } catch { return false; }
 
     if (言葉 === null) return false;
 
