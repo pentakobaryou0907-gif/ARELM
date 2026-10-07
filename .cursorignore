@@ -1,0 +1,18 @@
+# Cursor のAIに、読ませない・送らせない（クラウドのAIに渡さないため）。
+# 本人のデータ・アカウント・合言葉・学習データ
+server/data/
+# 秘密鍵（自己署名の証明書）
+server/certs/
+# 設定・鍵
+.env
+.env.*
+# 生成物・外部ライブラリ・ログ
+node_modules/
+server/node_modules/
+**/__pycache__/
+*.pyc
+*.log
+server_launchd.log
+# 本人のバックアップ・写真の控え
+*.jsonl
+*.mobileconfig
