@@ -2149,6 +2149,7 @@ proxyToAiEngine('POST', '/analyze');
 proxyToAiEngine('GET', '/generate/templates');
 proxyToAiEngine('POST', '/generate');
 proxyToAiEngine('POST', '/chat');
+proxyToAiEngine('POST', '/split-request');
 proxyToAiEngine('POST', '/warm');
 proxyToAiEngine('POST', '/deal-check');
 proxyToAiEngine('POST', '/generate/learn-style');

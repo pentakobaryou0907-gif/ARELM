@@ -576,6 +576,84 @@ def test_auto_plan():
             check(f'段取りの手は実在する技能: {型.name}/{h.作業}', h.作業 in 名前たち or h.作業.startswith('道具:'))
 
 
+def test_compound_requests():
+    """
+    一文に入った、いくつもの頼みを、順番のある手順にして、自動で進めること。
+    ただし、一手の頼み・質問・分からない部分は、勝手に手順にしないこと。
+    """
+    from chat_engine import ChatEngine
+    import 頼みを分ける as K
+    拾う = ChatEngine._言葉から拾う
+
+    def 手(text):
+        r = K.手順に直す(text, 拾う)
+        return [(h['action'], h['params']) for h in r['steps']] if r else None
+
+    動 = lambda text: [a for a, _ in (手(text) or [])]
+
+    check('分ける: 在庫を見て→やることに入れる',
+          動('在庫を確認して、少ないものをやることに入れて') == ['show_inventory', 'add_task'])
+    check('分ける: 少ないものの補充を題にする',
+          手('在庫を確認して、少ないものをやることに入れて')[1][1].get('title') == '在庫が少ないものの補充')
+    check('分ける: 登録して→説明文も（商品名を引き継ぐ）',
+          手('新しいTシャツを登録して、説明文も作って') ==
+          [('add_product', {'name': 'Tシャツ'}), ('write_text', {'template': '商品説明', 'name': 'Tシャツ'})])
+    check('分ける: 読点が無くても「て」の切れ目で分ける',
+          動('在庫を見て値段を考えてやることに入れて') == ['show_inventory', 'price_advice', 'add_task'])
+    check('分ける: 前の話題を、やることの題に引き継ぐ',
+          手('在庫を見て値段を考えてやることに入れて')[2][1].get('title') == '値段の対応')
+    check('分ける: 一文の中の2種類の文章を2手にする',
+          [p.get('template') for a, p in 手('商品の説明文とSNSの投稿文を作って')] == ['商品説明', 'SNS'])
+    check('分ける: 「次にやること」を壊さない',
+          動('今日の状況を見て、次にやることを考えて') == ['show_schedule', 'next_steps'])
+    check('分ける: 今日足した作業も繋げられる',
+          動('バックアップを取って、ひらめき箱を見せて') == ['backup_now', 'show_inbox'])
+
+    # 素材・色・値段は、書いてあるものだけを、あとの文章の手に引き継ぐ（書いていないものは作らない）
+    手たち = 手('綿100%の黒いTシャツを4500円で登録して、説明文とSNSの投稿文も作って')
+    check('商品名は「を」の前から取る（素材の言い回しは除く）', 手たち[0] == ('add_product', {'name': '黒いTシャツ', 'price': '4500'}))
+    check('素材・色・値段を、文章の手に引き継ぐ',
+          手たち[1][1].get('material') == '綿100%' and 手たち[1][1].get('color') == '黒' and 手たち[1][1].get('price') == '4500')
+    check('書いていない素材・色は、作らない',
+          'material' not in 手('新しいTシャツを登録して、説明文も作って')[1][1]
+          and 'color' not in 手('新しいTシャツを登録して、説明文も作って')[1][1])
+
+    # 一手の頼みは、分けない
+    for 言葉 in ['Tシャツの在庫を見せて', '点検してください', '在庫を見てください', 'メモに残しておいて',
+              '商品説明を書いてください', '新商品を出す準備をして']:
+        check(f'一手はそのまま: 「{言葉}」', 手(言葉) is None)
+
+    # 分からない部分は、推測で埋めず、そのまま返す
+    r = K.手順に直す('在庫を見て、やることに入れて、ふしぎなことをして', 拾う)
+    check('分からない部分を、手順に入れず、そのまま返す',
+          bool(r) and any('ふしぎ' in x for x in r['分からなかった']) and all(h['action'] != 'forget' for h in r['steps']))
+
+    # 取り消しにくい「忘れる」は、まとめての自動には入れない
+    r = K.手順に直す('在庫を見て、黒いパンツを忘れて', 拾う)
+    check('「忘れる」は自動の手順に入れない', r is None or all(h['action'] != 'forget' for h in r['steps']))
+
+    # エンジン: 質問には手順を作らない／自動なら、すぐ進める
+    基本 = {'today': '2026-10-07', 'products': [{'name': 'Tシャツ', 'quantity': 1, 'reorderLevel': 5}], 'tasks': [], 'events': []}
+    e = ChatEngine(knowledge=KnowledgeBase())
+    r = e.respond('在庫を見て、値段を考えるにはどうすればいいですか？', dict(基本, session_id='q1', 自動で進める=True))
+    check('質問には、手順を作って動かない', not r.get('plan'))
+    r = e.respond('在庫を確認して、少ないものをやることに入れて', dict(基本, session_id='c1', 自動で進める=True))
+    check('エンジン: 複数の頼みを、手順にして、すぐ進める', bool(r.get('plan')) and r.get('run') is True and len(r['plan']['steps']) == 2)
+    check('エンジン: 確認なし（confirmが全部False）', all(not h['confirm'] for h in r['plan']['steps']))
+    r = e.respond('在庫を確認して、少ないものをやることに入れて', dict(基本, session_id='c2'))
+    check('エンジン: 自動でなければ、見せて待つ', bool(r.get('plan')) and not r.get('run') and '実行して' in r['answer'])
+    r = e.respond('在庫を見て、商品を全部消して', dict(基本, session_id='c3', 自動で進める=True))
+    check('エンジン: 消す頼みが混ざっていたら、全体を断る', not r.get('plan') and '行いません' in r['answer'])
+
+    # 「全部自動でやって」への返事
+    for 言葉 in ['全部自動でやって', '全自動でお願い', '任せるよ', '代わりにやって']:
+        check(f'お任せの言葉に、頼み方の例を返す: 「{言葉}」', ChatEngine._お任せの言葉か(言葉))
+    for 言葉 in ['在庫を見せて', 'タスク サンプル発注', 'やって', '今日の状況']:
+        check(f'ふつうの頼みは、お任せ扱いにしない: 「{言葉}」', not ChatEngine._お任せの言葉か(言葉))
+    r = e.respond('全部自動でやって', dict(基本, session_id='m1', 自動で進める=True))
+    check('お任せの返事: 例と進め方を出す', '在庫を確認して' in r['answer'] and '確認なしで' in r['answer'])
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -583,7 +661,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

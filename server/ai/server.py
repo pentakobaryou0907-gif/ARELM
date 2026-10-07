@@ -723,6 +723,20 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 return self._send(200, 決めた)
 
+            # ---- 一文に、いくつもの頼みが入っているか（画面側が、会話へ回すか決めるために聞く）----
+            #
+            # 「在庫を確認して、少ないものをやることに入れて」は、画面側のキーワード・
+            # 一つの操作を選ぶ判定に先に取られ、在庫画面を開くだけで終わっていた。
+            # 複数の頼みなら、先に会話（手順にして自動で進める）へ回してもらう。
+            if self.path == '/split-request':
+                import 段取り
+                import 頼みを分ける
+                発言 = (data.get('text') or '').strip()
+                結果 = None
+                if 発言 and 段取り.頼まれているか(発言):
+                    結果 = 頼みを分ける.手順に直す(発言, ChatEngine._言葉から拾う)
+                return self._send(200, {'ok': True, '複数': bool(結果), '手数': len(結果['steps']) if 結果 else 0})
+
             # ---- エージェントの意図判定（話しかけられた言葉→操作、または会話）----
             if self.path == '/agent-route':
                 import エージェントの意図判定

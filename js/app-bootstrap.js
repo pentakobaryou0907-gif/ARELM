@@ -45,6 +45,7 @@ window.loadPageData = function (pageName) {
             if (typeof renderアカウント === 'function') renderアカウント();
             if (typeof renderバックアップ === 'function') renderバックアップ();
             if (typeof renderエージェント設定 === 'function') renderエージェント設定();
+            if (typeof renderホーム画面に追加 === 'function') renderホーム画面に追加();
             break;
     }
 };

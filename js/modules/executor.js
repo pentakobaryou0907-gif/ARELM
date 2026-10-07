@@ -351,6 +351,14 @@ const 作業の中身 = {
             };
         }
 
+        // 名前だけでは、ほぼ名前だけの文章（「【Tシャツ】」）にしかならない。
+        // 数値や固有名詞は入力された値をそのまま使う作りで、作り話はしないため。
+        // 空のものを「作りました」と報告しないよう、材料が足りないときは、そう言う。
+        const 材料の欄 = { product_description: ['material', 'color', 'size', 'feature', 'price'],
+            sns_post: ['feature', 'price', 'release', 'shop'], techpack_note: ['material', 'size', 'sewing', 'note'] }[型];
+        if (材料の欄 && !材料の欄.some((k) => String(材料[k] || '').trim())) {
+            return { ok: false, 文: '商品名だけでは、文章の材料が足りません。素材・色・特徴などを一言添えてください（作り話はしないため）。' };
+        }
         const r = await 送る('/api/ai-local/generate', { template: 型, fields: 材料 });
         const 出 = (r && r.outputs && r.outputs[0]) || '';
         if (!出) return { ok: false, 文: '文章を作れませんでした。足りない情報があります。' };
@@ -432,7 +440,19 @@ async function 送る(道, 中身) {
  * @returns {Promise<boolean>} 実際に何かを行ったか
  */
 async function 指示を実行する(返事, 出力先) {
-    if (!返事 || !返事.action) return false;
+    return (await 指示を実行して結果を返す(返事, 出力先)).行った;
+}
+
+/**
+ * 指示を実行し、「行ったか」だけでなく「うまくいったか」も返す。
+ *
+ * 段取り（複数の手）は、これまで「行った」だけを見て、✗（失敗）の手も
+ * 「行いました」と報告して先へ進んでいた。失敗したのに成功と言うのは、いちばん良くない。
+ *
+ * @returns {Promise<{行った:boolean, ok:boolean, 文:string}>}
+ */
+async function 指示を実行して結果を返す(返事, 出力先) {
+    if (!返事 || !返事.action) return { 行った: false, ok: false, 文: '' };
 
     const 作業 = 返事.action;
     const 材料 = 返事.params || {};
@@ -457,7 +477,7 @@ async function 指示を実行する(返事, 出力先) {
             if (typeof appendConsoleLine === 'function') {
                 appendConsoleLine('assistant', '✗ ' + 文, 出力先);
             }
-            return true;
+            return { 行った: true, ok: false, 文 };
         }
 
         let 結果;
@@ -473,7 +493,7 @@ async function 指示を実行する(返事, 出力先) {
         if (typeof showNotification === 'function') {
             showNotification(結果.文.split('\n')[0], 結果.ok ? 'success' : 'error');
         }
-        return true;
+        return { 行った: true, ok: !!結果.ok, 文: 結果.文 };
     }
 
     // --- データを変える作業 ---
@@ -491,7 +511,7 @@ async function 指示を実行する(返事, 出力先) {
         if (typeof showNotification === 'function') {
             showNotification(結果.文.split('\n')[0], 結果.ok ? 'success' : 'error');
         }
-        return true;
+        return { 行った: true, ok: !!結果.ok, 文: 結果.文 };
     }
 
     // --- 画面へ移る作業 ---
@@ -507,7 +527,7 @@ async function 指示を実行する(返事, 出力先) {
         if (typeof appendConsoleLine === 'function') {
             appendConsoleLine('assistant', '✓ ' + 先.文, 出力先);
         }
-        return true;
+        return { 行った: true, ok: true, 文: 先.文 };
     }
 
     // --- 知らない作業 ---
@@ -518,9 +538,10 @@ async function 指示を実行する(返事, 出力先) {
             出力先
         );
     }
-    return false;
+    return { 行った: false, ok: false, 文: `「${作業}」の行い方が作られていません` };
 }
 
 window.指示を実行する = 指示を実行する;
+window.指示を実行して結果を返す = 指示を実行して結果を返す;
 window.作業の中身 = 作業の中身;
 window.画面へ移る作業 = 画面へ移る作業;

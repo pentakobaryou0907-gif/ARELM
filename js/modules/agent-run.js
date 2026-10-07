@@ -221,21 +221,11 @@ const 要る中身 = {
     add_memo: [['body', '何を書き留めますか']],
     add_product: [['name', '商品の名前を教えてください']],
     check_duplicate: [['text', 'どんな商品か、言葉にしてください']],
+    add_inbox: [['body', 'ひらめき箱に何を入れますか']],
+    add_production: [['name', '作品の名前を教えてください']],
+    recall_history: [['query', '何について探しますか']],
     write_text: [['name', '何についての文章ですか（商品名など）']],
 };
-
-/**
- * 文章を作る手は、作る種類によって渡し先が変わる。
- * ここを取り違えると、値はあるのに「足りません」と言われる。
- */
-function 文章の頼み方(材料) {
-    const 種 = 材料.template || '商品説明';
-    const 名 = 材料.name || 材料.item || '';
-    if (種.includes('SNS') || 種.includes('Instagram')) return `インスタの投稿文を考えて 商品名は${名}`;
-    if (種.includes('発注')) return `品名は${名} で発注メールを書いて`;
-    if (種.includes('テックパック') || 種.includes('注記')) return `テックパックの注記を書いて 品名は${名}`;
-    return `商品名は${名} の商品説明を書いて`;
-}
 
 /* ---------- 実際に進める ---------- */
 
@@ -310,6 +300,25 @@ async function 段取りを進める(段, 出力先) {
                 continue;
             }
 
+            // --- 文章の手は、名前のほかに、素材・色・特徴のどれか一つは要る ---
+            if (手.action === 'write_text' && !['material', 'color', 'size', 'feature', 'price', 'release', 'shop', 'sewing', 'note']
+                .some((k) => String(材料[k] || '').trim())) {
+                if (作業の目印 && typeof 確認を待つ === 'function') {
+                    確認を待つ(作業の目印, `${i + 1}手目: 素材・色・特徴など`);
+                }
+                const 値 = await 足りないものを聞く(箱, `${i + 1}手目: 素材・色・特徴などを一言で教えてください（作り話はしないため）`, '');
+                if (作業の目印 && typeof 作業を進める === 'function') {
+                    作業を進める(作業の目印, i + 1, 手.why || 手.action);
+                }
+                if (値 === null || 値 === '') {
+                    飛ばした.push(手.why);
+                    const 部品 = 手を出す(箱, i + 1, 段.steps.length, 手.why);
+                    手を終える(部品, false, '飛ばしました');
+                    continue;
+                }
+                材料.feature = 値;
+            }
+
             // --- 戻しにくい手は、確かめてから ---
             if (手.confirm) {
                 const 進む = await 確かめる(箱, `${i + 1}手目「${手.why}」を進めますか`);
@@ -363,24 +372,17 @@ async function 段取りを進める(段, 出力先) {
  * 他の手は、すでにある実行の仕組みに任せる。
  */
 async function 一手を行う(手, 材料, 出力先) {
-    if (手.action === 'write_text') {
-        const 頼み = 文章の頼み方(材料);
-        if (typeof runConsoleCommand !== 'function') {
-            return { ok: false, 文: '会話の入口が読み込まれていません' };
-        }
-        await runConsoleCommand(頼み, 出力先 || 'mainai');
-        return { ok: true, 文: `作りました（${材料.template || '文章'}）` };
-    }
-
-    if (typeof 指示を実行する !== 'function') {
+    if (typeof 指示を実行して結果を返す !== 'function') {
         return { ok: false, 文: '実行の仕組みが読み込まれていません' };
     }
 
-    // 画面へ移るだけの手も、指示を実行する が受け持っている
-    const 行った = await 指示を実行する({ action: 手.action, params: 材料 }, 出力先);
-    return 行った
-        ? { ok: true, 文: '行いました' }
-        : { ok: false, 文: `「${手.action}」の行い方が作られていません` };
+    // 文章を作る手も、実行の仕組みに直接つなぐ。
+    // 以前は「会話の入口」へ言葉を投げ直していたが、受け取る側が別の操作と取り違えても
+    // （実際に「商品説明を書いて」が商品登録として扱われた）、ここでは検知できず、
+    // 「作りました」と報告してしまっていた。結果を直接見る。
+    const 結果 = await 指示を実行して結果を返す({ action: 手.action, params: 材料 }, 出力先);
+    if (!結果.行った) return { ok: false, 文: `「${手.action}」の行い方が作られていません` };
+    return { ok: 結果.ok, 文: 結果.ok ? (結果.文 || '行いました').split('\n')[0] : (結果.文 || '失敗しました') };
 }
 
 /**

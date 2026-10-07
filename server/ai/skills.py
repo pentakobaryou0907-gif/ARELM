@@ -293,13 +293,40 @@ SKILLS = [
     Skill(
         'next_steps', '次にやることを考える',
         '今の状況から、次に進められることを挙げます。',
-        ['次', 'どうする', '何すれば', 'これから'],
+        ['次', 'どうする', '何すれば', 'これから', '次にやること', '次にすること', '次に何'],
         'dashboard',
         example='「次は何をすればいい」',
     ),
 ]
 
 SKILL_BY_NAME = {s.name: s for s in SKILLS}
+
+
+def ranked(text):
+    """
+    作業ごとの点数を、高い順に返す [(Skill, 点数), ...]（0点のものは含めない）。
+
+    find_skill と、頼みを分ける（複数の頼みを手順にする）の両方が使う。
+    点数のつけ方は一か所にしておかないと、二つの見分け方がずれていく。
+    """
+    if not text:
+        return []
+    low = text.lower()
+    tokens = set(tokenize(text, use_ngram=False))
+    結果 = []
+    for skill in SKILLS:
+        score = 0.0
+        for w in skill.words:
+            wl = w.lower()
+            if wl in low:
+                # 長い言い回しほど、偶然一致しにくいので重くする
+                score += 1.0 + min(len(wl), 6) * 0.1
+            elif wl in tokens:
+                score += 0.8
+        if score > 0:
+            結果.append((skill, score))
+    # 同点のときは、定義した順を保つ（sorted は安定）
+    return sorted(結果, key=lambda x: -x[1])
 
 
 def find_skill(text):
@@ -327,29 +354,9 @@ def find_skill(text):
     if not text:
         return None, 0.0
 
-    low = text.lower()
-    tokens = set(tokenize(text, use_ngram=False))
-
-    best = None
-    best_score = 0.0
-    second_score = 0.0
-
-    for skill in SKILLS:
-        score = 0.0
-        for w in skill.words:
-            wl = w.lower()
-            if wl in low:
-                # 長い言い回しほど、偶然一致しにくいので重くする
-                score += 1.0 + min(len(wl), 6) * 0.1
-            elif wl in tokens:
-                score += 0.8
-
-        if score > best_score:
-            second_score = best_score
-            best_score = score
-            best = skill
-        elif score > second_score:
-            second_score = score
+    順位 = ranked(text)
+    best, best_score = (順位[0] if 順位 else (None, 0.0))
+    second_score = 順位[1][1] if len(順位) > 1 else 0.0
 
     if not best:
         return None, 0.0

@@ -134,6 +134,7 @@ function loadDashboardData() {
     if (typeof renderひらめき箱 === 'function') renderひらめき箱();
     if (typeof render制作の進捗 === 'function') render制作の進捗();
     if (typeof 続きを案内する === 'function') 続きを案内する();
+    if (typeof ホーム画面への追加を案内する === 'function') setTimeout(ホーム画面への追加を案内する, 3000);
 }
 
 /**

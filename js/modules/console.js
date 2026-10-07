@@ -554,7 +554,21 @@ async function runConsoleCommand(text, target) {
     // あとに置いたところ、「在庫を整えて」が「在庫」に引っかかって
     // ただ在庫画面を開くだけで終わり、段取りまで届かなかった。
     await 段取りの見分けを読む();
-    if (まとめての仕事か(text)) {
+
+    // 決まった段取りでなくても、一文にいくつもの頼みが入っていれば、会話（手順にして自動で進める）へ回す。
+    // 先にキーワードやAIの「一つの操作を選ぶ」判定へ回すと、「在庫を確認して、…」が
+    // 在庫画面を開くだけで終わっていた。
+    let 複数の頼み = false;
+    if (text.length >= 8 && /(て|、|そして|それから)/.test(text)) {
+        try {
+            const r = await fetch('/api/ai-local/split-request', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+            });
+            if (r.ok) 複数の頼み = !!(await r.json()).複数;
+        } catch { /* 聞けなければ、これまでどおりの振り分けに任せる */ }
+    }
+
+    if (複数の頼み || まとめての仕事か(text)) {
         const 受けた = await tryConversation(text, target);
         if (受けた) return;
         // 会話として受け取れなければ、ふつうの振り分けに戻す

@@ -43,6 +43,7 @@ const AReGLM_SYNC = {
         // 指紋/Face IDの登録は端末ごとに別物。他の端末へ渡すと照合に失敗する。
         'areglm_passkey_id',
         'areglm_passkey_offer_later',
+        'areglm_a2hs_dismissed',
         // この端末だけの識別子（同期すると、端末の区別がつかなくなる）
         'areglm_device_id',
     ]),
