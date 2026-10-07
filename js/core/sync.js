@@ -46,6 +46,8 @@ const AReGLM_SYNC = {
         'areglm_a2hs_dismissed',
         // この端末だけの識別子（同期すると、端末の区別がつかなくなる）
         'areglm_device_id',
+        // 朝の報告を、この端末で見たか（端末ごと。同期すると、別の端末で見ただけで、こちらの通知が消える）
+        'areglm_night_seen',
     ]),
 
     _送信待ち: {},

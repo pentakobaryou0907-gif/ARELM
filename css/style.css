@@ -8287,6 +8287,16 @@ html[data-theme] .chat-bubble.user {
 }
 @keyframes チームの動き { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
 
+/* 夜の当番（朝の報告） */
+.night-alerts { margin: 0.4rem 0; padding-left: 1.2rem; font-size: 0.84rem; line-height: 1.7; color: #dc2626; }
+.night-detail { margin: 0.5rem 0; font-size: 0.82rem; }
+.night-detail summary { cursor: pointer; font-weight: 600; }
+.night-detail h5 { margin: 0.6rem 0 0.15rem; font-size: 0.82rem; }
+.night-line { margin: 0.05rem 0; line-height: 1.6; }
+.night-line.alert { color: #dc2626; }
+.night-config { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin: 0.6rem 0 0.2rem; font-size: 0.82rem; }
+.night-config input[type="time"] { width: auto; }
+
 /* ==========================================================
    声と話し方
    ========================================================== */

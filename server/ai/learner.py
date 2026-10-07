@@ -18,6 +18,7 @@ import os
 import time
 from collections import defaultdict
 
+import 安全に書く
 from tokenizer import tokenize
 
 
@@ -443,13 +444,8 @@ class OnlineLearner:
     def save(self):
         if not self.model_path:
             return False
-        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-        # 書き込み途中で壊れないよう、一時ファイルに書いてから差し替える
-        tmp = self.model_path + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False)
-        os.replace(tmp, self.model_path)
-        return True
+        # 書き込み途中で壊れないよう、一時ファイルに書いてから差し替える（同時の保存でもぶつからない）
+        return 安全に書く.書く(self.model_path, self.to_dict())
 
     def load(self):
         try:

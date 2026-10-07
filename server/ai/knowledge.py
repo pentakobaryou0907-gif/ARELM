@@ -30,6 +30,7 @@ import os
 import time
 import uuid
 
+import 安全に書く
 from tokenizer import tokenize
 
 SOURCE_TRUST = {
@@ -284,12 +285,7 @@ class KnowledgeBase:
     def save(self):
         if not self.path:
             return False
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        tmp = self.path + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump({'entries': self.entries}, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, self.path)
-        return True
+        return 安全に書く.書く(self.path, {'entries': self.entries}, indent=1)
 
     def load(self):
         try:

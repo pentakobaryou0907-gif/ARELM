@@ -427,6 +427,13 @@ def test_skill_routing():
               f'「{m.group(1)}」→ {got.name if got else None}')
 
     表 = [
+        ('朝の報告を見せて', 'show_night'),
+        ('夜の当番の報告は？', 'show_night'),
+        ('寝ている間の点検はどうだった', 'show_night'),
+        ('夜の当番をいますぐ行って', 'run_night'),
+        ('朝の報告を作って', 'run_night'),
+        ('今すぐ夜の点検して', 'run_night'),
+        ('ツールを点検して', 'self_check'),
         ('バックアップを取って', 'backup_now'),
         ('今すぐバックアップして', 'backup_now'),
         ('バックアップはいつ取った？', 'show_backup'),
@@ -769,6 +776,47 @@ def test_team():
             係.置き場 = 元
 
 
+def test_safe_write():
+    """
+    保存の競合。意味モデルは、「忘れて」の処理と、30秒ごとの裏の保存が、同じ一時ファイルに書いていて、
+    片方が差し替えた直後にもう片方が「ファイルが無い」で失敗し、「忘れて」が500で終わっていた。
+    """
+    import json, os, tempfile, threading
+    import 安全に書く
+
+    場所 = tempfile.mkdtemp()
+    先 = os.path.join(場所, 'm.json')
+    大きい = {'x': list(range(150000))}
+    失敗 = []
+
+    def 書く(n):
+        try:
+            for _ in range(6):
+                安全に書く.書く(先, dict(大きい, n=n))
+        except Exception as e:  # noqa: BLE001
+            失敗.append(repr(e))
+
+    ts = [threading.Thread(target=書く, args=(i,)) for i in range(5)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    check('保存: 同時に何本で書いても失敗しない', not 失敗, str(失敗[:1]))
+    check('保存: 一時ファイルを残さない', not [f for f in os.listdir(場所) if f.endswith('.tmp')])
+    check('保存: 書いた中身が壊れていない', json.load(open(先, encoding='utf-8'))['x'][-1] == 149999)
+
+    # 書き込みに失敗しても、元のファイルは壊れず、一時ファイルも残らない
+    try:
+        安全に書く.書く(先, {'bad': object()})
+    except TypeError:
+        pass
+    check('保存: 失敗しても、元の中身はそのまま', json.load(open(先, encoding='utf-8'))['x'][-1] == 149999)
+    check('保存: 失敗しても、一時ファイルを残さない', not [f for f in os.listdir(場所) if f.endswith('.tmp')])
+
+    # 三つの保存が、すべて共通の安全な書き方を使っている（固定名の一時ファイルに戻さない）
+    for ファイル in ('learner.py', 'knowledge.py', 'semantics.py'):
+        中身 = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), ファイル), encoding='utf-8').read()
+        check(f'保存: {ファイル} は、固定名の一時ファイルを使わない', "+ '.tmp'" not in 中身 and '安全に書く.書く' in 中身)
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -776,7 +824,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team, test_safe_write):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

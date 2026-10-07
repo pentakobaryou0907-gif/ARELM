@@ -61,11 +61,18 @@ const 確かめかた = {
     async 忘れる() {
         const 合言葉 = 'ワスレテストゴ' + Date.now();
         await 問い合わせ('/api/ai-local/learn', { text: 合言葉 + ' は消す予定の言葉', category: 'test' });
-        await 問い合わせ('/api/ai-local/forget', { term: 合言葉 });
+        const 忘れた = await 問い合わせ('/api/ai-local/forget', { term: 合言葉 });
+
+        // 「検索の件数が0」では確かめられない。知識が増えた今は、曖昧検索が、
+        // 無関係な近い資料を必ず数件返す（実際に、忘れたのに「5件残っている」と誤判定していた）。
+        // ①忘れる処理が、その言葉をモデルから取り除いたと返したか
+        // ②検索結果の中に、その言葉そのものを含むものが残っていないか、で見る。
+        const 取り除いた = (忘れた.removed || []).some((t) => t.length >= 4 && 合言葉.includes(t));
+        if (!忘れた.forgotten || !取り除いた) throw new Error('忘れる処理が、その言葉を取り除いたと返していません');
         const r = await 問い合わせ('/api/ai-local/knowledge/search', { query: 合言葉 });
-        const 件数 = (r.results || r.items || []).length;
-        if (件数 === 0) return '覚えた言葉を、跡形なく忘れました';
-        throw new Error('忘れたはずの言葉が ' + 件数 + '件 残っています');
+        const 残り = (r.results || r.items || []).filter((x) => JSON.stringify(x).includes(合言葉)).length;
+        if (残り === 0) return '覚えた言葉を、跡形なく忘れました';
+        throw new Error('忘れたはずの言葉が ' + 残り + '件 残っています');
     },
 
     async 誤字() {
@@ -269,7 +276,13 @@ const 確かめかた = {
         });
         if (!文 || 文.length < 10) throw new Error('文章を作れませんでした');
 
-        const 絵 = await AReGLM_LOCAL_FIRST.generateImage('local', '黒い縞のロゴ', { width: 200, height: 200 });
+        // 自作の図案づくりを、直接確かめる。
+        // AReGLM_LOCAL_FIRST.generateImage('local') は、先にこのMacのComfyUI（Flux.2 Klein）へ、
+        // 本物の画像生成を頼んで、最大9分待つ。確認を走らせるたびに、重い仕事が本当に始まり、
+        // 確認が終わらず、ComfyUIの待ち行列に仕事が積もっていた（実際に8件積んでしまった）。
+        // ここで見たいのは「外部なしで、自作で作れるか」なので、自作の図案づくりだけを呼ぶ。
+        if (typeof 図案をつくる !== 'function') throw new Error('自作の図案づくりが読み込まれていません');
+        const 絵 = 図案をつくる('黒い縞のロゴ', { width: 200, height: 200 });
         if (!絵 || 絵.type !== 'image' || !絵.data) throw new Error('画像を作れませんでした');
 
         return `文章（${文.length}文字）と画像（${絵.使った柄}／${絵.使った色[0]}）を、外部なしで作りました`;
@@ -871,6 +884,84 @@ const 確かめかた = {
 
         return `${Object.keys(載せる商品).length}種類 × ${Object.keys(商品の色).length}色`
             + '（刷れる範囲のはみ出しも知らせます）';
+    },
+
+    /**
+     * チーム（係で手分けして進める）が、本当に働くか。
+     *   ①すべての作業に専任の係が居る（新しい技能を足して、割り振りを忘れていないか）
+     *   ②頼みを入れると、係が分かれて、同時に進む形になる
+     *   ③成功と言ったのに書いていない手を、点検係が見抜き、全係が新しい手を始めない
+     * ③は実際に手順を流す。点検で足したものは残さない。
+     */
+    async チーム() {
+        const 名簿 = await fetch('/api/ai-local/team/roster', { cache: 'no-store' }).then((r) => r.json());
+        if (!名簿.ok) throw new Error('係の名簿を読めません');
+        const 専任 = new Set(名簿.係たち.flatMap((x) => x.専任));
+        const 漏れ = 名簿.使える作業.map(([名]) => 名).filter((名) => 名 !== 'teach_task' && 名 !== 'forget' && !専任.has(名));
+        if (漏れ.length) throw new Error('専任の係が居ない作業があります: ' + 漏れ.join('、'));
+
+        const 下見 = await 問い合わせ('/api/ai-local/team/preview', { text: '在庫を確認して、少ないものをやることに入れて' });
+        if (!下見.分かった || !下見.段取り.team['同時に動く']) throw new Error('頼みが、係に分かれて同時に進む形になっていません');
+
+        if (typeof window.段取りを進める !== 'function' || typeof window.チームで手分けして進める !== 'function') {
+            throw new Error('チームの実行の仕組みが読み込まれていません');
+        }
+        const 保存 = ['areglm_tasks', 'areglm_memos', 'areglm_team_log'].map((k) => [k, localStorage.getItem(k)]);
+        const 本物 = window.作業の中身.add_task;
+        const 設定 = localStorage.getItem('areglm_agent_team');
+        try {
+            localStorage.removeItem('areglm_agent_team');                  // チームで進める（既定）
+            // 嘘をつくやることの追加: 「追加しました」と返すが、何も書かない
+            window.作業の中身.add_task = () => ({ ok: true, 文: '追加しました（点検用の嘘の報告）' });
+            await window.段取りを進める({
+                label: '点検用（チーム）', summary: '',
+                steps: [
+                    { action: 'add_task', why: '嘘の成功', params: { title: '＿点検用＿嘘' }, agent_name: '段取り係', wait: [], wave: 0 },
+                    { action: 'add_memo', why: '別の係の手', params: { body: '＿点検用＿メモ' }, agent_name: '記録係', wait: [], wave: 0 },
+                    { action: 'add_task', why: '同じ係の次の手（始めないはず）', params: { title: '＿点検用＿二つ目' }, agent_name: '段取り係', wait: [], wave: 1 },
+                ],
+                team: { agents: [{ 名前: '段取り係', 絵: '🗓' }, { 名前: '記録係', 絵: '📒' }], commander: {}, checker: '点検係', 波の数: 2, 同時に動く: true },
+            }, null);
+
+            const やること = JSON.parse(localStorage.getItem('areglm_tasks') || '[]');
+            const メモ = JSON.parse(localStorage.getItem('areglm_memos') || '[]');
+            if (やること.some((t) => String(t.title).includes('＿点検用＿'))) throw new Error('嘘の手が、データに残っています');
+            if (!メモ.some((m) => m.body === '＿点検用＿メモ')) throw new Error('別の係の手が、行われていません');
+            const 箱 = [...document.querySelectorAll('.agent-run')].pop();
+            const 報告 = (箱?.querySelector('.agent-summary')?.textContent || '') + (箱?.querySelector('.team-report')?.textContent || '');
+            if (!報告.includes('止まりました')) throw new Error('嘘の成功を見抜いたのに、止まったと報告していません');
+            if (!報告.includes('食い違い 1')) throw new Error('点検係が、食い違いを数えていません');
+            if (!報告.includes('始めず 1')) throw new Error('同じ係の次の手を、始めてしまっています');
+            return `${名簿.係たち.length}つの係が全作業に専任で付き、同時に進み、点検係が「成功と言って書いていない手」を見抜いて、全係を止めました`;
+        } finally {
+            window.作業の中身.add_task = 本物;
+            保存.forEach(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+            if (設定 === null) localStorage.removeItem('areglm_agent_team'); else localStorage.setItem('areglm_agent_team', 設定);
+            if (typeof renderTaskList === 'function') renderTaskList();
+        }
+    },
+
+    /** 夜の当番が、本当に点検して、報告を残すか（読むだけ。古いときだけバックアップを取る） */
+    async 夜の当番() {
+        if (typeof アカウントAPI !== 'function') throw new Error('読み込まれていません');
+        const r = await アカウントAPI('/api/night/run', {});
+        if (!r.ok) throw new Error(r.訳 || '点検できませんでした');
+        const 報告 = r.報告;
+        if ((報告.係ごと || []).length < 5) throw new Error('五つの係がそろって点検していません');
+        const 状 = await アカウントAPI('/api/night/status');
+        if (!状.ok || !状.最新 || 状.最新.id !== 報告.id) throw new Error('点検の報告が残っていません');
+        return `点検して、報告を残しました（${報告.所要ms}ミリ秒）。${報告.要約}。毎日 ${状.設定.時刻} に、画面を閉じていても点検します`;
+    },
+
+    /** どこからでも（同じWi-Fiの外から）開けるか。まだなら、何が足りないかを言う */
+    async どこでも() {
+        if (typeof アカウントAPI !== 'function') throw new Error('読み込まれていません');
+        const r = await アカウントAPI('/api/anywhere/status');
+        if (!r.ok) throw new Error(r.訳 || '様子を読めません');
+        if (!r.入っている) throw new Error('Tailscale がこのMacに入っていません');
+        if (r.段階 !== 'つながっている') throw new Error(`Tailscale が「${r.段階}」です。設定の「どこでも」から、ログインしてください`);
+        if (!r.公開中) throw new Error('Tailscale につながっていますが、まだ外へ出していません。設定の「どこでも」で、出してください');
+        return `外から開けます: ${r.公開中}（つながっている端末 ${r.端末たち.length}台）`;
     },
 
     async API() {

@@ -217,6 +217,26 @@ const 作業の中身 = {
         return { ok: true, 文: `ひらめき箱: 未整理 ${未.length}件\n${行.join('\n')}${未.length > 5 ? '\n…ほか' + (未.length - 5) + '件' : ''}` };
     },
 
+    /** 夜の当番の報告（寝ている間の点検の結果）を答える */
+    async show_night() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: '夜の当番の仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/night/status');
+        if (!r.ok) return { ok: false, 文: r.訳 || '報告を読めませんでした' };
+        if (!r.最新) {
+            return { ok: true, 文: `まだ報告がありません。毎日 ${r.設定.時刻} に点検します。「夜の当番をいますぐ行って」と言えば、いま点検します。` };
+        }
+        return { ok: true, 文: 夜の報告を文にする(r.最新) };
+    },
+
+    /** 夜の当番と同じ点検を、いま行う（読むだけ。古ければバックアップを取る） */
+    async run_night() {
+        if (typeof アカウントAPI !== 'function') return { ok: false, 文: '夜の当番の仕組みが読み込まれていません' };
+        const r = await アカウントAPI('/api/night/run', {});
+        if (!r.ok) return { ok: false, 文: r.訳 || '点検できませんでした' };
+        描き直す('render夜の当番');
+        return { ok: true, 文: 夜の報告を文にする(r.報告) };
+    },
+
     /** TUDURI・INTGLMの進捗と、公開前チェックの状況を答える */
     show_production() {
         const P = window.AREGLM_PREPUBLISH;
@@ -379,6 +399,16 @@ const 作業の中身 = {
  * 聞かれているのは「いま何をしているか」なので、
  * その場で答えを出す。
  */
+/** 夜の当番の報告を、チャットに出す文にする。要確認を先頭に。 */
+function 夜の報告を文にする(報告) {
+    const 時 = new Date(報告.実行時刻).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const 行 = [`${報告.要約}（${時}に点検）`];
+    (報告.要確認 || []).forEach((x) => 行.push(`⚠ ${x.係}: ${x.文}`));
+    (報告.係ごと || []).forEach((k) => k.件.filter((x) => x.重さ === 'お知らせ').forEach((x) => 行.push(`・${k.係}: ${x.文}`)));
+    if (!(報告.要確認 || []).length) 行.push('点検は、読むだけです。直す・消す・外へ送る、はしていません。');
+    return 行.join('\n');
+}
+
 function いまの様子を出す() {
     if (typeof いまの様子 !== 'function') {
         return { ok: false, 文: '様子を見る仕組みが読み込まれていません' };

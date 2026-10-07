@@ -539,6 +539,59 @@ app.post('/api/anywhere/disable', async (req, res) => {
 });
 
 /**
+ * 夜の当番（寝ている間も、決まった点検を進めて、朝に報告する）
+ *
+ * 同期のデータがサーバー側にもあるので、画面を閉じた夜でも、サーバーが自分で点検できる。
+ * 点検は読むだけ。書くのは、朝の報告（追記のみ）と、古いときのバックアップだけ。
+ */
+const 夜の当番 = require('./夜の当番');
+const 夜の当番の道具 = {
+    置き場: DATA_DIR,
+    // SYNC_PATH は、このあとで定義される。読むのを、使うときまで遅らせる（先に読むと起動で落ちる）。
+    get 同期の場所() { return SYNC_PATH; },
+    バックアップ,
+    永久の記憶,
+    AIは動いているか: async () => {
+        try { return (await aiEngineFetch('/health', { signal: AbortSignal.timeout(5000) })).ok; } catch { return false; }
+    },
+    門番の設定: () => 門番.設定を読む(),
+    他の端末を許しているか: () => 他の端末を許しているか() || Tailscaleを許しているか(),
+    どこでも: async () => {
+        if (!Tailscaleを許しているか()) return { 許している: false };
+        const s = await Tailscale.状態();
+        return { 許している: true, 公開中: s.公開中 };
+    },
+};
+let 夜の当番を実行中 = false;
+
+app.get('/api/night/status', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const 設定 = 夜の当番.設定を読む(DATA_DIR);
+    const 報告 = 夜の当番.報告を読む(DATA_DIR, 7);
+    const 待ち = 夜の当番.実行すべきか(設定, 報告[0] || null);
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, 設定, 最新: 報告[0] || null, 前: 報告.slice(1), 実行待ち: !!待ち, 実行中: 夜の当番を実行中 });
+});
+
+app.post('/api/night/run', async (req, res) => {
+    if (!本人だけ(req, res)) return;
+    if (夜の当番を実行中) return res.status(409).json({ ok: false, 訳: 'いま、点検の途中です。終わるまで待ってください' });
+    夜の当番を実行中 = true;
+    try {
+        const 報告 = await 夜の当番.実行する(夜の当番の道具, '手動（いますぐ）');
+        res.json({ ok: true, 報告 });
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: `点検できませんでした: ${e.message}` });
+    } finally { 夜の当番を実行中 = false; }
+});
+
+app.post('/api/night/config', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    const b = req.body || {};
+    res.json({ ok: true, 設定: 夜の当番.設定を書く(DATA_DIR, { 有効: b.有効, 時刻: b.時刻, 通知: b.通知, 通知の時刻: b.通知の時刻 }) });
+});
+
+/**
  * 端末同士のデータ連携（同じ商品・タスク等が、どの端末からでも同じに見える）
  *
  * これまでタスク・商品・売上などの中身は、この端末のブラウザの中
@@ -3692,6 +3745,7 @@ function 起動後の処理(待ち受け先) {
     起動後の処理を済ませた = true;
     console.log(`ARELM: http://localhost:${PORT}（待ち受け: ${待ち受け先}）`);
     バックアップ.毎日の控えを始める();
+    夜の当番.見張りを始める(夜の当番の道具);
 
     // 他の端末から使う設定のとき、電源につないでいる間は、Macが眠って届かなくならないようにする。
     //

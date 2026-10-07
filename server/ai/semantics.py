@@ -25,6 +25,7 @@ from collections import defaultdict
 
 import numpy as np
 
+import 安全に書く
 from tokenizer import tokenize
 
 
@@ -385,10 +386,8 @@ class SemanticModel:
             'totalPairs': self.total_pairs,
             'trainedAt': self.trained_at,
         }
-        tmp = path + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False)
-        os.replace(tmp, path)
+        # 「忘れて」の処理と、裏の定期保存が同時に書いても、一時ファイルがぶつからないようにする
+        安全に書く.書く(path, data)
 
     def load(self, path):
         if not os.path.exists(path):
