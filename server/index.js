@@ -154,13 +154,45 @@ app.post('/api/account/reset', (req, res) => {
     res.json({ ok: true, 訳: r.訳, 名前: r.名前, 役: 入.役, 入場券: 入.入場券 });
 });
 
+/** この端末は、Macの前で「ログインも省く」で許された端末か（Mac本体は対象外。Macは、ログインなしの設定で扱う） */
+function 許した端末でログイン省略か(req) {
+    if (本体からか(req)) return false;
+    const d = 門番.印からの端末(req.headers.cookie);
+    return !!(d && d.ログイン省略 === true);
+}
+
 app.get('/api/account/status', (req, res) => {
     res.json({
         ok: true,
         初期設定済み: アカウント.初期設定済みか(),
         本体から: 本体からか(req),
         ログインなし: アカウント.ログインなしか() && 本体のブラウザからか(req),
+        端末でログイン省略: 許した端末でログイン省略か(req),
     });
+});
+
+/** Macの前で「ログインも省く」を選んで許した端末が、ユーザー名・パスワードなしで入る */
+app.post('/api/account/device-login', (req, res) => {
+    if (!許した端末でログイン省略か(req)) {
+        return res.status(403).json({ ok: false, 訳: 'この端末は、ログインを省く設定で許されていません' });
+    }
+    const r = アカウント.許した端末で入る();
+    res.status(r.ok ? 200 : 403).json(r);
+});
+
+/** 新しい端末の許可（Mac本体のブラウザからだけ）。許す・断るの決定は、Macの前にいる本人が行う。 */
+app.get('/api/pair/pending', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'Mac本体の画面からだけです' });
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, 待ち: 門番.ペアの待ち一覧() });
+});
+app.post('/api/pair/decide', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'Mac本体の画面からだけです' });
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    const b = req.body || {};
+    const r = 門番.ペアを決める(String(b.id || ''), b.許す === true, b.ログインも省く === true);
+    res.status(r.ok ? 200 : 400).json(r);
 });
 
 app.post('/api/account/nologin', (req, res) => {

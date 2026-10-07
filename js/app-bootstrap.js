@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init他の端末 === 'function') init他の端末();
     if (typeof init制作の進捗 === 'function') init制作の進捗();
     if (typeof init続きから === 'function') init続きから();
+    if (typeof init端末の許可 === 'function') init端末の許可();
     if (typeof init守り === 'function') init守り();
     if (typeof initHomeTabs === 'function') initHomeTabs();
     document.getElementById('import-product-seed-btn')?.addEventListener('click', importProductSeed);

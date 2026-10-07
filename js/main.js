@@ -443,8 +443,10 @@ function ログインできた(r, 静か) {
 async function ログインなしの入場券を取り直す() {
     try {
         const s = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json());
-        if (!s.ログインなし) return null;
-        const r = await fetch('/api/account/nologin', { method: 'POST' }).then((y) => y.json());
+        // このMac（ログインなし）か、Macの前で「ログインも省く」で許した端末のときだけ
+        const 道 = s.ログインなし ? '/api/account/nologin' : (s.端末でログイン省略 ? '/api/account/device-login' : null);
+        if (!道) return null;
+        const r = await fetch(道, { method: 'POST' }).then((y) => y.json());
         return r.ok ? r : null;
     } catch { return null; }
 }

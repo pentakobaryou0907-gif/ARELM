@@ -37,7 +37,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const 設定ファイル = path.join(__dirname, 'data', '門番.json');
+const 設定ファイル = process.env.ARELM_GATE_FILE || path.join(__dirname, 'data', '門番.json');
 
 /** 印の有効期間（日）。これを過ぎたら、もう一度合言葉を聞く。 */
 const 印の日数 = 30;
@@ -202,7 +202,7 @@ function Tailscaleの中か(住所) {
 
 /* ---------- 印（token） ---------- */
 
-function 印を作る(名前) {
+function 印を作る(名前, ログインも省く = false) {
     const 設定 = 設定を読む();
     const 印 = crypto.randomBytes(32).toString('hex');
     設定.端末 = (設定.端末 || []).filter((d) => new Date(d.期限) > new Date());
@@ -211,9 +211,79 @@ function 印を作る(名前) {
         名前: String(名前 || '名前のない端末').slice(0, 40),
         許した日: new Date().toISOString(),
         期限: new Date(Date.now() + 印の日数 * 86400000).toISOString(),
+        // Macの前で「ログインも省く」を選んで許した端末は、ユーザー名・パスワードなしで入れる
+        ログイン省略: !!ログインも省く,
     });
     設定を書く(設定);
     return 印;
+}
+
+/* ==========================================================
+   許可の頼み（合言葉を覚えていなくても、Macの前で1回押すだけで入れる）
+   ========================================================== */
+//
+// 新しい端末が「入りたい」と頼むと、4桁のコードつきで、Macの画面に知らせが出る。
+// 許せるのは、Mac本体の画面だけ（server/index.js で、Mac本体のブラウザからだけ受け付ける）。
+// コードは秘密ではない。「いま目の前の端末が頼んだものか」を、人が見分けるための印。
+// 頼みは5分で消える。頼める回数にも、待ちの数にも、上限がある。
+
+const 待つ分 = 5;
+const 待ち = new Map();          // id → { id, code, 名前, 住所, 時刻, 状態, 省く }
+const 頼みの記録 = new Map();    // 住所 → [時刻, …]
+
+function 待ちを掃除() {
+    const 今 = Date.now();
+    for (const [id, x] of 待ち) if (今 - x.時刻 > 待つ分 * 60000) 待ち.delete(id);
+}
+
+function ペアを頼む(住所, 名前) {
+    待ちを掃除();
+    const 今 = Date.now();
+    const 記録 = (頼みの記録.get(住所) || []).filter((t) => 今 - t < 10 * 60000);
+    if (記録.length >= 3) return { ok: false, 訳: '続けて頼みすぎです。しばらく待ってください' };
+    if (待ち.size >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
+    記録.push(今);
+    頼みの記録.set(住所, 記録);
+    const id = crypto.randomBytes(16).toString('hex');
+    const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
+    待ち.set(id, { id, code, 名前: String(名前 || '名前のない端末').slice(0, 40), 住所, 時刻: 今, 状態: '待ち', 省く: false });
+    return { ok: true, id, code, 待つ分 };
+}
+
+/** 頼んだ端末が、結果を聞く。許されていれば、一度だけ、印を渡す。 */
+function ペアの様子(id) {
+    待ちを掃除();
+    const x = 待ち.get(id);
+    if (!x) return { 状態: '期限切れ' };
+    if (x.状態 === '許可') {
+        待ち.delete(id);                                 // 一度きり。使い回せない
+        return { 状態: '許可', 印: 印を作る(x.名前, x.省く) };
+    }
+    if (x.状態 === '断った') { 待ち.delete(id); return { 状態: '断った' }; }
+    return { 状態: '待ち' };
+}
+
+function ペアの待ち一覧() {
+    待ちを掃除();
+    return [...待ち.values()].filter((x) => x.状態 === '待ち')
+        .map((x) => ({ id: x.id, code: x.code, 名前: x.名前, 住所: x.住所, 経過秒: Math.round((Date.now() - x.時刻) / 1000) }));
+}
+
+function ペアを決める(id, 許す, ログインも省く) {
+    const x = 待ち.get(id);
+    if (!x || x.状態 !== '待ち') return { ok: false, 訳: 'その頼みは、もうありません（時間切れか、決め済みです）' };
+    x.状態 = 許す ? '許可' : '断った';
+    x.省く = !!ログインも省く;
+    return { ok: true, 訳: 許す ? `「${x.名前}」を許しました` : `「${x.名前}」を断りました` };
+}
+
+/** cookie の印から、許した端末の記録を引く（無ければ null） */
+function 印からの端末(cookie) {
+    const 部分 = String(cookie || '').split(';').map((s) => s.trim()).find((s) => s.startsWith('areglm_pass='));
+    if (!部分) return null;
+    const 印 = 部分.slice('areglm_pass='.length);
+    const d = (設定を読む().端末 || []).find((x) => x.印 === 印);
+    return d && new Date(d.期限) > new Date() ? d : null;
 }
 
 function 印が通るか(印) {
@@ -292,7 +362,28 @@ function 合言葉を聞く画面(訳, 初期の名前 = '') {
   <button type="submit">入る</button>
   <p>合っていれば、この端末を${印の日数}日間おぼえます。<br>
      このツールは外部へ一切送信しません。</p>
-</form></body></html>`;
+  <hr style="width:100%;border:0;border-top:1px solid rgba(128,128,128,.3)">
+  <p>合言葉を覚えていないときは、Macの前で許可してもらえます。</p>
+  <button type="button" id="pair" style="background:#555">Macで許可してもらう</button>
+  <p id="pairmsg"></p>
+</form>
+<script>
+document.getElementById('pair').addEventListener('click', async function () {
+  var m = document.getElementById('pairmsg');
+  var 名 = document.querySelector('[name=名前]').value;
+  var r = await (await fetch('/__pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 名前: 名 }) })).json();
+  if (!r.ok) { m.textContent = r.訳 || '頼めませんでした'; return; }
+  m.textContent = '';
+  m.appendChild(document.createTextNode('Macの画面に、このコードの知らせが出ます。同じコードか確かめて、Macで「許可」を押してください（' + r.待つ分 + '分以内）。'));
+  var 大 = document.createElement('div'); 大.textContent = r.code; 大.style.cssText = 'font-size:2.4rem;letter-spacing:.4rem;font-weight:700;margin-top:.4rem';
+  m.appendChild(大);
+  var t = setInterval(async function () {
+    var s = await (await fetch('/__pair/status?id=' + encodeURIComponent(r.id), { cache: 'no-store' })).json();
+    if (s['状態'] === '許可') { clearInterval(t); location.href = '/'; }
+    else if (s['状態'] !== '待ち') { clearInterval(t); m.textContent = s['状態'] === '断った' ? 'Macで断られました。' : '時間切れです。もう一度押してください。'; }
+  }, 2000);
+});
+</script></body></html>`;
 }
 
 /**
@@ -335,6 +426,8 @@ function 合言葉を聞く画面(訳, 初期の名前 = '') {
  *   ことと、この人が本人であることは別の話だから。
  */
 const この端末だけの口 = [
+    '/api/pair',          // 新しい端末を許す・断る（Mac本体の画面でだけ）
+    '/api/account/reset', // ユーザー名とパスワードの決め直し（Mac本体の画面でだけ）
     '/api/computer',      // 画面に文字を打ち、押す
     '/api/browser',       // Chromeを開いて操る
     '/api/remote',        // 画面を映して、そこを押す
@@ -430,6 +523,22 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // 通った相手だけなので、外のインターネットからは、これまでどおり届かない。
         if (req.method === 'GET' && 公開してよい道.has(req.path)) return next();
 
+        // 許可の頼み（合言葉の代わりに、Macの前で許してもらう）。
+        // ここに来られるのは、上の経路の確認を通った相手だけ（同じLAN／Tailscale）。
+        if (req.method === 'POST' && req.path === '/__pair/request') {
+            const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']));
+            return res.status(r.ok ? 200 : 429).json(r);
+        }
+        if (req.method === 'GET' && req.path === '/__pair/status') {
+            const s = ペアの様子(String(req.query.id || ''));
+            if (s.印) {
+                res.setHeader('Set-Cookie',
+                    `areglm_pass=${s.印}; Path=/; Max-Age=${印の日数 * 86400}; HttpOnly; SameSite=Lax`);
+            }
+            res.set('Cache-Control', 'no-store');
+            return res.json({ 状態: s.状態 });
+        }
+
         // 合言葉を送ってきた
         // 道の名前は英字にしてある。
         // 日本語にしたところ、送られてくる文字と
@@ -475,4 +584,7 @@ module.exports = {
     設定を書く,
     同じLANか,
     Tailscaleの中か,
+    ペアの待ち一覧,
+    ペアを決める,
+    印からの端末,
 };
