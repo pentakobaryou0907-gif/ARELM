@@ -61,15 +61,32 @@ Mac のホーム画面に **AReGLM.app** があるのと同じことを、Window
 一度置いたあとは、サインインのたびに見張りが裏で動き、落ちていれば約1分以内に立ち上がり直します。
 Node.js（https://nodejs.org の LTS）が入っていないとサーバーが立ち上がりません。
 
-#### Windows に新しい版が来ないとき
+#### Windows にアプリがどこにも無いとき
 
-`ホーム画面に置く.bat`・新しい `見張り.ps1`・`AReGLM起動.vbs` は、取り込む前の `main` には入っていません（古い `AReGLMを開く.bat` と短い `見張り.ps1` だけがあります）。
+よくある取り違え:
 
-1. Mac 側のツールのフォルダに、取り込んだあとのコードが入っているか確かめる（`ホーム画面に置く.bat` があること）
-2. Syncthing が Windows へ同期し終わるのを待つ
-3. Windows でツールのフォルダを開き、`ホーム画面に置く.bat` をもう一度ダブルクリックする（スタートアップとタスクスケジューラを載せ直します）
+| ここはアプリではない | ここがアプリ本体 |
+|------|------|
+| `OneDrive\デスクトップ\AReGLM\AIツール開発プロジェクト\README.md`（メモ用） | `C:\Users\<名前>\AReGLM\`（中に `見張り.ps1` と `server` がある） |
 
-ツールのフォルダがデスクトップ・書類・OneDrive の中にあると、自動起動は登録しません（Mac と同じ判断）。`C:\Users\<名前>\Developer\AReGLM` などへ移してから、もう一度 `ホーム画面に置く.bat` を開いてください。
+**PowerShell を開いて、次をそのまま貼り付けて Enter**（Git が入っていること）:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+irm https://raw.githubusercontent.com/pentakobaryou0907-gif/ARELM/cursor/windows-app-shell-1936/Windows%E3%81%AB%E3%82%A2%E3%83%97%E3%83%AA%E3%82%92%E5%85%A5%E3%82%8C%E3%82%8B.ps1 | iex
+```
+
+終わると `C:\Users\<名前>\AReGLM` に本体が入り、デスクトップに **AReGLM** アイコンができます。
+
+#### Windows に新しい版が来ないとき（すでに本体がある場合）
+
+`AReGLMをホーム画面に置く.bat` などは、取り込む前の `main` には入っていません。
+
+1. Mac 側のツールのフォルダに新しいコードがあるか確かめる
+2. Syncthing の同期を待つ（または上の PowerShell で入れる）
+3. `AReGLMをホーム画面に置く.bat` をもう一度開く
+
+ツールのフォルダがデスクトップ・書類・OneDrive の中にあると、自動起動は登録しません。`C:\Users\<名前>\AReGLM` なら登録します。
 
 ## 必要なものをまとめて入れる（初回だけ）
 
