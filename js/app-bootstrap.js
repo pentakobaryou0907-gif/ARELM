@@ -69,6 +69,23 @@ window.checkGatewayStatus = async function checkGatewayStatus() {
     return ok;
 }
 
+// 想定外の例外で画面が無言にならないようにする（通知できるときだけ知らせる）
+window.addEventListener('error', (e) => {
+    try {
+        if (typeof showNotification === 'function') {
+            showNotification('画面でエラーが起きました: ' + (e.message || '不明'), 'error');
+        }
+    } catch { /* 通知すら失敗したら何もしない */ }
+});
+window.addEventListener('unhandledrejection', (e) => {
+    try {
+        const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason || '不明');
+        if (typeof showNotification === 'function') {
+            showNotification('処理に失敗しました: ' + msg.slice(0, 200), 'error');
+        }
+    } catch { /* 同上 */ }
+});
+
 document.addEventListener('DOMContentLoaded', async function () {
     // 他の何かがlocalStorageを読む前に、まずサーバーにある最新のデータを
     // この端末へ取り込む（js/core/sync.js 参照。端末同士のデータ連携）。
@@ -308,6 +325,10 @@ function initGrokKeyInput() {
     保存.addEventListener('click', async () => {
         const 鍵 = 入力.value.trim();
         if (!鍵) { showNotification('APIキーを入れてください', 'error'); return; }
+        if (!鍵.startsWith('xai-')) {
+            showNotification('Grok のAPIキーは xai- で始まります（console.x.ai）。Groq（gsk_）とは別です', 'error');
+            return;
+        }
         if (鍵.length < 20) {
             showNotification('キーが短すぎます。console.x.ai で発行した API キーを入れてください', 'error');
             return;

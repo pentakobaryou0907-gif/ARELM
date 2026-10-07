@@ -110,9 +110,5 @@ async function Grokでエージェントの意図を判定する(発言, 操作�
     };
 }
 
-function Grokを使うか() {
-    return typeof 現在の脳 === 'function' && 現在の脳() === 'grok';
-}
-
+// Grokを使うか() は chat.js 側で定義する（二重定義するとページ全体が止まる）。
 window.Grokでエージェントの意図を判定する = Grokでエージェントの意図を判定する;
-window.Grokを使うか = Grokを使うか;

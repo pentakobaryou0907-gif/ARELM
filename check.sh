@@ -198,15 +198,23 @@ for CAND in \
 done
 
 # 見つからなければ、この検査自身の位置から遡って探す
+# （変数名は ASCII のみ。日本語の変数名は環境によって代入が壊れ、無限ループになる）
 if [ ! -d "$APP" ]; then
-    ここ="$(cd "$(dirname "$0")" && pwd)"
-    while [ "$ここ" != "/" ]; do
-        case "$ここ" in *.app) APP="$ここ"; break;; esac
-        ここ="$(dirname "$ここ")"
+    HERE="$(cd "$(dirname "$0")" && pwd)"
+    while [ -n "$HERE" ] && [ "$HERE" != "/" ]; do
+        case "$HERE" in *.app) APP="$HERE"; break;; esac
+        PARENT="$(dirname "$HERE")"
+        [ "$PARENT" = "$HERE" ] && break
+        HERE="$PARENT"
     done
 fi
 if [ ! -d "$APP" ]; then
-    ng "アプリが見つかりません"
+    # Linux / Windows の検査環境では Mac の .app は無い。失敗扱いにしない。
+    if [ "$(uname -s)" != "Darwin" ]; then
+        warn "Mac ではないので、アプリ（AReGLM.app）は見ていません"
+    else
+        ng "アプリが見つかりません"
+    fi
 elif [ ! -x "$APP/Contents/MacOS/AReGLM" ]; then
     ng "アプリの起動口が実行できません"
 elif [ ! -d "$APP/Contents/Resources/ツール本体" ]; then
