@@ -527,6 +527,55 @@ def test_permanent_memory():
             os.environ.pop('ARELM_MEMORY_DIR', None)
 
 
+def test_auto_plan():
+    """
+    エージェントの自動モード: 頼んだら、確認なしで最後まで進める。
+    ただし、足りない中身は聞く／失敗したら止まる、は変わらない。
+    従来の「順番を見せて、実行してと言われてから」も、設定で残っていること。
+    """
+    from chat_engine import ChatEngine
+    import 段取り
+
+    基本 = {'today': '2026-10-07', 'products': [], 'tasks': [], 'events': []}
+
+    # 自動: すぐ進める。待ち状態にしない。途中の「確かめてから」も外れる。
+    e = ChatEngine(knowledge=KnowledgeBase())
+    r = e.respond('新商品を出す準備をして', dict(基本, session_id='auto1', 自動で進める=True))
+    check('自動: すぐ進める(run)', bool(r.get('plan')) and r.get('run') is True)
+    check('自動: 途中の確認を挟まない', all(not h['confirm'] for h in r['plan']['steps']))
+    check('自動: 実行してと言われるのを待たない',
+          not e.conversations.get('auto1').待っている段取り if hasattr(e, 'conversations') else True)
+    check('自動: 失敗で止まることを約束する', '止まったら' in r['answer'])
+
+    # 自動でない: 従来どおり、見せて、待つ
+    e2 = ChatEngine(knowledge=KnowledgeBase())
+    r2 = e2.respond('新商品を出す準備をして', dict(基本, session_id='manual1'))
+    check('従来: 見せるだけで進めない', bool(r2.get('plan')) and not r2.get('run'))
+    check('従来: 実行してと言うよう案内する', '実行して' in r2['answer'])
+    # 「確かめてから」の手が、従来は確認のまま、自動では外れること
+    #（実データに「教わった手順」があると、そちらが先に当たるため、組み立てを直接見る）
+    型 = 段取り.段取りたち[0]
+    check('従来: 確認する手は確認のまま',
+          any(h['confirm'] for h in 段取り.段取りの返事(型, '新商品を出す準備をして', 1.0)['plan']['steps']))
+    check('自動: 同じ段取りでも、確認が外れる',
+          not any(h['confirm'] for h in 段取り.段取りの返事(型, '新商品を出す準備をして', 1.0, 自動=True)['plan']['steps']))
+    r3 = e2.respond('実行して', dict(基本, session_id='manual1'))
+    check('従来: 実行してと言えば進む', r3.get('run') is True)
+
+    # 一日の始まり・終わりに、今日足した作業が入っている
+    始 = [h.作業 for h in 段取り.段取りたち[2].作る('今日を始めたい')]
+    終 = [h.作業 for h in 段取り.段取りたち[3].作る('一日を終えたい')]
+    check('一日の始まりに進捗とひらめき箱が入る', 'show_production' in 始 and 'show_inbox' in 始)
+    check('一日の終わりにバックアップが入る', 'backup_now' in 終)
+
+    # 段取りに入れる作業は、実際に動く技能だけ（動かないものを並べない決まり）
+    import skills
+    名前たち = {sk.name for sk in skills.SKILLS}
+    for 型 in 段取り.段取りたち:
+        for h in 型.作る('テスト'):
+            check(f'段取りの手は実在する技能: {型.name}/{h.作業}', h.作業 in 名前たち or h.作業.startswith('道具:'))
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -534,7 +583,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

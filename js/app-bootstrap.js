@@ -44,6 +44,7 @@ window.loadPageData = function (pageName) {
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
             if (typeof renderアカウント === 'function') renderアカウント();
             if (typeof renderバックアップ === 'function') renderバックアップ();
+            if (typeof renderエージェント設定 === 'function') renderエージェント設定();
             break;
     }
 };

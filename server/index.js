@@ -2093,6 +2093,18 @@ async function aiEngineFetch(pathname, options = {}) {
     return fetch(AI_ENGINE_BASE + pathname, options);
 }
 
+/**
+ * エージェントに頼んだとき、確認なしで最後まで進めるか。
+ * 設定（areglm_agent_auto）が '0' のときだけ、確認を挟む。既定は、確認なしで進める。
+ * 設定は端末間で同期される値（sync_store）から読む。
+ */
+function エージェントを自動で進めるか() {
+    try {
+        const e = 同期の中身を読む().areglm_agent_auto;
+        return !(e && (e.value === '0' || e.value === 'false'));
+    } catch { return true; }
+}
+
 /** 自作AIエンジンへの中継ルートをまとめて定義する */
 function proxyToAiEngine(method, route) {
     const handler = async (req, res) => {
@@ -2100,7 +2112,12 @@ function proxyToAiEngine(method, route) {
             const opts = { method };
             if (method === 'POST') {
                 opts.headers = { 'Content-Type': 'application/json' };
-                opts.body = JSON.stringify(req.body || {});
+                let 本文 = req.body || {};
+                // 会話では、確認なしで進める設定かどうかを、エンジンに伝える
+                if (route === '/chat') {
+                    本文 = { ...本文, context: { ...(本文.context || {}), 自動で進める: エージェントを自動で進めるか() } };
+                }
+                opts.body = JSON.stringify(本文);
             }
             const upstream = await aiEngineFetch(route, opts);
             const data = await upstream.json();
