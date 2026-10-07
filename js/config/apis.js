@@ -21,6 +21,15 @@ const AReGLM_API_REGISTRY = {
             subRoles: ['chat', 'learn'],
             features: ['会話', '高速']
         },
+        grok: {
+            name: 'Grok（xAI）',
+            docs: 'https://console.x.ai/',
+            official: true,
+            freeTier: false,
+            qualityScore: 92,
+            subRoles: ['chat', 'learn', 'agent'],
+            features: ['会話', '制作相談', 'エージェント']
+        },
         huggingface: {
             name: 'Hugging Face',
             docs: 'https://huggingface.co/settings/tokens',

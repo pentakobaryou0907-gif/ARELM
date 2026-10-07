@@ -117,13 +117,18 @@ const CHAT_BRAINS = {
         送り先: 'Google',
         課金: '無料枠を超えると課金されます',
     },
+    grok: {
+        名: 'Grok', apiId: 'grok',
+        送り先: 'xAI',
+        課金: '使った分だけ課金されます（xAIの料金に従う）',
+    },
     claude: {
         名: 'Claude', apiId: 'claude',
         送り先: 'Anthropic',
         課金: '使った分だけ課金されます（無料枠なし）',
     },
 };
-const CHAT_BRAIN_ORDER = ['local', 'gemini', 'claude'];
+const CHAT_BRAIN_ORDER = ['local', 'gemini', 'grok', 'claude'];
 
 function 現在の脳() {
     const v = localStorage.getItem(CHAT_BRAIN_KEY);
@@ -137,6 +142,9 @@ function Claudeを使うか() {
 }
 function Geminiを使うか() {
     return 現在の脳() === 'gemini';
+}
+function Grokを使うか() {
+    return 現在の脳() === 'grok';
 }
 
 function 脳の表示を直す() {
@@ -807,9 +815,10 @@ async function handleChatSubmit(e) {
     }
 
     // 既定は自作AI（この端末の中だけ）。
-    // 本人が上の「脳」切り替えでClaudeを選んだときだけ外部へ出す。
-    // お金の関所（paid-guard）を通らなければ、自動で自作AIに戻る。
-    const provider = Claudeを使うか() ? 'claude' : 'local';
+    // 本人が上の「脳」で Gemini / Grok / Claude を選んだときだけ外部へ出す。
+    // お金の関所（paid-guard）を通らなければ、local-first 側で自作AIに戻る。
+    const 脳 = 現在の脳();
+    const provider = (脳 === 'local') ? 'local' : 脳;
 
     // 何を作りたいかは、言葉から読み取る。
     //

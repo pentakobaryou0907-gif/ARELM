@@ -748,6 +748,11 @@ async function AIで意図を判定する(text, target) {
             // 判定できなかったときは、黙って終わらせず自作AIへ回す
             // （エージェントが無言になることを避けるため）。
         }
+        if (typeof Grokを使うか === 'function' && Grokを使うか()
+            && typeof Grokでエージェントの意図を判定する === 'function') {
+            const 判定 = await Grokでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);
+            if (判定 && 判定.ok) return 判定;
+        }
         if (typeof Geminiを使うか === 'function' && Geminiを使うか()
             && typeof Geminiでエージェントの意図を判定する === 'function') {
             const 判定 = await Geminiでエージェントの意図を判定する(text, 操作たち, 直近の会話, persona, page);

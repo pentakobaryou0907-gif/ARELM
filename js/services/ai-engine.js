@@ -139,6 +139,30 @@ const AReGLM_AI_ENGINE = {
         return text;
     },
 
+    async callGrok(key, history, userText, mode) {
+        const messages = [
+            { role: 'system', content: AReGLM_CONTENT_POLICY.systemRules },
+            ...history.slice(-10).map((m) => ({
+                role: m.role === 'assistant' ? 'assistant' : 'user',
+                content: m.text || '',
+            })),
+            { role: 'user', content: userText },
+        ];
+        const payload = {
+            model: 'grok-4.7',
+            messages,
+            max_tokens: 4096,
+            temperature: 0.7,
+        };
+        if (!(await AReGLM_API_CLIENT.health())) {
+            throw new Error('サーバーを起動してください: cd server && npm install && npm start');
+        }
+        const data = await AReGLM_API_CLIENT.grok(key, payload);
+        const text = data.choices?.[0]?.message?.content || '';
+        if (!text) throw new Error('Grokの応答が空でした。');
+        return text;
+    },
+
     async callGroq(key, history, userText, mode) {
         const messages = [
             { role: 'system', content: AReGLM_CONTENT_POLICY.systemRules },
@@ -311,7 +335,7 @@ const AReGLM_AI_ENGINE = {
             return typeof img === 'string' ? `画像を生成しました。` : JSON.stringify(img);
         }
 
-        // Claudeは明示的に選ばれたときだけ。鍵が無ければ他へは回さず、
+        // Claude / Grok は明示的に選ばれたときだけ。鍵が無ければ他へは回さず、
         // 何が要るかをはっきり伝える（黙って別のAIに送らない）。
         if (provider === 'claude') {
             const claudeKey = await this.getKey('claude');
@@ -319,6 +343,13 @@ const AReGLM_AI_ENGINE = {
                 throw new Error('Claude APIキーが未設定です。設定 → 外部AI（Claude）から登録してください。');
             }
             return this.callClaude(claudeKey, history, userText, attachments, mode);
+        }
+        if (provider === 'grok') {
+            const grokKey = await this.getKey('grok');
+            if (!grokKey) {
+                throw new Error('Grok APIキーが未設定です。設定 → 外部AI（Grok）から登録してください。');
+            }
+            return this.callGrok(grokKey, history, userText, mode);
         }
 
         let key = await this.getKey(provider);

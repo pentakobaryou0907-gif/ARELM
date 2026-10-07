@@ -53,6 +53,18 @@ const AReGLM_API_CLIENT = {
         return data;
     },
 
+    /** xAI Grok（従量課金・お金がかかる機能の許可が要る） */
+    async grok(apiKey, payload) {
+        const r = await fetch('/api/ai/grok', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+            body: JSON.stringify({ payload })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(_課金の案内つきエラー文(data, data.error?.message || data.error || `Grok ${r.status}`));
+        return data;
+    },
+
     async huggingface(apiKey, model, payload) {
         const r = await fetch('/api/ai/huggingface', {
             method: 'POST',

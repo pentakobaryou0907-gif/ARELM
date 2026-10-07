@@ -193,7 +193,7 @@ const AReGLM_SECURITY = {
     isAllowedEndpoint(url) {
         try {
             const u = new URL(url);
-            const allowed = ['googleapis.com', 'groq.com', 'huggingface.co', 'cloudflare.com', 'suzuri.jp', 'graph.facebook.com', 'pinterest.com', 'google.com', 'thebase.in', 'stores.jp', 'myshopify.com'];
+            const allowed = ['googleapis.com', 'groq.com', 'x.ai', 'huggingface.co', 'cloudflare.com', 'suzuri.jp', 'graph.facebook.com', 'pinterest.com', 'google.com', 'thebase.in', 'stores.jp', 'myshopify.com'];
             return allowed.some((h) => u.hostname.endsWith(h));
         } catch {
             return false;

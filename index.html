@@ -2898,7 +2898,7 @@
                     <details class="panel-card full-width settings-fold">
                         <summary class="settings-fold-head">
                             <span class="sec-icon">🧠</span>外部AI（文章・画像生成）
-                            <small>（Gemini・Groq・Hugging Face・Claude。無料枠ありのものが中心）</small>
+                            <small>（Gemini・Groq・Grok・Hugging Face・Claude。無料枠ありのものが中心。Grok/Claudeは従量課金）</small>
                         </summary>
                         <div class="settings-fold-body">
                     <section class="panel-card">
@@ -2983,6 +2983,24 @@
                             <button type="button" id="cloudflare-api-key-save" class="btn btn-sm btn-secondary">保存</button>
                         </div>
                         <small id="cloudflare-api-key-status" class="hint"></small>
+                    </section>
+
+                    <section class="panel-card">
+                        <h3><span class="sec-icon">🧠</span>外部AI（Grok / xAI）</h3>
+                        <p class="hint">
+                            AIチャット・エージェントの「脳」を Grok に切り替えて、制作の相談や操作判定に使う場合の設定です。
+                            <strong>会話の内容は xAI へ送られ、使った分だけ課金されます（無料枠なし／コンソールのクレジットに従う）。</strong>
+                            鍵はこの端末の中に暗号化して保存し、外部には鍵そのものを送りません（呼び出し時に xAI にだけ渡します）。
+                            上の「お金がかかる機能」で Grok を許可しないと、鍵があっても呼ばれません。
+                            キーの取得先:
+                            <a href="https://console.x.ai/" target="_blank" rel="noopener">console.x.ai</a>
+                        </p>
+                        <div class="guard-row">
+                            <input type="password" id="grok-api-key-input"
+                                placeholder="xAI の API キー" autocomplete="off">
+                            <button type="button" id="grok-api-key-save" class="btn btn-sm btn-primary">保存</button>
+                        </div>
+                        <small id="grok-api-key-status" class="hint"></small>
                     </section>
 
                     <section class="panel-card">
@@ -3397,6 +3415,7 @@
     <script src="js/modules/エージェント定義.js" defer></script>
     <script src="js/modules/Claude連携.js" defer></script>
     <script src="js/modules/Gemini連携.js" defer></script>
+    <script src="js/modules/Grok連携.js" defer></script>
     <script src="js/modules/jarvis-mode.js" defer></script>
     <script src="js/modules/media-studio.js" defer></script>
     <script src="js/modules/compliance.js" defer></script>

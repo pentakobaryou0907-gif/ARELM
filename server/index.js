@@ -1606,10 +1606,23 @@ const OFFICIAL_API_ALLOWLIST = [
         無料の中身: '無料枠なし（従量課金）',
         // 2026-08-28、本人が「会話が外部へ送られること・従量課金」を
         // 了承した上で「今の脳はClaudeでいい」と明示的に決めた。
-        // 有料でも通すのはこの一件だけ。画面側の「お金がかかる機能」の
-        // 許可スイッチも通らないと、実際には呼ばれない（二重の関門）。
+        // 画面側の「お金がかかる機能」の許可スイッチも通らないと、
+        // 実際には呼ばれない（二重の関門）。
         本人が許可した有料: true,
         確かめた日: '2026-08-28',
+    },
+    {
+        host: 'api.x.ai',
+        name: 'xAI Grok API',
+        provider: 'xAI（公式）',
+        terms: 'https://x.ai/legal/terms-of-service',
+        無料か: false,
+        無料の中身: '従量課金（コンソールのクレジット／料金に従う／2026年10月時点）',
+        // 2026-10-07、本人が「Grok botとも連携しながら制作してほしい」と明示。
+        // 会話・エージェント判定を Grok に出せる。画面の「お金がかかる機能」で
+        // Grok を許可しないと、鍵があっても呼ばれない（二重の関門）。
+        本人が許可した有料: true,
+        確かめた日: '2026-10-07',
     },
     {
         // iCloudカレンダー連携用（CalDAV）。「カレンダーはiCloudにして」という
@@ -2138,6 +2151,31 @@ app.post('/api/ai/groq', async (req, res) => {
         });
         const data = await upstream.json();
         res.status(upstream.status).json(課金の案内を添える('Groq API', upstream.status, data));
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * xAI Grok（公式・従量課金）
+ * OpenAI 互換の chat/completions をゲートウェイ経由で呼ぶ。
+ * 画面側の「お金がかかる機能」で Grok を許可しないと、そもそもここへ来ない。
+ */
+app.post('/api/ai/grok', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) return res.status(401).json({ error: 'APIキーが必要です' });
+
+    try {
+        const upstream = await safeFetch('https://api.x.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(req.body.payload),
+        });
+        const data = await upstream.json();
+        res.status(upstream.status).json(課金の案内を添える('xAI Grok API', upstream.status, data));
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

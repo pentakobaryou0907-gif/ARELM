@@ -199,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // APIキーの保存（この端末の中に暗号化保存。外部には送らない）
     initClaudeKeyInput();
+    initGrokKeyInput();
     initSuzuriKeyInput();
     initInstagramKeyInput();
     initFacebookKeyInput();
@@ -289,6 +290,33 @@ function initClaudeKeyInput() {
         入力.placeholder = '•••• 設定済み';
         if (状態) 状態.textContent = '設定済みです（変更する場合は新しい鍵を入れて保存）';
         showNotification('Claude APIキーを暗号化して保存しました', 'success');
+    });
+}
+
+/** Grok（xAI）APIキー。従量課金のため、お金がかかる機能の許可も別途必要。 */
+function initGrokKeyInput() {
+    const 入力 = document.getElementById('grok-api-key-input');
+    const 保存 = document.getElementById('grok-api-key-save');
+    const 状態 = document.getElementById('grok-api-key-status');
+    if (!入力 || !保存) return;
+
+    AReGLM_SECURITY.loadApiKeySecure('ai', 'grok').then((k) => {
+        if (k && 状態) 状態.textContent = '設定済みです（変更する場合は新しい鍵を入れて保存）';
+        if (k) 入力.placeholder = '•••• 設定済み';
+    });
+
+    保存.addEventListener('click', async () => {
+        const 鍵 = 入力.value.trim();
+        if (!鍵) { showNotification('APIキーを入れてください', 'error'); return; }
+        if (鍵.length < 20) {
+            showNotification('キーが短すぎます。console.x.ai で発行した API キーを入れてください', 'error');
+            return;
+        }
+        await AReGLM_SECURITY.saveApiKeySecure('ai', 'grok', 鍵);
+        入力.value = '';
+        入力.placeholder = '•••• 設定済み';
+        if (状態) 状態.textContent = '設定済みです（変更する場合は新しい鍵を入れて保存）';
+        showNotification('Grok APIキーを暗号化して保存しました。設定 → お金がかかる機能 で Grok も許可してください', 'success');
     });
 }
 
