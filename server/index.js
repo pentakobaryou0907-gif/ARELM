@@ -3423,6 +3423,23 @@ app.listen(PORT, HOST, () => {
     console.log(`ARELM: http://localhost:${PORT}`);
     バックアップ.毎日の控えを始める();
 
+    // 他の端末から使う設定のとき、電源につないでいる間は、Macが眠って届かなくならないようにする。
+    //
+    // Macは、操作がないと（既定で）数分でスリープし、スリープ中は他の端末から
+    // 届かない。システムの設定は書き換えず、このサーバーが動いている間だけ
+    // 「眠らせない」を頼む（-s: 電源につないでいるときだけ。電池のときは効かないので、
+    // 電池を食うことはない。-w: このサーバーが終われば、自動で解除される）。
+    // 画面は、これまで通り暗くなる。
+    if (他の端末を許しているか() || Tailscaleを許しているか()) {
+        try {
+            const p = require('child_process').spawn(
+                '/usr/bin/caffeinate', ['-s', '-w', String(process.pid)],
+                { stdio: 'ignore', detached: true });
+            p.on('error', () => { /* caffeinateが無い環境（Mac以外）では何もしない */ });
+            p.unref();
+        } catch { /* 頼めなくても、サーバー自体は動く */ }
+    }
+
     if (HOST === '0.0.0.0') {
         lanAddresses().forEach((ip) => {
             console.log(`同一Wi-Fi内の他端末から: http://${ip}:${PORT}`);
