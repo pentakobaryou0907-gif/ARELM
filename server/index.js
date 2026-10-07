@@ -108,8 +108,44 @@ function 本体からか(req) {
     return a === '127.0.0.1' || a === '::1';
 }
 
+/**
+ * 「このMac本体のブラウザから、直接来た通信」か。
+ *
+ * 接続元がこのMac自身(127.0.0.1)でも、他の端末の通信を中継したもの
+ * （tailscale serve・SSHの転送・リバースプロキシ等）は、接続元がこのMacに見える。
+ * それをログインなしの対象にしてしまわないよう、中継の印（転送ヘッダー）が付いたものと、
+ * 宛先の名前（Host）がlocalhost系でないものは、本体のブラウザとは認めない。
+ */
+function 本体のブラウザからか(req) {
+    if (!本体からか(req)) return false;
+    const h = req.headers;
+    if (h['x-forwarded-for'] || h['x-forwarded-host'] || h['forwarded'] || h['x-real-ip']
+        || h['via'] || h['tailscale-user-login']) return false;
+    const host = String(h['host'] || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+    return ['localhost', '127.0.0.1', '::1'].includes(host);
+}
+
 app.get('/api/account/status', (req, res) => {
-    res.json({ ok: true, 初期設定済み: アカウント.初期設定済みか(), 本体から: 本体からか(req) });
+    res.json({
+        ok: true,
+        初期設定済み: アカウント.初期設定済みか(),
+        本体から: 本体からか(req),
+        ログインなし: アカウント.ログインなしか() && 本体のブラウザからか(req),
+    });
+});
+
+app.post('/api/account/nologin', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体のブラウザからだけ使えます' });
+    const r = アカウント.ログインなしで入る();
+    res.status(r.ok ? 200 : 403).json(r);
+});
+
+app.post('/api/account/nologin/set', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体のブラウザからだけ変えられます' });
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const b = req.body || {};
+    const r = アカウント.ログインなしを切り替える(人, b.有効 === true, b.パスワード);
+    res.status(r.ok ? 200 : 400).json(r);
 });
 
 app.post('/api/account/setup', (req, res) => {

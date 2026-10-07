@@ -25,6 +25,7 @@ const path = require('path');
 const 保存先 = process.env.ARELM_ACCOUNTS_FILE || path.join(__dirname, 'data', 'accounts.json');
 
 const 表示の保存先 = process.env.ARELM_LOGIN_HINT_FILE || path.join(__dirname, 'data', 'ログイン表示.json');
+const ログインなしの保存先 = process.env.ARELM_NOLOGIN_FILE || path.join(__dirname, 'data', 'ログインなし.json');
 const 混ぜる回数 = 600000;
 const 許す間違い = 5;
 const 締め出す分 = 15;
@@ -416,6 +417,46 @@ function 表示をやめる(持ち主) {
     return { ok: true, 訳: 'ログイン画面に表示しないようにしました' };
 }
 
+/* ==========================================================
+   ログインなしで使う（このMac本体のブラウザだけ）
+   ========================================================== */
+//
+// 本人が選んだときだけ有効。有効でも、対象は「このMac本体のブラウザから直接来た通信」だけ
+// （判定は server/index.js 側。他の端末・中継された通信には効かない）。
+// 他の端末は、これまでどおり合言葉とログインが必要。
+
+function ログインなしか() {
+    try { return JSON.parse(fs.readFileSync(ログインなしの保存先, 'utf8')).有効 === true; } catch { return false; }
+}
+
+function いまのパスワードか(人, パスワード) {
+    const 試し = Buffer.from(混ぜる(パスワード, 人.塩, 人.回数));
+    const 本物 = Buffer.from(人.混ぜたもの);
+    return 試し.length === 本物.length && crypto.timingSafeEqual(試し, 本物);
+}
+
+/** 切り替える。オンにするときは、いまのパスワードを確かめる。オフにするときは入場券だけでよい。 */
+function ログインなしを切り替える(持ち主, 有効, パスワード) {
+    if (!持ち主) return { ok: false, 訳: 'ログインし直してください' };
+    if (!有効) {
+        try { fs.unlinkSync(ログインなしの保存先); } catch { /* 元から無ければ、それでよい */ }
+        return { ok: true, 訳: 'ログインなしをやめました。次からは、ユーザー名とパスワードが必要です' };
+    }
+    const 人 = 読む().人.find((x) => x.名前 === 持ち主.名前);
+    if (!人 || !いまのパスワードか(人, String(パスワード || ''))) return { ok: false, 訳: 'いまのパスワードと違います' };
+    fs.mkdirSync(path.dirname(ログインなしの保存先), { recursive: true });
+    fs.writeFileSync(ログインなしの保存先, JSON.stringify({ 有効: true, 設定した日: new Date().toISOString() }), { mode: 0o600 });
+    return { ok: true, 訳: 'このMacでは、ログインなしで開けるようにしました' };
+}
+
+/** ログインなしで入る（アカウントは本人の1つだけ） */
+function ログインなしで入る() {
+    if (!ログインなしか()) return { ok: false, 訳: 'ログインなしは有効ではありません' };
+    const 人 = 読む().人[0];
+    if (!人) return { ok: false, 訳: 'まだ最初の設定がされていません' };
+    return { ok: true, 名前: 人.名前, 役: 人.役, 入場券: 入場券を出す(人) };
+}
+
 module.exports = {
     初期設定済みか,
     初期設定,
@@ -430,6 +471,9 @@ module.exports = {
     パスキー一覧,
     パスキーを外す,
     表示を読む,
+    ログインなしか,
+    ログインなしを切り替える,
+    ログインなしで入る,
     表示を始める,
     表示をやめる,
 };

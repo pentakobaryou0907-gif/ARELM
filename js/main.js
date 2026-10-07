@@ -394,6 +394,7 @@ async function ログイン画面に表示する() {
 }
 
 async function ログイン画面を整える() {
+    if (await ログインなしなら入る()) return;
     前回のユーザー名を入れる();
     ログイン画面に表示する();
     const ログイン = document.getElementById('login-form');
@@ -425,13 +426,35 @@ function 入場券を覚える(r) {
     sessionStorage.setItem('areglm_account_role', r.役);
 }
 
-function ログインできた(r) {
+function ログインできた(r, 静か) {
     入場券を覚える(r);
     if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
     else createSession(r.名前);
     updateUsernameDisplay(r.名前);
     showMainApp();
-    showNotification('ログインに成功しました！', 'success');
+    if (!静か) showNotification('ログインに成功しました！', 'success');
+}
+
+/**
+ * ログインなし（このMac本体のブラウザだけ。本人が設定で選んだときだけ有効）。
+ * 有効なら、入場券だけをもらって、そのまま入る。他の端末では常に無効。
+ * 「ログアウト」を押したあとは、このタブを開き直すまで自動では入らない。
+ */
+async function ログインなしの入場券を取り直す() {
+    try {
+        const s = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json());
+        if (!s.ログインなし) return null;
+        const r = await fetch('/api/account/nologin', { method: 'POST' }).then((y) => y.json());
+        return r.ok ? r : null;
+    } catch { return null; }
+}
+
+async function ログインなしなら入る() {
+    if (sessionStorage.getItem('areglm_no_autologin') === '1') return false;
+    const r = await ログインなしの入場券を取り直す();
+    if (!r) return false;
+    ログインできた(r, true);
+    return true;
 }
 
 async function handleLogin(e) {
@@ -521,6 +544,7 @@ function generateToken() {
 
 // ログアウト処理
 function handleLogout() {
+    sessionStorage.setItem('areglm_no_autologin', '1');
     const 券 = sessionStorage.getItem('areglm_account_ticket');
     if (券) {
         fetch('/api/account/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + 券 } }).catch(() => {});
@@ -585,7 +609,9 @@ function hideMainApp() {
     if (loginScreen) {
         loginScreen.style.display = 'flex';
         console.log('ログイン画面を表示しました');
-        if (typeof パスキーをもう一度求める === 'function') パスキーをもう一度求める();
+        ログインなしなら入る().then((入った) => {
+            if (!入った && typeof パスキーをもう一度求める === 'function') パスキーをもう一度求める();
+        });
     }
     
     if (mainApp) {

@@ -11,8 +11,12 @@ function 入場券ヘッダ() {
     return 券 ? { Authorization: 'Bearer ' + 券, 'Content-Type': 'application/json' } : null;
 }
 
-async function アカウントAPI(パス, 本文) {
-    const h = 入場券ヘッダ();
+async function アカウントAPI(パス, 本文, 再試行済み) {
+    let h = 入場券ヘッダ();
+    if (!h && !再試行済み) {
+        const もらった = typeof ログインなしの入場券を取り直す === 'function' ? await ログインなしの入場券を取り直す() : null;
+        if (もらった) { 入場券を覚える(もらった); return アカウントAPI(パス, 本文, true); }
+    }
     if (!h) return { ok: false, 訳: 'ログインし直してください（入場券が切れています）' };
     try {
         const res = await fetch(パス, {
@@ -20,6 +24,11 @@ async function アカウントAPI(パス, 本文) {
             headers: h,
             body: 本文 ? JSON.stringify(本文) : undefined,
         });
+        // サーバーを再起動すると入場券が無くなる。ログインなしなら、取り直して一度だけやり直す
+        if (res.status === 401 && !再試行済み && typeof ログインなしの入場券を取り直す === 'function') {
+            const もらった = await ログインなしの入場券を取り直す();
+            if (もらった) { 入場券を覚える(もらった); return アカウントAPI(パス, 本文, true); }
+        }
         return await res.json();
     } catch {
         return { ok: false, 訳: 'サーバーに繋がりませんでした' };
@@ -72,8 +81,45 @@ async function renderアカウント() {
     });
     箱.appendChild(p);
 
+    await ログインなしの欄を描く(箱);
     await 表示の欄を描く(箱);
     await パスキーの欄を描く(箱);
+}
+
+/* --- ログインなしで使う（このMac本体のブラウザだけ） --- */
+async function ログインなしの欄を描く(箱) {
+    const 枠 = document.createElement('div');
+    枠.className = 'login-form';
+    枠.appendChild(行を作る('h4', 'ログインなしで使う（このMacだけ）'));
+    const s = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json()).catch(() => ({}));
+    枠.appendChild(行を作る('p',
+        'オンの間、このMacのブラウザ・アプリでは、ユーザー名とパスワードなしで開きます。'
+        + 'Windows PCなど他の端末は、これまでどおり合言葉とログインが必要です。', 'hint'));
+    if (s.ログインなし) {
+        枠.appendChild(行を作る('p', '現在: オン（このMacではログイン不要）', 'guard-off'));
+        枠.appendChild(行を作る('p', 'やめると、次からユーザー名とパスワードが必要です。忘れているときは、先に新しく作り直してください。', 'hint'));
+        const b = 行を作る('button', 'ログインなしをやめる', 'btn btn-primary');
+        b.type = 'button';
+        b.addEventListener('click', async () => {
+            if (!confirm('ログインなしをやめます。次からは、ユーザー名とパスワードが必要です。\nパスワードを覚えていますか？')) return;
+            const r = await アカウントAPI('/api/account/nologin/set', { 有効: false });
+            showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+            renderアカウント();
+        });
+        枠.appendChild(b);
+    } else {
+        枠.appendChild(行を作る('p', '現在: オフ', 'guard-on'));
+        枠.appendChild(入力欄('いまのパスワード（オンにするときに確かめます）', 'password', 'acct-nologin-pass'));
+        const b = 行を作る('button', 'ログインなしにする', 'btn btn-secondary');
+        b.type = 'button';
+        b.addEventListener('click', async () => {
+            const r = await アカウントAPI('/api/account/nologin/set', { 有効: true, パスワード: document.getElementById('acct-nologin-pass').value });
+            showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+            renderアカウント();
+        });
+        枠.appendChild(b);
+    }
+    箱.appendChild(枠);
 }
 
 /* --- ログイン画面にユーザー名とパスワードを表示する（本人が選んだときだけ） --- */
