@@ -3180,14 +3180,17 @@
 
                     <section class="panel-card">
                         <h3>データのバックアップ</h3>
-                        <p class="hint">ブランド・商品・在庫・メモ・タスク・技術パック・学習データを1つのファイルに書き出します。外部の鍵は保存していません。</p>
+                        <p class="hint">ブランド・商品・在庫・メモ・タスク・技術パック・学習データを1つのファイルに書き出します。外部の鍵は保存していません。正はサーバー側にあり、端末のブラウザ内のデータが消えても次に開くと戻ります。</p>
                         <div class="backup-actions">
                             <button type="button" id="backup-export-btn" class="btn btn-primary">バックアップを書き出す</button>
                             <label for="backup-import-file" class="btn btn-secondary">バックアップから復元</label>
                             <input type="file" id="backup-import-file" accept="application/json" hidden>
+                            <button type="button" id="backup-restore-drill-btn" class="btn btn-secondary">復元訓練を今すぐ走る</button>
                         </div>
                         <div id="backup-status" class="hint"></div>
                         <div id="snapshot-info" class="hint"></div>
+                        <div id="restore-drill-info" class="hint"></div>
+                        <div id="storage-home-hint" class="hint"></div>
                     </section>
 
                     <details class="panel-card full-width settings-fold">
@@ -3561,6 +3564,7 @@
     <script src="js/config/product-seed.js" defer></script>
     <script src="js/config/apis.js" defer></script>
     <script src="js/config/requirements.js" defer></script>
+    <script src="js/core/大きい物置.js"></script>
     <script src="js/core/sync.js"></script>
     <script src="js/core/api-client.js" defer></script>
     <script src="js/core/content-policy.js" defer></script>

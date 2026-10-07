@@ -158,39 +158,131 @@ app.post('/api/other-devices', (req, res) => {
  * 取り込む。合言葉・セッション等、端末固有であるべきものは対象外
  * （sync.js 側の除外リストで弾く）。
  *
- * 誰が勝つか: 各項目ごとに「最後に書いた時刻」だけを比べる
- * （単純な後勝ち）。同時に2つの端末で同じ項目を編集した場合、
- * 後から届いた方が残る。込み入った統合はしない
- * （複雑にするほど、無言でデータが消える事故が起きやすいため）。
+ * 誰が勝つか: 前は項目ごとの単純な後勝ちで、Mac と iPad で同じ一覧を
+ * 別々に直すと片方の編集が丸ごと消えていた。いまは版の番号（rev）を持ち、
+ * 端末が「どの版を元に直したか（baseRev）」を添えて送る。サーバーは
+ * 元の版・今の版・届いた版を比べ、id ごとにまとめる（server/同期のまとめ.js）。
+ *
+ * ここが正（全端末の元）。iPhone の Safari がブラウザ内のデータを消しても、
+ * 次に開いたときにここから全部戻る。
  */
+const 同期のまとめ = require('./同期のまとめ');
 const SYNC_PATH = path.join(DATA_DIR, 'sync_store.json');
+const 同期の版の置き場 = path.join(DATA_DIR, 'sync_history');
+const 同期でぶつかった記録 = path.join(DATA_DIR, '同期でぶつかったもの.jsonl');
+// 元の版を探せるよう、項目ごとに直近の版を残す。これより古い版は、
+// その後の版と自動の控え（snapshots）に中身が含まれているので持たない。
+const 同期の版を残す数 = 30;
 
 function 同期の中身を読む() {
     try { return JSON.parse(fs.readFileSync(SYNC_PATH, 'utf8')); } catch { return {}; }
 }
 
+// 書いている途中で電源が落ちても、半端なファイルで前の中身を失わないよう、
+// 別名に書き切ってから差し替える。
+function 書き切ってから差し替える(道, 文字) {
+    const 仮 = `${道}.書きかけ`;
+    fs.writeFileSync(仮, 文字);
+    fs.renameSync(仮, 道);
+}
+
+function 版の道(key) {
+    const 名 = require('crypto').createHash('sha1').update(String(key)).digest('hex');
+    return path.join(同期の版の置き場, `${名}.json`);
+}
+
+function 版たちを読む(key) {
+    try { return JSON.parse(fs.readFileSync(版の道(key), 'utf8')); } catch { return []; }
+}
+
+function 版を残す(key, rev, value) {
+    if (!fs.existsSync(同期の版の置き場)) fs.mkdirSync(同期の版の置き場, { recursive: true });
+    const 版たち = 版たちを読む(key).filter((x) => x.rev !== rev);
+    版たち.push({ rev, value });
+    書き切ってから差し替える(版の道(key), JSON.stringify(版たち.slice(-同期の版を残す数)));
+}
+
+function ぶつかったものを残す(key, 中身) {
+    try {
+        // 大きくなりすぎたら、消さずに「使用済み」へ移してから新しく始める。
+        if (fs.existsSync(同期でぶつかった記録) && fs.statSync(同期でぶつかった記録).size > 20 * 1024 * 1024) {
+            const 移す先 = path.join(DATA_DIR, '使用済み');
+            if (!fs.existsSync(移す先)) fs.mkdirSync(移す先, { recursive: true });
+            fs.renameSync(同期でぶつかった記録,
+                path.join(移す先, `同期でぶつかったもの_${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`));
+        }
+        fs.appendFileSync(同期でぶつかった記録,
+            JSON.stringify({ 時刻: new Date().toISOString(), key, ...中身 }) + '\n');
+    } catch (e) {
+        console.error('同期でぶつかったものを残せませんでした:', e.message);
+    }
+}
+
 app.get('/api/sync/all', (req, res) => {
-    res.json({ ok: true, データ: 同期の中身を読む() });
+    const 店 = 同期の中身を読む();
+    // rev が無いのは、版の番号を付ける前に保存されたもの。1 として扱う。
+    for (const k of Object.keys(店)) if (typeof 店[k].rev !== 'number') 店[k].rev = 1;
+    res.json({ ok: true, データ: 店 });
 });
 
 app.post('/api/sync/push', (req, res) => {
-    const { key, value, updatedAt } = req.body || {};
-    if (!key || typeof updatedAt !== 'number') {
-        return res.status(400).json({ ok: false, 訳: 'key と updatedAt が要ります' });
+    const { key, value, baseRev } = req.body || {};
+    if (!key || typeof key !== 'string' || typeof value !== 'string') {
+        return res.status(400).json({ ok: false, 訳: 'key と value（文字）が要ります' });
     }
     const 店 = 同期の中身を読む();
     const 既存 = 店[key];
-    // 後勝ち。ただし、届いた方が古ければ黙って捨てる
-    // （通信の順番が入れ替わって、新しい値が古い値に上書きされるのを防ぐ）。
-    if (!既存 || updatedAt >= 既存.updatedAt) {
-        店[key] = { value, updatedAt };
+    const 今の版 = 既存 ? (typeof 既存.rev === 'number' ? 既存.rev : 1) : 0;
+
+    let 決まり = { 値: value, 変わった: false, ぶつかった: [], 外した: [] };
+    if (既存 && typeof 既存.value === 'string') {
+        let 元の値;
+        if (typeof baseRev === 'number') {
+            if (baseRev === 今の版) 元の値 = 既存.value;
+            else {
+                const 見つけた = 版たちを読む(key).find((x) => x.rev === baseRev);
+                if (見つけた) 元の値 = 見つけた.value;
+            }
+        }
+        // 元の版が分からないとき（古い画面・ブラウザのデータが消えた端末）は、
+        // 何も外さず足すだけにまとめる。
+        決まり = 同期のまとめ.文字でまとめる(元の値, 既存.value, value);
+    }
+
+    const 次の版 = 決まり.値 === (既存 && 既存.value) ? 今の版 : 今の版 + 1;
+    if (次の版 !== 今の版) {
+        店[key] = { value: 決まり.値, updatedAt: Date.now(), rev: 次の版 };
         try {
-            fs.writeFileSync(SYNC_PATH, JSON.stringify(店));
+            if (既存 && 今の版 > 0 && !版たちを読む(key).some((x) => x.rev === 今の版)) {
+                版を残す(key, 今の版, 既存.value);
+            }
+            版を残す(key, 次の版, 決まり.値);
+            書き切ってから差し替える(SYNC_PATH, JSON.stringify(店));
         } catch (e) {
             return res.status(500).json({ ok: false, 訳: '保存できませんでした: ' + e.message });
         }
     }
-    res.json({ ok: true });
+    if (決まり.ぶつかった.length || 決まり.外した.length) {
+        ぶつかったものを残す(key, { ぶつかった: 決まり.ぶつかった, 外した: 決まり.外した });
+    }
+
+    res.json({
+        ok: true,
+        rev: 次の版,
+        // 届いた中身と違う形にまとめたときだけ返す（端末はこれで書き直す）。
+        value: 決まり.値 !== value ? 決まり.値 : undefined,
+        ぶつかった数: 決まり.ぶつかった.length,
+    });
+});
+
+app.get('/api/sync/conflicts', (req, res) => {
+    let 行たち = [];
+    try { 行たち = fs.readFileSync(同期でぶつかった記録, 'utf8').trim().split('\n').filter(Boolean); } catch { /* まだ無い */ }
+    res.json({
+        ok: true,
+        数: 行たち.length,
+        新しい順: 行たち.slice(-50).reverse().map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean),
+    });
 });
 
 /**
@@ -2039,6 +2131,116 @@ app.get('/api/snapshot', (_, res) => {
     }
 });
 
+/**
+ * 控えの復元訓練（月に1回）
+ *
+ * 控えを取れていても、戻せなければ意味が無い。最新の控えを
+ * 「訓練用の別の場所」へ写して読み、中身が読めるかを確かめる。
+ * 本物のデータを消したり上書きしたりはしない。
+ *
+ * この口は /api/snapshot/:name より先に置く（:name に吸われないように）。
+ */
+const 復元訓練の置き場 = path.join(DATA_DIR, 'restore_drills');
+const 復元訓練の記録 = path.join(DATA_DIR, 'restore_drill_status.json');
+const 復元訓練の間隔日 = 28;
+
+function 復元訓練の様子を読む() {
+    try { return JSON.parse(fs.readFileSync(復元訓練の記録, 'utf8')); } catch { return null; }
+}
+
+function 復元訓練を行う(強制) {
+    const 前 = 復元訓練の様子を読む();
+    if (!強制 && 前 && 前.ok && 前.時刻) {
+        const 経過日 = (Date.now() - new Date(前.時刻).getTime()) / (24 * 60 * 60 * 1000);
+        if (経過日 < 復元訓練の間隔日) {
+            return { ok: true, 飛ばした: true, ...前, 訳: `前回の訓練から ${Math.floor(経過日)} 日。あと ${Math.ceil(復元訓練の間隔日 - 経過日)} 日で次の訓練` };
+        }
+    }
+    const 控えたち = fs.existsSync(SNAPSHOT_DIR)
+        ? fs.readdirSync(SNAPSHOT_DIR).filter((f) => f.endsWith('.json')).sort().reverse()
+        : [];
+    if (!控えたち.length) {
+        const 結果 = { ok: false, 時刻: new Date().toISOString(), 訳: '控えがまだ無いので訓練できません' };
+        fs.writeFileSync(復元訓練の記録, JSON.stringify(結果, null, 2));
+        return 結果;
+    }
+    const 元名 = 控えたち[0];
+    const 元 = path.join(SNAPSHOT_DIR, 元名);
+    if (!fs.existsSync(復元訓練の置き場)) fs.mkdirSync(復元訓練の置き場, { recursive: true });
+
+    // 古くなった訓練フォルダは消さず「使用済み」へ（置き場が膨らみすぎないよう直近5件以外）。
+    const 古い = fs.readdirSync(復元訓練の置き場).filter((d) => d.startsWith('drill_')).sort().reverse().slice(5);
+    if (古い.length) {
+        const 移す先 = path.join(DATA_DIR, '使用済み', 'restore_drills');
+        if (!fs.existsSync(移す先)) fs.mkdirSync(移す先, { recursive: true });
+        for (const d of 古い) {
+            try { fs.renameSync(path.join(復元訓練の置き場, d), path.join(移す先, d)); } catch { /* 使用中など */ }
+        }
+    }
+
+    const 印 = new Date().toISOString().replace(/[:.]/g, '-');
+    const 先 = path.join(復元訓練の置き場, `drill_${印}`);
+    fs.mkdirSync(先, { recursive: true });
+    const 写し = path.join(先, 元名);
+    fs.copyFileSync(元, 写し);
+
+    let 読めた種 = 0;
+    let 配列の件 = 0;
+    const 読めない = [];
+    try {
+        const 中身 = JSON.parse(fs.readFileSync(写し, 'utf8'));
+        if (!中身 || typeof 中身 !== 'object' || !中身.data || typeof 中身.data !== 'object') {
+            throw new Error('控えの形が違います（data がありません）');
+        }
+        for (const [k, raw] of Object.entries(中身.data)) {
+            if (typeof raw !== 'string') { 読めない.push(k); continue; }
+            try {
+                const v = JSON.parse(raw);
+                読めた種 += 1;
+                if (Array.isArray(v)) 配列の件 += v.length;
+            } catch {
+                読めない.push(k);
+            }
+        }
+        const 結果 = {
+            ok: 読めない.length === 0 && 読めた種 > 0,
+            時刻: new Date().toISOString(),
+            元: 元名,
+            写した場所: path.relative(DATA_DIR, 先),
+            読めた種,
+            配列の件,
+            読めない,
+            訳: 読めない.length
+                ? `控えは写せましたが、読めない項目が ${読めない.length} あります`
+                : `控えを別の場所へ写し、${読めた種} 種類（配列の要素 ${配列の件} 件）が読めました`,
+        };
+        fs.writeFileSync(path.join(先, '結果.json'), JSON.stringify(結果, null, 2));
+        fs.writeFileSync(復元訓練の記録, JSON.stringify(結果, null, 2));
+        return 結果;
+    } catch (e) {
+        const 結果 = { ok: false, 時刻: new Date().toISOString(), 元: 元名, 訳: '控えを読めませんでした: ' + e.message };
+        try { fs.writeFileSync(復元訓練の記録, JSON.stringify(結果, null, 2)); } catch { /* */ }
+        return 結果;
+    }
+}
+
+app.get('/api/snapshot/restore-drill', (_, res) => {
+    res.json({ ok: true, 様子: 復元訓練の様子を読む() });
+});
+
+app.post('/api/snapshot/restore-drill', (req, res) => {
+    try {
+        const 強制 = !!(req.body && req.body.強制);
+        res.json(復元訓練を行う(強制));
+    } catch (e) {
+        res.status(500).json({ ok: false, 訳: e.message });
+    }
+});
+
+// 起動から少し置いて初回、以後は1日に1回「月1回の訓練が来ているか」を見る。
+setTimeout(() => { try { 復元訓練を行う(false); } catch (e) { console.error('復元訓練:', e.message); } }, 20000);
+setInterval(() => { try { 復元訓練を行う(false); } catch (e) { console.error('復元訓練:', e.message); } }, 24 * 60 * 60 * 1000);
+
 app.get('/api/snapshot/:name', (req, res) => {
     try {
         // ディレクトリ外へのアクセスを防ぐ
@@ -3284,8 +3486,21 @@ app.get('/api/setup-status', (_, res) => {
         足す('ログインしたら自動で起動', false, 場所にあるか(['jp.areglm.watcher.plist', 'com.ari.areglm.server.plist']
             .map((f) => path.join(家, 'Library', 'LaunchAgents', f))) ? '登録済み' : null, 'ホーム画面に置く.command をもう一度開く');
     } else if (win) {
-        足す('サインインしたら自動で起動', false, 場所にあるか([path.join(process.env.APPDATA || '',
-            'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'AReGLM見張り.lnk')]) ? '登録済み' : null, 'ホーム画面に置く.bat をもう一度開く');
+        let 自動起動 = 場所にあるか([path.join(process.env.APPDATA || '',
+            'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'AReGLM見張り.lnk')]);
+        // スタートアップのほか、落ちたら立ち上がり直すタスクスケジューラも見る。
+        if (!自動起動) {
+            try {
+                const 出 = 実行('schtasks', ['/Query', '/TN', 'AReGLM見張り'], { encoding: 'utf8', timeout: 8000 });
+                if (/AReGLM/.test(出 || '')) 自動起動 = 'タスクスケジューラ登録済み';
+            } catch { /* 未登録 */ }
+        } else {
+            自動起動 = 'スタートアップ登録済み';
+        }
+        足す('サインインしたら自動で起動', false, 自動起動 || null, 'ホーム画面に置く.bat をもう一度開く');
+        足す('ホーム画面に置く.bat（新しい入口）', true,
+            場所にあるか([path.join(__dirname, '..', 'ホーム画面に置く.bat')]) ? 'あります' : null,
+            'PR の取り込み後、Syncthing で同期してからツールのフォルダでもう一度開く');
     }
     const ts = Tailscaleの様子();
     if (ts.入っている) {
