@@ -88,6 +88,8 @@ app.get('/api/other-devices', (req, res) => {
     let 設定 = { 使う: false, Tailscale使う: false };
     try { 設定 = JSON.parse(fs.readFileSync(他の端末設定, 'utf8')); } catch { /* 既定のまま */ }
     const 門 = 門番.設定を読む();
+    const ts = tailscaleアドレス();
+    const https口 = httpsAvailable ? Number(HTTPS_PORT_VALUE) : null;
     res.json({
         使う: 設定.使う === true,
         Tailscale使う: 設定.Tailscale使う === true,
@@ -96,9 +98,17 @@ app.get('/api/other-devices', (req, res) => {
             名前: d.名前, 許した日: d.許した日, 期限: d.期限,
         })),
         このMacの住所: lanAddresses(),
-        Tailscaleの住所: tailscaleアドレス(),
+        Tailscaleの住所: ts,
         入口: PORT,
         アプリ入口: APP_PORT,
+        HTTPS口: https口,
+        HTTPSあり: httpsAvailable,
+        // iPad は Safari の「ホーム画面に追加」用。HTTPS があればマイクも使える。
+        iPad用URL: (設定.Tailscale使う && ts)
+            ? (httpsAvailable
+                ? `https://${ts}:${HTTPS_PORT_VALUE}`
+                : `http://${ts}:${APP_PORT}`)
+            : null,
     });
 });
 

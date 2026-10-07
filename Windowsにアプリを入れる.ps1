@@ -5,20 +5,20 @@
 #   GitHub にログインした状態で、下のどちらかを使ってください。
 #
 # 【いちばん簡単】ブラウザで ZIP を落とす
-#   1) https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-on-main-1936
+#   1) https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936
 #   2) 緑の Code → Download ZIP
 #   3) 解凍した中身を OneDrive\デスクトップ\AReGLM\ツール本体 へ入れる
 #   4) ツール本体\AReGLMをホーム画面に置く.bat を開く
 #
 # 【Git があるとき】PowerShell でこのファイルを実行、または:
 #   Set-ExecutionPolicy -Scope Process Bypass -Force
-#   git clone --branch cursor/windows-on-main-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
+#   git clone --branch cursor/three-devices-home-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git "$env:USERPROFILE\OneDrive\デスクトップ\AReGLM\ツール本体"
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $Repo = 'https://github.com/pentakobaryou0907-gif/ARELM.git'
-$Branch = 'cursor/windows-on-main-1936'
+$Branch = 'cursor/three-devices-home-1936'
 $ZipPage = "https://github.com/pentakobaryou0907-gif/ARELM/archive/refs/heads/$Branch.zip"
 $BranchPage = "https://github.com/pentakobaryou0907-gif/ARELM/tree/$Branch"
 

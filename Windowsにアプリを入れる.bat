@@ -12,13 +12,13 @@ if exist "%~dp0Windowsにアプリを入れる.ps1" (
   echo.
   echo リポジトリは非公開なので、irm は使えません。
   echo GitHub にログインして ZIP を落としてください:
-  echo   https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-on-main-1936
+  echo   https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936
   echo   緑の Code → Download ZIP
   echo   解凍した中身を OneDrive\デスクトップ\AReGLM\ツール本体 へ
   echo   その中の AReGLMをホーム画面に置く.bat を開く
   echo.
   echo Git がある場合の PowerShell:
-  echo   git clone --branch cursor/windows-on-main-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git "%%USERPROFILE%%\OneDrive\デスクトップ\AReGLM\ツール本体"
+  echo   git clone --branch cursor/three-devices-home-1936 --single-branch https://github.com/pentakobaryou0907-gif/ARELM.git "%%USERPROFILE%%\OneDrive\デスクトップ\AReGLM\ツール本体"
   pause
 )
 endlocal

@@ -10,8 +10,8 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $main = Join-Path $here 'Windowsにアプリを入れる.ps1'
 if (-not (Test-Path -LiteralPath $main)) {
     Write-Host '同じフォルダに Windowsにアプリを入れる.ps1 がありません。' -ForegroundColor Red
-    Write-Host 'GitHub でブランチ cursor/windows-on-main-1936 の ZIP を落とし、解凍してから実行してください。' -ForegroundColor Yellow
-    Write-Host 'https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/windows-on-main-1936'
+    Write-Host 'GitHub でブランチ cursor/three-devices-home-1936 の ZIP を落とし、解凍してから実行してください。' -ForegroundColor Yellow
+    Write-Host 'https://github.com/pentakobaryou0907-gif/ARELM/tree/cursor/three-devices-home-1936'
     exit 1
 }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $main @args
