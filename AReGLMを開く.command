@@ -9,7 +9,9 @@
 
 cd "$(dirname "$0")" || exit 1
 
-URL="http://localhost:8080"
+# 8090（アプリ用の入口）で開く。8080は、他のアプリ（エディタ等）が同じMac内で先に取ることがあり、
+# そのときは古い画面が出てしまうため。8090はARELM本体と同じプロセスなので、動作は同じ。
+URL="http://localhost:8090"
 UID_NUM=$(id -u)
 
 echo "ARELM を起動します…"

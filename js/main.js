@@ -362,7 +362,21 @@ function clearSession(wipeSecrets) {
 // サーバーに確かめてもらうログイン。
 // 以前は、画面のJSに書いた固定のユーザー名・パスワードと見比べていた
 // （JSを開けば誰でも読めるうえ、ログイン画面にも表示していた）。
+function 前回のユーザー名を入れる() {
+    // ユーザー名は秘密ではないので、前回のものを入れておく（パスワードは入れない）。
+    const 名 = localStorage.getItem('areglm_login_name');
+    const 欄 = document.getElementById('username');
+    if (名 && 欄 && !欄.value) {
+        欄.value = 名;
+        const 鍵 = document.getElementById('password');
+        if (鍵 && document.getElementById('login-screen')?.style.display !== 'none') {
+            try { 鍵.focus(); } catch { /* 無視 */ }
+        }
+    }
+}
+
 async function ログイン画面を整える() {
+    前回のユーザー名を入れる();
     const ログイン = document.getElementById('login-form');
     const 初期設定 = document.getElementById('setup-form');
     const 注意 = document.getElementById('login-note');
@@ -419,6 +433,13 @@ async function handleLogin(e) {
         if (!r.ok) {
             showNotification(r.訳 || 'ログインできませんでした', 'error');
             return;
+        }
+        localStorage.setItem('areglm_login_name', r.名前);
+        // ブラウザの「パスワードを保存」を使えるようにする（暗号化された接続か localhost のときだけ可能）。
+        // 保存されるのはブラウザ（またはパスワード管理）の中で、このアプリ側には何も残さない。
+        if (window.PasswordCredential && window.isSecureContext && navigator.credentials) {
+            try { await navigator.credentials.store(new PasswordCredential({ id: r.名前, password, name: r.名前 })); }
+            catch { /* 保存を断られても、ログインは済んでいる */ }
         }
         document.getElementById('password').value = '';
         ログインできた(r);
