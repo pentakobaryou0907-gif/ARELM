@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <!-- アプリの外枠。中に本編（index.html）を同じ道具の中だけで表示する。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; base-uri 'self'">
+    <title>AReGLM</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192x192.png">
+    <style>
+        :root {
+            --枠黒: #0c0c0c;
+            --枠灰: #6b6b6b;
+            --帯灰: #c8c8c8;
+            --白: #f4f4f4;
+            --点: #5a5a5a;
+            --点ok: #7a7a7a;
+            --点ng: #3a3a3a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--枠黒);
+            color: var(--白);
+            font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+        }
+        .アプリ {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100%;
+            min-height: 100vh;
+            padding: 14px 16px 12px;
+            gap: 12px;
+        }
+        .上帯 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 44px;
+        }
+        .銘板 {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            background: var(--白);
+            color: #111;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.04em;
+            text-decoration: none;
+            user-select: none;
+        }
+        .銘板 img {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+        }
+        .点列 {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding-right: 4px;
+        }
+        .点 {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--点);
+            border: 1px solid #2a2a2a;
+            box-shadow: inset 0 0 0 1px #8a8a8a44;
+        }
+        .点[data-ok="1"] { background: #9a9a9a; }
+        .点[data-ok="0"] { background: var(--点ng); }
+        .点[title] { cursor: default; }
+        .画面枠 {
+            border: 3px solid var(--枠灰);
+            border-radius: 4px;
+            min-height: 0;
+            overflow: hidden;
+            background: #111;
+            position: relative;
+        }
+        .画面枠 iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: #0f172a;
+        }
+        .下帯 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 52px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            background: var(--帯灰);
+            color: #222;
+        }
+        .下銘 {
+            flex: 0 0 auto;
+            padding: 8px 16px;
+            border-radius: 999px;
+            background: var(--白);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .下訳 {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.35;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+    <div class="アプリ" role="application" aria-label="AReGLM アプリ">
+        <header class="上帯">
+            <a class="銘板" href="/" target="areglm-main" title="本編を開き直す">
+                <img src="images/icon-192x192.png" alt="" width="22" height="22">
+                AReGLM
+            </a>
+            <div class="点列" aria-label="状態">
+                <span class="点" id="点-server" title="サーバー"></span>
+                <span class="点" id="点-ai" title="自作AI"></span>
+                <span class="点" id="点-sync" title="同期"></span>
+                <span class="点" id="点-net" title="ネット"></span>
+            </div>
+        </header>
+        <main class="画面枠">
+            <!-- 本編（ログイン画面〜作業画面）。README ではなく、動く画面そのもの。 -->
+            <iframe name="areglm-main" id="本編" title="chrome画面等" src="./index.html"></iframe>
+        </main>
+        <footer class="下帯">
+            <div class="下銘">作業ツール</div>
+            <div class="下訳" id="下訳">起動しています…</div>
+        </footer>
+    </div>
+    <script>
+        (function () {
+            const 訳 = document.getElementById('下訳');
+            const 点 = (id, ok, 文) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.dataset.ok = ok ? '1' : '0';
+                if (文) el.title = 文;
+            };
+            async function 様子() {
+                let server = false;
+                let ai = false;
+                try {
+                    const r = await fetch('/api/health', { cache: 'no-store' });
+                    server = r.ok;
+                } catch { server = false; }
+                try {
+                    // 自作AIへの直アクセスは関所を通さない。サーバー経由の口だけ見る。
+                    const r = await fetch('/api/ai-local/health', { cache: 'no-store' });
+                    ai = r.ok;
+                } catch { ai = false; }
+                点('点-server', server, server ? 'サーバー: 動いています' : 'サーバー: 止まっています');
+                点('点-ai', ai, ai ? '自作AI: 動いています' : '自作AI: 止まっています（画面は使えます）');
+                点('点-sync', server, server ? '同期: サーバーへ送れます' : '同期: サーバー待ち');
+                点('点-net', navigator.onLine, navigator.onLine ? 'ネット: つながっています' : 'ネット: オフライン（手元のデータで動きます）');
+                訳.textContent = server
+                    ? (ai ? 'ログイン画面です。ユーザー名とパスワードを入れてください。' : 'サーバーは動いています。自作AIは後から立ち上がります。')
+                    : 'サーバー起動待ちです。デスクトップの AReGLM をもう一度開くか、少し待ってください。';
+            }
+            様子();
+            setInterval(様子, 5000);
+            window.addEventListener('online', 様子);
+            window.addEventListener('offline', 様子);
+            document.getElementById('本編').addEventListener('load', () => {
+                if (document.getElementById('点-server').dataset.ok === '1') {
+                    訳.textContent = '本編を表示しています。';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
