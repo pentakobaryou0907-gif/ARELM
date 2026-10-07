@@ -1,10 +1,13 @@
 #!/bin/bash
 # デスクトップ（ホーム画面）とアプリケーションに、AReGLM.app を作り直して置く（Mac版）
 #
+# README.md は説明文です。アプリではありません。
+# ホーム画面の自作アプリにするのは、この「ホーム画面に置く.command」が作る AReGLM.app です。
+#
 # 以前の AReGLM.app は、中のスクリプトが自分自身（~/Applications/AReGLM.app）を
 # 開き直していたため、押しても開かない・同じ処理を繰り返すことがあった。
 # ここで作るアプリは、このフォルダの 見張り.sh を裏で起こし、サーバーの応答を
-# 待ってからログイン画面を開いて、すぐ終わる。自分自身は開かない。
+# 待ってからアプリ枠（本編の画面）を開いて、すぐ終わる。自分自身は開かない。
 #
 # 前からある AReGLM は消さずに「使用済み」へ移す。
 
@@ -49,8 +52,9 @@ touch "$APP/Contents/Resources/areglm-launcher"
 
 cat > "$APP/Contents/MacOS/AReGLM" <<'LAUNCHER'
 #!/bin/bash
-# AReGLM.app の中身。見張りを起こし、ログイン画面を開いて、すぐ終わる。
+# AReGLM.app の中身。見張りを起こし、アプリ枠（本編の画面）を開いて、すぐ終わる。
 # 自分自身（AReGLM.app）は開かない。開くと押すたびに同じ処理が重なるため。
+# README.md は説明文なので、ここでは開かない。
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 TOOL="$(head -n 1 "$HERE/Resources/tool-path.txt" 2>/dev/null)"
@@ -82,11 +86,18 @@ if ! alive "http://127.0.0.1:8080/api/health"; then
     exit 1
 fi
 
-URL="http://127.0.0.1:8080/"
-alive "http://127.0.0.1:8090/api/health" && URL="http://127.0.0.1:8090/"
+# アプリツール画面（黒い枠の中に本編）。無い古い版だけ本編を直接開く。
+BASE="http://127.0.0.1:8080"
+alive "http://127.0.0.1:8090/api/health" && BASE="http://127.0.0.1:8090"
+URL="$BASE/アプリ枠.html"
+alive "$URL" || URL="$BASE/"
 
-if [ -d "/Applications/Google Chrome.app" ]; then
-    open -a "/Applications/Google Chrome.app" --new "$URL"
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+if [ -x "$CHROME_BIN" ]; then
+    # --app でタブバーの無いアプリ窓にする（Windows の入口と同じ）
+    "$CHROME_BIN" --app="$URL" >/dev/null 2>&1 &
+elif [ -d "/Applications/Google Chrome.app" ]; then
+    open -na "Google Chrome" --args --app="$URL"
 else
     open "$URL"
 fi
@@ -193,7 +204,9 @@ AGENT
 esac
 
 echo
-echo "できました。デスクトップの「AReGLM」を開くと、ログイン画面が出ます。"
+echo "できました。デスクトップの「AReGLM」がホーム画面用の自作アプリです。"
+echo "それを開くと、アプリツール画面（黒い枠の中に本編）が出ます。"
+echo "README.md は説明文のままです（アプリにはしません）。"
 echo "前の AReGLM は次の場所に残してあります: $USED"
-osascript -e 'display notification "デスクトップの AReGLM から開けます" with title "AReGLM"' 2>/dev/null
+osascript -e 'display notification "デスクトップの AReGLM がアプリです" with title "AReGLM"' 2>/dev/null
 sleep 2
