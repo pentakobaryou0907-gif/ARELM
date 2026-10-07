@@ -74,10 +74,14 @@ if ((Get-Command npm -ErrorAction SilentlyContinue) -and -not (Test-Path -Litera
     Pop-Location
 }
 
-Write-Step 'デスクトップ（ホーム画面）に AReGLM アイコンを置く'
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ps1 -アプリにする
+Write-Step 'デスクトップ（ホーム画面）に AReGLM アイコンを置く（確認ウィンドウなし）'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ps1 -アプリにする -静かに
 if ($LASTEXITCODE -ne 0) {
-    if (Test-Path -LiteralPath $bat) {
+    $auto = Join-Path $Dest '自動でホーム画面に置く.bat'
+    if (Test-Path -LiteralPath $auto) {
+        Write-Host '自動配置 bat から再試行します…'
+        & cmd.exe /c "`"$auto`""
+    } elseif (Test-Path -LiteralPath $bat) {
         Write-Host 'bat から再試行します…'
         & cmd.exe /c "`"$bat`""
     }
