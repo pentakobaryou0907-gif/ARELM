@@ -24,6 +24,7 @@ const path = require('path');
 
 const 保存先 = process.env.ARELM_ACCOUNTS_FILE || path.join(__dirname, 'data', 'accounts.json');
 
+const 表示の保存先 = process.env.ARELM_LOGIN_HINT_FILE || path.join(__dirname, 'data', 'ログイン表示.json');
 const 混ぜる回数 = 600000;
 const 許す間違い = 5;
 const 締め出す分 = 15;
@@ -183,6 +184,7 @@ function パスワード変更(入場券の持ち主, 今のパスワード, 新
     人.回数 = 混ぜる回数;
     人.混ぜたもの = 混ぜる(新しいパスワード, 人.塩, 人.回数);
     書く(中身);
+    if (表示を読む()) 表示を書く(人.名前, 新しいパスワード);
     return { ok: true, 訳: 'パスワードを変えました' };
 }
 
@@ -372,6 +374,48 @@ function パスキーを外す(持ち主, id) {
     return { ok: true, 訳: 'この端末の登録を外しました' };
 }
 
+/* ==========================================================
+   ログイン画面に、ユーザー名とパスワードを表示する（本人が選んだときだけ）
+   ========================================================== */
+//
+// 本人が「ログイン画面に表示する」を選んだときだけ、server/data/ に平文で置き、
+// ログイン画面がそれを読んで表示する。初期設定は「表示しない」。
+// 画面を開ける人には誰にでも見えるので、本人しか見ない前提のときだけ使う。
+// 保存先は Git の管理外（server/data/）で、バックアップにも入れない。
+
+function 表示を読む() {
+    try {
+        const d = JSON.parse(fs.readFileSync(表示の保存先, 'utf8'));
+        return d && d.名前 && d.パスワード ? d : null;
+    } catch { return null; }
+}
+
+function 表示を書く(名前, パスワード) {
+    fs.mkdirSync(path.dirname(表示の保存先), { recursive: true });
+    fs.writeFileSync(表示の保存先 + '.tmp', JSON.stringify({ 名前, パスワード }), { mode: 0o600 });
+    fs.renameSync(表示の保存先 + '.tmp', 表示の保存先);
+}
+
+/** 入れたパスワードが、本当にいまのパスワードか確かめてから保存する */
+function 表示を始める(持ち主, パスワード) {
+    if (!持ち主) return { ok: false, 訳: 'ログインし直してください' };
+    const 人 = 読む().人.find((x) => x.名前 === 持ち主.名前);
+    if (!人) return { ok: false, 訳: 'アカウントが見つかりません' };
+    const 試し = Buffer.from(混ぜる(パスワード, 人.塩, 人.回数));
+    const 本物 = Buffer.from(人.混ぜたもの);
+    if (試し.length !== 本物.length || !crypto.timingSafeEqual(試し, 本物)) {
+        return { ok: false, 訳: 'いまのパスワードと違います' };
+    }
+    表示を書く(人.名前, String(パスワード));
+    return { ok: true, 訳: 'ログイン画面に表示するようにしました' };
+}
+
+function 表示をやめる(持ち主) {
+    if (!持ち主) return { ok: false, 訳: 'ログインし直してください' };
+    try { fs.unlinkSync(表示の保存先); } catch { /* 元から無ければ、それでよい */ }
+    return { ok: true, 訳: 'ログイン画面に表示しないようにしました' };
+}
+
 module.exports = {
     初期設定済みか,
     初期設定,
@@ -385,4 +429,7 @@ module.exports = {
     パスキーでログイン,
     パスキー一覧,
     パスキーを外す,
+    表示を読む,
+    表示を始める,
+    表示をやめる,
 };

@@ -375,8 +375,27 @@ function 前回のユーザー名を入れる() {
     }
 }
 
+/** 本人が「表示する」を選んでいるときだけ、ログイン画面の下に出し、欄にも入れておく */
+async function ログイン画面に表示する() {
+    const 枠 = document.getElementById('login-secret');
+    if (!枠) return;
+    try {
+        const r = await fetch('/api/account/hint', { cache: 'no-store' }).then((y) => y.json());
+        if (!r.ok || !r.表示) { 枠.hidden = true; return; }
+        枠.textContent = `ユーザー名: ${r.名前}　／　パスワード: ${r.パスワード}`;
+        枠.hidden = false;
+        const u = document.getElementById('username');
+        const p = document.getElementById('password');
+        if (u && !u.value) u.value = r.名前;
+        if (p && !p.value) p.value = r.パスワード;
+    } catch {
+        枠.hidden = true;
+    }
+}
+
 async function ログイン画面を整える() {
     前回のユーザー名を入れる();
+    ログイン画面に表示する();
     const ログイン = document.getElementById('login-form');
     const 初期設定 = document.getElementById('setup-form');
     const 注意 = document.getElementById('login-note');

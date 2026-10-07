@@ -72,7 +72,43 @@ async function renderアカウント() {
     });
     箱.appendChild(p);
 
+    await 表示の欄を描く(箱);
     await パスキーの欄を描く(箱);
+}
+
+/* --- ログイン画面にユーザー名とパスワードを表示する（本人が選んだときだけ） --- */
+async function 表示の欄を描く(箱) {
+    const 枠 = document.createElement('div');
+    枠.className = 'login-form';
+    枠.appendChild(行を作る('h4', 'ログイン画面に、パスワードを表示する'));
+
+    const 今 = await fetch('/api/account/hint', { cache: 'no-store' }).then((y) => y.json()).catch(() => ({ 表示: false }));
+    枠.appendChild(行を作る('p',
+        '自分しか画面を見ない場合だけ使ってください。オンにすると、ログイン画面（このMacと、合言葉を通った他の端末）に、'
+        + 'ユーザー名とパスワードがそのまま表示され、欄にも自動で入ります。画面を開ける人には誰にでも見えます。', 'hint'));
+    枠.appendChild(行を作る('p', 今.表示 ? '現在: 表示しています' : '現在: 表示していません（おすすめの状態）', 今.表示 ? 'guard-off' : 'guard-on'));
+
+    if (!今.表示) {
+        枠.appendChild(入力欄('いまのパスワード（保存して表示します）', 'password', 'acct-hint-pass'));
+        const b = 行を作る('button', 'ログイン画面に表示する', 'btn btn-secondary');
+        b.type = 'button';
+        b.addEventListener('click', async () => {
+            const r = await アカウントAPI('/api/account/hint', { 表示: true, パスワード: document.getElementById('acct-hint-pass').value });
+            showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+            renderアカウント();
+        });
+        枠.appendChild(b);
+    } else {
+        const b = 行を作る('button', '表示をやめる', 'btn btn-primary');
+        b.type = 'button';
+        b.addEventListener('click', async () => {
+            const r = await アカウントAPI('/api/account/hint', { 表示: false });
+            showNotification(r.訳 || '', r.ok ? 'success' : 'error');
+            renderアカウント();
+        });
+        枠.appendChild(b);
+    }
+    箱.appendChild(枠);
 }
 
 /* --- 指紋・Face ID --- */

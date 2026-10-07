@@ -10106,3 +10106,6 @@ html[data-theme] .chat-bubble.user {
 .prepublish-detail h5 { margin: 10px 0 4px; }
 .prepublish-detail p { margin: 2px 0; }
 .prepublish-ng { font-weight: 600; }
+
+/* ログイン画面の下に出す、ユーザー名とパスワード（本人が選んだときだけ） */
+.login-secret { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(127,127,127,.12); font-size: .85rem; word-break: break-all; user-select: all; }

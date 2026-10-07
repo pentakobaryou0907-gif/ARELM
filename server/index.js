@@ -237,6 +237,18 @@ app.post('/api/passkey/remove', (req, res) => {
     res.status(r.ok ? 200 : 400).json(r);
 });
 
+// ログイン画面の表示（本人が選んだときだけ有効）。読むのはログイン前の画面、変えるのはログイン中の本人だけ。
+app.get('/api/account/hint', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const d = アカウント.表示を読む();
+    res.json(d ? { ok: true, 表示: true, 名前: d.名前, パスワード: d.パスワード } : { ok: true, 表示: false });
+});
+app.post('/api/account/hint', (req, res) => {
+    const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
+    const b = req.body || {};
+    const r = b.表示 === false ? アカウント.表示をやめる(人) : アカウント.表示を始める(人, b.パスワード);
+    res.status(r.ok ? 200 : 400).json(r);
+});
 app.post('/api/account/password', (req, res) => {
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
     if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
