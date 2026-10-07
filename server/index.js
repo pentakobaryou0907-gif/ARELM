@@ -141,6 +141,22 @@ app.post('/api/account/logout', (req, res) => {
 // 指紋・Face ID（パスキー）
 function 身元(req) { return { origin: req.headers['origin'] || '' }; }
 
+// Windows PC用の起動アプリ。他の端末からは、門番（合言葉）を通った後でしか届かない。
+// 中身は起動用のバッチファイルとアイコンだけ（鍵・データは入っていない）。
+app.get('/windows-kit.zip', (req, res) => {
+    try {
+        const zip = require('./Windows用キット').キットを作る(PORT, lanAddresses());
+        res.set({
+            'Content-Type': 'application/zip',
+            'Content-Disposition': 'attachment; filename="ARELM-Windows.zip"',
+            'Cache-Control': 'no-store',
+        });
+        res.send(zip);
+    } catch (e) {
+        res.status(500).type('text/plain; charset=utf-8').end('作れませんでした: ' + e.message);
+    }
+});
+
 // 控え（バックアップ）。戻す操作もあるので、ログイン中の本人だけ。
 function 本人だけ(req, res) {
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));

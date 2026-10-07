@@ -274,6 +274,16 @@ async function render他の端末() {
     注.textContent = '待ち受けの仕方が変わるので、入口を入れ直すと反映されます。'
         + '押せば、こちらで入れ直して画面も読み込み直します。';
     箱.appendChild(注);
+
+    // Windows PCには、Mac用のアプリは動かない。専用の起動アプリを、ここから受け取れる。
+    const win = document.createElement('p');
+    const a = document.createElement('a');
+    a.href = '/windows-kit.zip';
+    a.download = 'ARELM-Windows.zip';
+    a.textContent = '⬇ Windows PC用のアプリをダウンロード（ZIP）';
+    win.appendChild(a);
+    win.appendChild(document.createTextNode(' 展開して ARELM-install.bat を実行すると、デスクトップにARELMのアイコンができます。'));
+    箱.appendChild(win);
 }
 
 function init他の端末() {
