@@ -408,6 +408,21 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
     確かめる('利益: 在庫に無い商品の売上を、黙って落とさず数える', r.在庫に無い.件数 === 1 && r.在庫に無い.売上 === 3000);
 }
 
+{
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '端末の機能.js'), 'utf8');
+    const 窓 = { AREGLM_PROFILE: { shops: { suzuri: { url: 'https://suzuri.jp/areglm' }, base: { url: 'javascript:alert(1)' } }, sns: { instagram: { url: 'https://www.instagram.com/areglm/' } } } };
+    const { 端末の機能のURL, この端末への頼み } = new Function('window', 'localStorage', 'document', src.replace("document.addEventListener('DOMContentLoaded'", "(() => {})('DOMContentLoaded'") + '\nreturn { 端末の機能のURL, この端末への頼み };')(窓, { getItem: () => null, setItem() {} }, {});
+    確かめる('端末の機能: iPhoneでは、ショートカットを名前で呼べる（文字はURLの形に崩す）', 端末の機能のURL('shortcut', ['在庫を数える', 'a&b=c'], 'iPhone') === 'shortcuts://run-shortcut?name=%E5%9C%A8%E5%BA%AB%E3%82%92%E6%95%B0%E3%81%88%E3%82%8B&input=text&text=a%26b%3Dc');
+    確かめる('端末の機能: Windowsでは、ショートカットは呼べない', 端末の機能のURL('shortcut', ['x'], 'Windows') === null);
+    確かめる('端末の機能: 地図は、Apple の端末は「マップ」、ほかはGoogleマップ', /^maps:\/\/\?q=/.test(端末の機能のURL('map', ['渋谷'], 'iPad')) && /^https:\/\/www\.google\.com\/maps\//.test(端末の機能のURL('map', ['渋谷'], 'Windows')));
+    確かめる('端末の機能: 電話番号は数字だけにする（他の文字を混ぜて別の動きをさせない）', 端末の機能のURL('tel', ['090-1234-5678;javascript:x'], 'iPhone') === 'tel:09012345678');
+    確かめる('端末の機能: メールアドレスでないものには、メールを作らない', 端末の機能のURL('mail', ['not-an-address', 'a', 'b'], 'Mac') === null);
+    確かめる('端末の機能: お店・SNSは https の公式アドレスだけを開く（設定が壊れていても javascript: は開かない）', 端末の機能のURL('suzuri', [], 'Android') === 'https://suzuri.jp/areglm' && 端末の機能のURL('base', [], 'Android') === null);
+    確かめる('端末の機能: 一覧に無い機能は開かない', 端末の機能のURL('open-anything', ['file:///etc/passwd'], 'Mac') === null);
+    const 頼み = [{ 状態: '待ち', 宛先: 'iPhone' }, { 状態: '待ち', 宛先: '仕事用iPad' }, { 状態: '済', 宛先: 'iPhone' }, { 状態: '待ち', 宛先: 'どの端末でも' }];
+    確かめる('端末の機能: この端末（呼び名か種類）宛ての、まだの頼みだけを出す', この端末への頼み(頼み, '私のiPhone', 'iPhone').length === 2 && この端末への頼み(頼み, '仕事用iPad', 'iPad').length === 2);
+}
+
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }

@@ -58,6 +58,8 @@ const AReGLM_SYNC = {
         'areglm_local_lock_wrong', 'areglm_local_entries',
         // GitHubの様子を見ることを、この端末で本人が選んだ印
         'areglm_ext_github_view',
+        // この端末の呼び名（端末ごと。同期すると、全部の端末が同じ名前になり、頼みの宛先が分からなくなる）
+        'areglm_device_name',
     ]),
 
     _送信待ち: {},
