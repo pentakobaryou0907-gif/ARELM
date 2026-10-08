@@ -16,7 +16,7 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const 元の場所 = path.join(__dirname, '..', 'Windows用');
-const 入れるファイル = ['ARELM-install.bat', 'ARELM-open.bat', 'ARELM-uninstall.bat', 'ARELM.ico', 'README.txt'];
+const 入れるファイル = ['ARELM-install.bat', 'ARELM-open.bat', 'ARELM-uninstall.bat', 'ARELM-report.ps1', 'ARELM.ico', 'README.txt'];
 
 function Macの名前() {
     try {
@@ -93,7 +93,7 @@ function zipにする(項目たち) {
     return Buffer.concat([...局所, ...中央, 終わり]);
 }
 
-function キットを作る(ポート, 番号たち) {
+function キットを作る(ポート, 番号たち, 報告の印 = '') {
     const 項目 = 入れるファイル.map((f) => ({
         名前: 'ARELM-Windows/' + f,
         中身: fs.readFileSync(path.join(元の場所, f)),
@@ -102,6 +102,8 @@ function キットを作る(ポート, 番号たち) {
         名前: 'ARELM-Windows/ARELM-target.txt',
         中身: Buffer.from(接続先の一覧(ポート, 番号たち), 'ascii'),
     });
+    // 入れた場所を、ARELMへ報告するための使い捨ての印（このZIPだけのもの）
+    項目.push({ 名前: 'ARELM-Windows/ARELM-report.txt', 中身: Buffer.from(String(報告の印 || ''), 'ascii') });
     return zipにする(項目);
 }
 

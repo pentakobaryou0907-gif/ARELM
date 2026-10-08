@@ -35,7 +35,9 @@ if not defined BR (
   exit /b 0
 )
 
-start "" "%BR%" --app="http://%HOST%/" --user-data-dir="%LocalAppData%\ARELM\window" --no-first-run --no-default-browser-check --window-size=1280,860
+rem ふだんの Chrome と同じ入れ物で開く（別の入れ物にすると、Mac での許可を、毎回やり直すことになっていた）
+rem ?from=windows-app は、「アイコンから開いた」ことを ARELM に伝えるための印
+start "" "%BR%" --app="http://%HOST%/?from=windows-app" --window-size=1280,860
 exit /b 0
 
 :try

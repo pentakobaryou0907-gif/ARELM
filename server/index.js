@@ -302,9 +302,57 @@ app.get('/ipad.mobileconfig', (req, res) => {
 
 // Windows PC用の起動アプリ。他の端末からは、門番（合言葉）を通った後でしか届かない。
 // 中身は起動用のバッチファイルとアイコンだけ（鍵・データは入っていない）。
+/**
+ * 端末の記録（どの端末に、ARELMが入っているか・どこにあるか）
+ * 画面が開いたことと、インストーラーの報告を集めて、設定の「3台の端末」に出す。
+ */
+const 端末の記録 = require('./端末の記録');
+function この端末のid(req) { return 端末の記録.端末のid(req.headers.cookie, 本体からか(req)); }
+
+app.post('/api/devices/seen', (req, res) => {
+    const id = この端末のid(req);
+    const 許した = 門番.印からの端末(req.headers.cookie);
+    const b = req.body || {};
+    端末の記録.開いたことを残す(DATA_DIR, id, {
+        名前: id === 'this-mac' ? 'このMac' : (許した && 許した.名前),
+        種類: b.種類, アプリとして: b.アプリとして === true,
+    });
+    res.json({ ok: true });
+});
+
+app.get('/api/devices/mine', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, 端末: 端末の記録.この端末(DATA_DIR, この端末のid(req)) });
+});
+
+app.get('/api/devices/list', (req, res) => {
+    if (!本人だけ(req, res)) return;
+    // Macのアプリは、このサーバー自身の置き場所から分かる
+    const 本体 = path.resolve(__dirname, '..', '..', '..', '..');
+    const デスクトップ = path.join(os.homedir(), 'Desktop', 'AReGLM.app');
+    res.set('Cache-Control', 'no-store');
+    res.json({
+        ok: true,
+        一覧: 端末の記録.一覧(DATA_DIR),
+        Macのアプリ: {
+            本体: 本体.endsWith('.app') ? 本体 : null,
+            デスクトップ: fs.existsSync(デスクトップ) ? デスクトップ : null,
+        },
+        この端末: この端末のid(req),
+    });
+});
+
+/** Windows用キットのインストーラーからの報告（アイコンを作った場所）。印はキットのZIPに入っている。 */
+app.post('/__installed', (req, res) => {
+    const b = req.body || {};
+    res.json(端末の記録.入れたことを残す(DATA_DIR, b.印, b));
+});
+
 app.get('/windows-kit.zip', (req, res) => {
     try {
-        const zip = require('./Windows用キット').キットを作る(PORT, lanAddresses());
+        const 許した = 門番.印からの端末(req.headers.cookie);
+        const 報告の印 = 端末の記録.報告の印を作る(DATA_DIR, この端末のid(req), 許した && 許した.名前);
+        const zip = require('./Windows用キット').キットを作る(PORT, lanAddresses(), 報告の印);
         res.set({
             'Content-Type': 'application/zip',
             'Content-Disposition': 'attachment; filename="ARELM-Windows.zip"',

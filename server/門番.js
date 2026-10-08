@@ -576,6 +576,9 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
             const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']));
             return res.status(r.ok ? 200 : 429).json(r);
         }
+        // Windows用キットのインストーラーからの報告。ブラウザの印（cookie）は持たないので、ここでは通し、
+        // 中身はキットのZIPに入れた使い捨ての印で確かめる（server/端末の記録.js）。
+        if (req.method === 'POST' && req.path === '/__installed') return next();
         if (req.method === 'GET' && req.path === '/__pair/status') {
             const s = ペアの様子(String(req.query.id || ''));
             if (s.印) {

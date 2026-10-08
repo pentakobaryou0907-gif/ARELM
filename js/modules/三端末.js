@@ -177,6 +177,52 @@ async function どこでもの枠を作る(再描画) {
     return 枠;
 }
 
+/**
+ * 📍 ARELMが入っている端末と、その場所
+ *
+ * 「このパソコンにARELMが入っているのか、どこにあるのか」が、どこにも出ていなかった。
+ * Macのアプリはサーバー自身の置き場所から、Windowsはインストーラーの報告から、
+ * iPadなどはホーム画面のアイコンから開いた記録から、分かる範囲を出す（分からないものは、分からないと書く）。
+ */
+async function 端末の場所の枠を作る() {
+    const 枠 = 端末の枠('📍 ARELMが入っている端末と、その場所', '', true);
+    const 文 = 枠.querySelector('p');
+    const r = typeof アカウントAPI === 'function' ? await アカウントAPI('/api/devices/list') : { ok: false };
+    if (!r.ok) { 文.textContent = r.訳 || '読めませんでした（ログインし直してください）'; return 枠; }
+    文.textContent = 'アイコンの場所と、最後にアイコンから開いた日時です。';
+    const 日時 = (iso) => iso ? new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const 場所の行 = (t) => { const p = render三端末の行('p', t); p.style.cssText = 'user-select:all;word-break:break-all;font-size:.8rem;margin:.1rem 0 .1rem 1rem'; return p; };
+
+    // Mac
+    const mac = render三端末の行('h5', '💻 Mac（アプリ）' + (r.この端末 === 'this-mac' ? '　← いま見ている端末' : ''));
+    枠.appendChild(mac);
+    if (r.Macのアプリ.デスクトップ) { 枠.appendChild(render三端末の行('p', 'デスクトップの「ARELM」')); 枠.appendChild(場所の行(r.Macのアプリ.デスクトップ)); }
+    if (r.Macのアプリ.本体) { 枠.appendChild(render三端末の行('p', '本体（アプリの中に、このツール一式）')); 枠.appendChild(場所の行(r.Macのアプリ.本体)); }
+
+    // ほかの端末
+    const ほか = r.一覧.filter((d) => d.id !== 'this-mac');
+    if (!ほか.length) 枠.appendChild(render三端末の行('p', 'ほかの端末の記録は、まだありません。', 'hint'));
+    ほか.forEach((d) => {
+        const 種類 = d.種類 || '';
+        const 絵 = /iPad|iPhone/.test(種類) ? '📱' : (/Windows/.test(種類) ? '🖥' : '🔹');
+        枠.appendChild(render三端末の行('h5', `${絵} ${d.名前}${種類 && !d.名前.includes(種類) ? `（${種類}）` : ''}${r.この端末 === d.id ? '　← いま見ている端末' : ''}`));
+        if (d.入れた場所) {
+            枠.appendChild(render三端末の行('p', `入っています（${日時(d.入れた日)}に入れた）`, 'guard-off'));
+            if (d.入れた場所.デスクトップ) { 枠.appendChild(render三端末の行('p', 'デスクトップのアイコン')); 枠.appendChild(場所の行(d.入れた場所.デスクトップ)); }
+            if (d.入れた場所.スタートメニュー) { 枠.appendChild(render三端末の行('p', 'スタートメニュー')); 枠.appendChild(場所の行(d.入れた場所.スタートメニュー)); }
+            if (d.入れた場所.本体のフォルダ) { 枠.appendChild(render三端末の行('p', '起動用のファイルの置き場')); 枠.appendChild(場所の行(d.入れた場所.本体のフォルダ)); }
+        } else if (d.アプリとして最後に開いた) {
+            枠.appendChild(render三端末の行('p', `入っています（ホーム画面・デスクトップのアイコンから、${日時(d.アプリとして最後に開いた)}に開いた）`, 'guard-off'));
+            if (/iPad|iPhone/.test(種類) || d.名前 === 'Mac') 枠.appendChild(場所の行('ホーム画面の「ARELM」'));
+        } else {
+            枠.appendChild(render三端末の行('p', d.消した日 ? `消しました（${日時(d.消した日)}）` : 'アイコンから開いた記録はありません（ブラウザで開いただけ・まだ入っていない）', 'guard-on'));
+        }
+        枠.appendChild(render三端末の行('p', `最後に開いた: ${日時(d.最後に開いた)}`, 'hint'));
+    });
+    枠.appendChild(render三端末の行('p', 'iPadは、Safariが自分を「Mac」と名乗るため、名前が「Mac」と出ることがあります。', 'hint'));
+    return 枠;
+}
+
 async function render三端末() {
     const 箱 = document.getElementById('devices-panel');
     if (!箱) return;
@@ -187,6 +233,9 @@ async function render三端末() {
     const 許した = (d && d.許した端末) || [];
     const 数える = (語) => 許した.filter((x) => String(x.名前 || '').includes(語)).length;
     const いま = typeof ホーム画面用の端末 === 'function' ? ホーム画面用の端末() : '';
+
+    /* ---- 入っている端末と、その場所 ---- */
+    箱.appendChild(await 端末の場所の枠を作る());
 
     /* ---- Mac ---- */
     const mac = 端末の枠('💻 Mac', 'このMacでは、デスクトップの「AReGLM」のアイコンから開けます。', true);

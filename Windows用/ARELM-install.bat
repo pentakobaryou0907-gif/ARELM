@@ -11,6 +11,8 @@ if not exist "%DEST%" mkdir "%DEST%"
 copy /Y "%HERE%ARELM-open.bat" "%DEST%\" >nul
 copy /Y "%HERE%ARELM-target.txt" "%DEST%\" >nul
 copy /Y "%HERE%ARELM.ico" "%DEST%\" >nul
+copy /Y "%HERE%ARELM-report.ps1" "%DEST%\" >nul
+copy /Y "%HERE%ARELM-report.txt" "%DEST%\" >nul
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -ComObject WScript.Shell; foreach($o in @((Join-Path ([Environment]::GetFolderPath('Desktop')) 'ARELM.lnk'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\ARELM.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'ARELM（アレラム）.lnk'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\ARELM（アレラム）.lnk'))){ Remove-Item -ErrorAction SilentlyContinue $o }; $d=Join-Path $env:LOCALAPPDATA 'ARELM'; foreach($p in @([Environment]::GetFolderPath('Desktop'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'))){ $s=$w.CreateShortcut((Join-Path $p 'ARELM.lnk')); $s.TargetPath=(Join-Path $d 'ARELM-open.bat'); $s.WorkingDirectory=$d; $s.IconLocation=(Join-Path $d 'ARELM.ico'); $s.WindowStyle=7; $s.Description='ARELM'; $s.Save() }"
 
@@ -22,9 +24,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem 入れた場所を、ARELM（Mac）へ知らせる。設定の「3台の端末」で、どこに入っているか見られるようにするため
+powershell -NoProfile -ExecutionPolicy Bypass -File "%DEST%\ARELM-report.ps1"
+
 echo.
 echo  入れました。デスクトップの「ARELM」をダブルクリックしてください。
-echo  はじめて開くときは、Mac で決めた「合言葉」を聞かれます。
+echo  ふだん使っている Chrome で、ARELM に入れるようになっていれば、そのまま開きます。
 echo.
 pause
 exit /b 0

@@ -48,11 +48,12 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
     if (端末 === 'Windows') {
         // Chromeは版によってメニューの名前が違う。2026年のChrome（154）では「保存と共有」が無く、
         // 「キャスト、保存、共有」→「ページをアプリとしてインストール」になっていた（古い案内で迷わせた）。
+        // Chromeのメニューは版で名前が変わり、「ページをアプリとしてインストール」が出ないこともあった。
+        // 確実なのは、Windows用キット（アイコンの場所をARELMに知らせ、設定で「どこにあるか」が分かる）。
         return [
-            'Chromeの右上「⋮」→「キャスト、保存、共有」→「ページをアプリとしてインストール…」→「インストール」',
-            '（古いChromeでは「保存と共有」→「ショートカットを作成…」→「ウィンドウとして開く」にチェック→「作成」）',
-            'デスクトップとスタートメニューに「ARELM」ができます。次からは、これを開くだけです',
-            'メニューが見つからないときは、アドレス欄の左端の印（「保護されていない通信」）を、デスクトップへドラッグしても、開くためのアイコンができます',
+            '下の「Windows用のアプリ（ZIP）」をダウンロードする',
+            'ダウンロードしたZIPを右クリック →「すべて展開」→ 開いたフォルダの「ARELM-install.bat」をダブルクリック（「保護されました」と出たら「詳細情報」→「実行」）',
+            'デスクトップとスタートメニューに「ARELM」ができます。入れた場所は、ARELMの設定「3台の端末」で見られます',
         ];
     }
     return ['ブラウザのメニューから「ホーム画面に追加」（またはショートカットの作成）を選んでください'];
@@ -69,6 +70,15 @@ function ホーム画面への追加を案内する() {
     // 以前は案内が設定の奥にしか無く、「このパソコンにアプリが無い」と気づけなかった。
     if (端末 !== 'iPad' && 端末 !== 'iPhone' && 端末 !== 'Windows') return;
     if (ホーム画面のアプリとして開いているか()) return;
+    // すでにこの端末に入っている（入れた場所の報告・アイコンから開いた記録がある）なら、勧めない
+    if (typeof この端末に入っているか === 'function') {
+        この端末に入っているか().then((入っている) => { if (!入っている) ホーム画面への追加を案内する続き(端末); });
+        return;
+    }
+    ホーム画面への追加を案内する続き(端末);
+}
+
+function ホーム画面への追加を案内する続き(端末) {
     if (document.getElementById('main-app')?.style.display === 'none') return;
     // ほかの案内（指紋の登録・続きから）と重ならないよう、先に出ていれば待つ
     if (document.getElementById('passkey-offer') || document.getElementById('resume-offer')) {
@@ -85,7 +95,7 @@ function ホーム画面への追加を案内する() {
     const 題 = document.createElement('p');
     題.style.cssText = 'margin:0 0 6px;font-weight:600';
     題.textContent = 端末 === 'Windows'
-        ? 'このパソコンのデスクトップに、ARELMのアイコンを置けます（3回のクリックです）'
+        ? 'このパソコンには、まだARELMが入っていません。デスクトップにアイコンを置けます'
         : `${端末}のホーム画面に、ARELMのアイコンを置けます`;
     const 手順 = document.createElement('ol');
     手順.style.cssText = 'margin:0 0 10px;padding-left:1.3em;font-size:.9rem';
@@ -111,7 +121,8 @@ function ホーム画面への追加を案内する() {
         const a = document.createElement('a');
         a.href = '/windows-kit.zip';
         a.textContent = 'Windows用のアプリ（ZIP）';
-        別.append('メニューが見つからないときは、', a, 'をダウンロードして、「すべて展開」→「ARELM-install.bat」を実行しても、同じアイコンができます。');
+        別.append('⬇ ', a, '（ここを押すと、ダウンロードが始まります）');
+        別.style.cssText = 'margin:0 0 10px;font-size:.95rem;font-weight:600';
         枠.appendChild(別);
     }
     枠.appendChild(並び);
