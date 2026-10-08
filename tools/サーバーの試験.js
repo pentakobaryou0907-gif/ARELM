@@ -441,6 +441,42 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     確かめる('段取り: 型に無いシリーズは作らない', 段取りの回を作る('知らないシリーズ', 'x') === null);
 }
 
+/* ---------- Chromeの手（拡張機能 arelm-hand と、画面の側） ---------- */
+{
+    const 手の本体 = fs.readFileSync(path.join(__dirname, '..', 'arelm-hand', 'background.js'), 'utf8');
+    const 手の札 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'arelm-hand', 'manifest.json'), 'utf8'));
+    確かめる('手: 橋（bridge.js）は、ARELMの入り口にだけ入る（どのサイトにも入る形にしない）',
+        手の札.content_scripts.every((c) => c.matches.every((m) => /^http:\/\/(localhost|127\.0\.0\.1)\/\*$|^https:\/\/pentakobaryou0907-gif\.github\.io\/ARELM\/\*$/.test(m))));
+    確かめる('手: 外のページから直接頼める道（externally_connectable）を作らない', !手の札.externally_connectable);
+    確かめる('手: 頼みは、ARELMの画面からだけ受ける', /async function 頼みを受ける[\s\S]{0,200}ARELMの画面か\(送り手\.url/.test(手の本体));
+    確かめる('手: SUZURIの「公開」は押さない（本人が押す）', /suzuri\\\.jp\$\/i\.test\(location\.hostname\) && \/公開\//.test(手の本体) && /if \(様\.本人が押す\) return/.test(手の本体));
+    確かめる('手: 送信・購入・公開・削除などは、本人の「よい」が無ければ押さない', /if \(様\.確かめが要る && 本人が許した !== true\) return/.test(手の本体));
+    確かめる('手: 合言葉・カード番号の欄には打たない', /if \(様\.秘密 \|\| 様\.形に合言葉\) return/.test(手の本体));
+    確かめる('手: ログイン・支払い・銀行の画面と、ARELM自身の画面は触らない',
+        /async function 触ってよいタブか[\s\S]{0,400}ARELMの画面か\(道\)[\s\S]{0,200}触ってはいけない先\.some/.test(手の本体));
+    確かめる('手: 止めてあるときは、止める・動かす・様子のほかは動かない', /止めていても使える操作\.has\(操作\) && await 置き場\.読む\('止めている'/.test(手の本体));
+    確かめる('手: 打った文字そのものは、記録に残さない', !/記録を残す\([^)]*文/.test(手の本体));
+    確かめる('手: 拡張機能から外へ送らない（fetch・XMLHttpRequest を使わない）', !/\bfetch\s*\(|XMLHttpRequest|WebSocket/.test(手の本体));
+    const 手のZIPの中身 = (本体のサーバー.match(/const 手のファイル = \[([^\]]+)\]/) || [])[1] || '';
+    確かめる('手: ZIPに入れるファイルが、全部そろっている（欠けるとZIPが作れない）',
+        手のZIPの中身 && [...手のZIPの中身.matchAll(/'([^']+)'/g)].every(([, f]) => fs.existsSync(path.join(__dirname, '..', 'arelm-hand', f))));
+
+    globalThis.外のAI = { 送らない中身: [[/[\w.+-]+@[\w-]+\.[\w.-]+/, 'メール'], [/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, 'カード']] };
+    const 手 = 画面のファイルを読む('Chromeの手.js', { addEventListener() {}, postMessage() {} });
+    const まとめ = 手.手の画面をまとめる({ ok: true, 題: '店', 道: 'https://shop.example/items?token=abc', 文: 'x'.repeat(9000), 部品: [{ 番: 1, 種類: '入力欄', 名: '合言葉', 秘密: true }, { 番: 2, 種類: 'ボタン', 名: '購入する' }] });
+    確かめる('手: AIに見せるまとめは、場所の問い（?token=…）を外し、長さを絞る', !/token=abc/.test(まとめ) && まとめ.length <= 5000 && /1\. \[入力欄\] 合言葉（本人が入れる欄）/.test(まとめ));
+    確かめる('手: まだページが無いときは、まず開くよう伝える', /開く/.test(手.手の画面をまとめる(null)));
+    const 伏せた = 手.手の画面を伏せる('連絡 shop@example.com カード 4111 1111 1111 1111 です');
+    確かめる('手: Geminiへ送る前に、メール・カード番号らしきものを伏せる', !/@example\.com|4111/.test(伏せた) && (伏せた.match(/［伏せた］/g) || []).length === 2);
+    確かめる('手: ページの中で済む頼みは手で、パソコンそのものの頼みはMacへ', 手.Chromeで済む頼みか('SUZURIで新作を探して') && 手.Chromeで済む頼みか('https://base.in を開いて') && !手.Chromeで済む頼みか('音量を下げて'));
+    delete globalThis.外のAI;
+}
+{
+    const 手の画面 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'Chromeの手.js'), 'utf8');
+    確かめる('手: AIが選んだ材料から「本人が許した」を外してから頼む', /delete 送る\.本人が許した/.test(手の画面) && /delete 材料\.本人が許した/.test(手の画面));
+    確かめる('手: 「本人が許した」を付けて頼み直すのは、本人が「よい」を押したときだけ', /const よい = await 手の本人に確かめる\([\s\S]{0,200}if \(!よい\) return[\s\S]{0,120}本人が許した: true/.test(手の画面));
+}
+
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }

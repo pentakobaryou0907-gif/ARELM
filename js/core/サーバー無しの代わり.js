@@ -321,11 +321,24 @@ const 外のAI = {
             ctx && ctx.persona ? '話し方の希望: ' + String(ctx.persona).slice(0, 300) : '',
             手がかり ? 'いまのブランドの状況（参考）: ' + 手がかり : '',
         ].filter(Boolean).join('\n');
-        const 本文 = JSON.stringify({
+        const d = await this._送る({
             systemInstruction: { parts: [{ text: 決まり }] },
             contents: this._履歴(session).concat([{ role: 'user', parts: [{ text }] }]),
             generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-        });
+        }, キー);
+        const 答え = this._文にする(d) || '（答えが空でした）';
+        this._履歴に足す(session, text, 答え);
+        return { ok: true, answer: 答え, sources: [], agent: { 名: 'Gemini（Mac無し）', 絵: '☁' } };
+    },
+
+    _文にする(d) {
+        return ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || [])
+            .map((p) => p.text || '').join('').trim();
+    },
+
+    /** Geminiへ一度送る（モデルの名前が無くなっていたら、次の名前で試す） */
+    async _送る(中身, キー) {
+        const 本文 = JSON.stringify(中身);
         const 候補 = this._使えた名 ? [this._使えた名] : this.候補;
         let 最後 = null;
         for (const 名 of 候補) {
@@ -340,13 +353,59 @@ const 外のAI = {
             if (r.status === 400 || r.status === 403) throw new Error('Geminiのキーが使えません（設定の「Mac無しで使う」で入れ直してください）');
             if (!r.ok) throw new Error('Geminiが答えませんでした（' + r.status + '）');
             this._使えた名 = 名;
-            const d = await r.json();
-            const 答え = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || [])
-                .map((p) => p.text || '').join('').trim() || '（答えが空でした）';
-            this._履歴に足す(session, text, 答え);
-            return { ok: true, answer: 答え, sources: [], agent: { 名: 'Gemini（Mac無し）', 絵: '☁' } };
+            return r.json();
         }
         throw new Error('使えるGeminiのモデルが見つかりませんでした（' + (最後 ? 最後.status : '?') + '）');
+    },
+
+    /**
+     * Chromeの手の「次の一手」を決める（Macが無いとき）。Macの リモート作業.py と同じ形で返す。
+     * 画面の文字は、呼ぶ側で伏せてから渡す。ここでも、送らない中身が残っていれば送らない。
+     */
+    async 手の一手(目的, これまで, 画面, 使える作業) {
+        const 問い = [
+            'あなたは、本人のChromeを一手ずつ操作して、目的を果たすアシスタントです。',
+            '次の「使える作業」の中から、次に行う一つだけを選んでください。',
+            '送信・購入・支払い・公開・削除・投稿などは、選んでもよいが、実際に押す前に本人が確かめます。',
+            'ログイン・パスワード・カード番号の入力は、選ばないでください（本人が行います）。',
+            '',
+            '【使える作業】',
+            ...使える作業.map((a) => `・${a.名}: ${a.説}${a.要る ? `（材料: ${a.要る.join('、')}）` : ''}`),
+            '',
+            '【これまでに行ったこと】',
+            (これまで || []).slice(-10).map((x, i) => `${i + 1}. 「${x.作業}」${JSON.stringify(x.材料 || {})} → ${(x.結果 && x.結果.訳) || ''}`).join('\n') || '（まだ何もしていません）',
+            '',
+            '【いまのページ】',
+            String(画面 || '').slice(0, 5000),
+            '部品の番号は、いまのページの「部品」の番号です。押す・打つ・選ぶでは、材料の「番」にこの番号を入れてください。',
+            '',
+            '【目的】',
+            String(目的 || ''),
+            '',
+            '必ず、次のJSON形式だけで答えてください。前置きや説明文は書かないでください。',
+            '・続ける場合: {"作業": "使える作業から選んだ名前", "材料": {…}, "訳": "なぜその作業を選んだか"}',
+            '・目的をすでに果たした、またはこれ以上できることが無い場合: {"終わり": true, "訳": "なぜ終わりか"}',
+        ].join('\n');
+        const 引っかかり = this.送ってよいか(問い);
+        if (引っかかり) return { する: false, 終わり: true, 訳: `${引っかかり}が入っているため、Geminiへは送りませんでした` };
+        const キー = await 端末の金庫.出す('gemini');
+        if (!キー) throw new Error('Geminiのキーが開けません');
+        const d = await this._送る({ contents: [{ role: 'user', parts: [{ text: 問い }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 400 } }, キー);
+        const 文 = this._文にする(d);
+        const 始 = 文.indexOf('{');
+        const 終 = 文.lastIndexOf('}');
+        let 決めた = null;
+        try { 決めた = 始 >= 0 && 終 > 始 ? JSON.parse(文.slice(始, 終 + 1)) : null; } catch { 決めた = null; }
+        if (!決めた || typeof 決めた !== 'object') return { する: false, 終わり: true, 訳: 'Geminiの返事の形が読み取れなかったため、止めます' };
+        if (決めた.終わり) return { する: false, 終わり: true, 訳: 決めた.訳 || '目的を果たしたと判断しました' };
+        const 名 = String(決めた.作業 || '').trim();
+        if (!使える作業.some((a) => a.名 === 名)) return { する: false, 終わり: true, 訳: `Geminiが「${名 || '（空）'}」を選びましたが、使える作業にないため止めます` };
+        // 同じ一手を同じ材料で続けて選んだら、進んでいないとみなして止める（Macの リモート作業.py と同じ）
+        const 直前 = (これまで || [])[(これまで || []).length - 1];
+        if (直前 && 直前.作業 === 名 && JSON.stringify(直前.材料 || {}) === JSON.stringify(決めた.材料 || {})) {
+            return { する: false, 終わり: true, 訳: `「${名}」を同じ材料で続けて選んだため、進んでいないとみなして止めます` };
+        }
+        return { する: true, 作業: 名, 材料: (決めた.材料 && typeof 決めた.材料 === 'object') ? 決めた.材料 : {}, 訳: String(決めた.訳 || '').slice(0, 120) };
     },
 };
 

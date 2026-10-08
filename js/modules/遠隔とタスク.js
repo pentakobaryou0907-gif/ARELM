@@ -424,6 +424,14 @@ async function 自動作業を始める(目的) {
  * 人はどちらが動いているかを意識しなくてよい。
  */
 async function 統合で自動作業を始める(目的) {
+    // このChromeに「ARELMの手」があり、ページの中で済む頼みなら、手で進める（ページの中を読んで、番号で押す・打つ）。
+    // Macが無い公開先では、パソコンそのものの操作はできないので、手があれば手で進める
+    const 公開先 = typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か();
+    if (typeof Chromeの手があるか === 'function' && Chromeの手があるか()
+        && (公開先 || (typeof Chromeで済む頼みか === 'function' && Chromeで済む頼みか(目的)))) {
+        await Chromeの手で自動作業を始める(目的);
+        return;
+    }
     const 見て操作できない理由 = (typeof 画面操作_使えるか確かめる === 'function')
         ? await 画面操作_使えるか確かめる() : '画面を見て操作する仕組みが読み込まれていません';
 

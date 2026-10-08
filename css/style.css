@@ -10220,3 +10220,14 @@ html[data-theme] .chat-bubble.user {
     border: 1px solid var(--tone-line, var(--areglm-border)); background: transparent; color: inherit; cursor: pointer;
 }
 
+
+/* Chromeの手（遠隔操作ページ） */
+.chrome-hand-open { display: flex; gap: 8px; margin: 10px 0 6px; }
+.chrome-hand-open input { flex: 1 1 auto; min-width: 0; padding: 0.5rem 0.7rem; border-radius: 10px; border: 1px solid var(--tone-line, var(--areglm-border)); background: var(--areglm-surface, #fff); color: inherit; }
+.chrome-hand-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.chrome-hand-parts { padding-left: 2.2em; margin: 8px 0; max-height: 420px; overflow: auto; }
+.chrome-hand-parts li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--tone-line, var(--areglm-border)); }
+.chrome-hand-parts li input { flex: 1 1 140px; min-width: 0; padding: 0.3rem 0.5rem; border-radius: 8px; border: 1px solid var(--tone-line, var(--areglm-border)); }
+#chrome-hand-approve[hidden],
+#remote-auto-stop[hidden] { display: none !important; }   /* 止めるボタンの hidden が .btn の display に負け、動いていないのに出ていた */
+#chrome-hand-approve button { margin-top: 6px; }
