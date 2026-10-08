@@ -1,0 +1,958 @@
+/**
+ * メディアスタジオ — 動画制作・画面録画・カメラ録画・録音・スクリーンショット
+ *
+ * すべてブラウザ標準機能のみで動作し、外部サービスへは一切送信しない。
+ *  - 動画制作: canvas.captureStream() + MediaRecorder で実ファイル(.webm)を生成
+ *    スライドは画像だけでなく、保管庫の動画クリップも混ぜられる
+ *    （すでに書き出し済みの3Dレンダリング・ターンテーブル動画などは、
+ *    ここでは「動画」として扱う。この端末に3Dを描画する機能自体は無い）。
+ *    音源は保管庫の音声、またはファイルから選べる（Web Audio API で合成。
+ *    ここも外部へは一切送らない）。
+ *  - 画面録画・カメラ録画: getDisplayMedia() / getUserMedia({video:true})
+ *  - 録音:     getUserMedia({audio:true})
+ * 生成物に電子透かしは一切入らない。
+ *
+ * 「舞台裏デモ」連携（SNSタブ→ここ）:
+ *  SNSタブでAIが作った台本・スライド構成を window.applyMediaStudioBackstage() で
+ *  受け取る。台本はテレプロンプター的に表示するだけ、スライド構成は
+ *  画像を追加した順にテロップとして自動で当てはめる（あとから編集も可）。
+ *  すべて同じページ内でのJS間の受け渡しで、外部へは一切送らない。
+ */
+
+let mediaRecorder = null;
+let mediaChunks = [];
+let mediaStream = null;
+let videoSlides = [];
+/** 「舞台裏デモ」スライド構成のテロップ候補（画像を追加した順に、先頭から当てはめて消費する） */
+let pendingBackstageCaptions = [];
+
+/** 選んだ音源（BGM）。デコード済みのAudioBufferで持つ（尺の計算・繰り返しに要る） */
+let mediaAudioBuffer = null;
+let mediaAudioName = '';
+
+/** 直前に書き出して保管庫に保存できた動画（SNS投稿キューへ添付するのに使う） */
+let lastBuiltVideo = null;
+/** 直前に書き出した動画そのもの（Blob）。YouTubeへそのままアップロードするのに使う。 */
+let lastBuiltVideoBlob = null;
+
+function initMediaStudio() {
+    document.getElementById('media-slide-add')?.addEventListener('change', addVideoSlide);
+    document.getElementById('media-video-build')?.addEventListener('click', buildVideo);
+    document.getElementById('media-slides-clear')?.addEventListener('click', clearVideoSlides);
+
+    document.getElementById('media-lib-refresh-btn')?.addEventListener('click', renderMediaLibraryPicker);
+    document.getElementById('media-audio-file')?.addEventListener('change', handleAudioFileSelect);
+    document.getElementById('media-audio-lib-refresh-btn')?.addEventListener('click', renderMediaAudioLibraryPicker);
+    document.getElementById('media-audio-clear')?.addEventListener('click', clearMediaAudio);
+    document.getElementById('media-video-queue-add-btn')?.addEventListener('click', addBuiltVideoToSnsQueue);
+    document.getElementById('media-youtube-upload-btn')?.addEventListener('click', 直前の動画をYouTubeへ上げる);
+    document.getElementById('media-tiktok-upload-btn')?.addEventListener('click', 直前の動画をTikTokへ上げる);
+
+    document.getElementById('media-screen-btn')?.addEventListener('click', () => startRecording('screen'));
+    document.getElementById('media-camera-btn')?.addEventListener('click', () => startRecording('camera'));
+    document.getElementById('media-audio-btn')?.addEventListener('click', () => startRecording('audio'));
+    document.getElementById('media-stop-btn')?.addEventListener('click', stopRecording);
+    document.getElementById('media-shot-btn')?.addEventListener('click', takeScreenshot);
+    document.getElementById('media-backstage-close')?.addEventListener('click', () => {
+        const panel = document.getElementById('media-backstage-panel');
+        if (panel) panel.hidden = true;
+    });
+
+    bindMediaRange('media-duration', 'media-duration-val', (v) => `${v}秒/枚`);
+    document.getElementById('media-duration')?.addEventListener('input', updateVideoEstimate);
+
+    renderVideoSlides();
+    renderMediaAudioStatus();
+    renderMediaLibraryPicker();
+    renderMediaAudioLibraryPicker();
+    populateMediaVideoPlatformSelect();
+}
+
+/**
+ * SNSタブの「舞台裏デモ」から台本・スライド構成を受け取る。
+ * @param {{mode:'台本', text:string} | {mode:'スライド', フック:string, スライド:Array<{見出し:string,本文:string}>}} payload
+ */
+function applyMediaStudioBackstage(payload) {
+    if (!payload) return;
+
+    if (payload.mode === '台本') {
+        const panel = document.getElementById('media-backstage-panel');
+        const textEl = document.getElementById('media-backstage-text');
+        if (panel && textEl) {
+            textEl.textContent = payload.text || '';
+            panel.hidden = false;
+        }
+        setMediaStatus('台本を受け取りました。読み上げながら「画面を録画」か「カメラで録画」を押してください。');
+        return;
+    }
+
+    if (payload.mode === 'スライド') {
+        pendingBackstageCaptions = [
+            payload['フック'] || '',
+            ...(payload['スライド'] || []).map((s) => [s['見出し'], s['本文']].filter(Boolean).join('　')),
+        ].filter(Boolean);
+
+        const hint = document.getElementById('media-backstage-slide-hint');
+        if (hint) {
+            hint.hidden = false;
+            hint.textContent = `🎬 舞台裏デモのスライド構成を受け取りました（${pendingBackstageCaptions.length}枚ぶん）。`
+                + '下の「画像を追加」または保管庫から工程写真を追加した順に、テロップとして自動で当てはめます（あとから編集できます）。';
+        }
+        setMediaStatus('スライド構成を受け取りました。工程写真を追加してください。');
+    }
+}
+
+function bindMediaRange(rangeId, labelId, fmt) {
+    const r = document.getElementById(rangeId);
+    const l = document.getElementById(labelId);
+    if (!r || !l) return;
+    l.textContent = fmt(r.value);
+    r.addEventListener('input', () => {
+        l.textContent = fmt(r.value);
+    });
+}
+
+/* ---------- 動画制作（画像・保管庫の素材から） ---------- */
+
+function addVideoSlide(e) {
+    const files = Array.from(e.target.files || []);
+    let pending = files.length;
+    if (!pending) return;
+
+    files.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                // 「舞台裏デモ」のスライド構成を受け取っている間は、
+                // 画像を追加した順に自動でテロップを当てはめる。
+                const caption = pendingBackstageCaptions.length ? pendingBackstageCaptions.shift() : '';
+                videoSlides.push({ kind: 'image', el: img, name: file.name, caption });
+                if (--pending === 0) renderVideoSlides();
+            };
+            img.onerror = () => {
+                if (--pending === 0) renderVideoSlides();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+}
+
+/**
+ * 保管庫（写真・動画）から、スライドを追加する。
+ *
+ * 「2Dの画像」も「すでに出来上がっている動画（3Dレンダリングの
+ * ターンテーブル動画なども含む）」も、ここでは同じ「スライド」として扱う。
+ * この端末に3Dを描画する機能自体は無いので、3Dを謳う表現はしない
+ * ——すでに用意された動画・画像を並べるだけ、というのが正直なところ。
+ */
+async function addLibrarySlide(id) {
+    if (typeof 保管庫から取る !== 'function') return;
+    const もの = await 保管庫から取る(id);
+    if (!もの || !もの.中身) {
+        showNotification('保管庫から取り出せませんでした', 'error');
+        return;
+    }
+
+    // 「舞台裏デモ」のスライド構成を受け取っている間は、ここで追加する分にも
+    // 順にテロップを当てはめる（画像追加・保管庫追加のどちらでも消費する）。
+    const caption = pendingBackstageCaptions.length ? pendingBackstageCaptions.shift() : '';
+
+    if (もの.種類 === '画像') {
+        const url = URL.createObjectURL(もの.中身);
+        const img = new Image();
+        await new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = url;
+        });
+        videoSlides.push({ kind: 'image', el: img, name: もの.名前, libId: id, caption });
+    } else if (もの.種類 === '動画') {
+        const url = URL.createObjectURL(もの.中身);
+        const video = document.createElement('video');
+        video.src = url;
+        video.muted = true; // 元の音声は使わない。BGMは別に設定する。
+        video.playsInline = true;
+        await new Promise((resolve) => {
+            video.onloadedmetadata = resolve;
+            video.onerror = resolve;
+        });
+        videoSlides.push({ kind: 'video', el: video, name: もの.名前, libId: id, caption });
+    } else {
+        showNotification('画像・動画だけをスライドに追加できます', 'error');
+        return;
+    }
+
+    renderVideoSlides();
+    showNotification(`「${もの.名前}」をスライドに追加しました`, 'success');
+}
+
+/** 保管庫の画像・動画を一覧して、スライドへの追加ボタンを並べる */
+async function renderMediaLibraryPicker() {
+    const box = document.getElementById('media-lib-picker');
+    if (!box) return;
+    if (typeof 一覧を読む !== 'function') {
+        box.innerHTML = '<p class="hint">保管庫が使えません</p>';
+        return;
+    }
+
+    box.innerHTML = '<p class="hint">読み込み中…</p>';
+    const 一覧 = (await 一覧を読む()).filter((x) => x.種類 === '画像' || x.種類 === '動画');
+    if (!一覧.length) {
+        box.innerHTML = '<p class="hint">保管庫に画像・動画がありません（保管庫ページから入れられます）</p>';
+        return;
+    }
+
+    box.innerHTML = '';
+    一覧.forEach((x) => {
+        const card = document.createElement('div');
+        card.className = 'media-lib-item';
+
+        if (x.種類 === '画像') {
+            const url = URL.createObjectURL(x.中身);
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = x.名前;
+            img.loading = 'lazy';
+            img.onload = () => URL.revokeObjectURL(url);
+            card.appendChild(img);
+        } else {
+            const badge = document.createElement('div');
+            badge.className = 'media-lib-item-icon';
+            badge.textContent = '🎬';
+            card.appendChild(badge);
+        }
+
+        const 名 = document.createElement('div');
+        名.className = 'media-lib-item-name';
+        名.textContent = x.名前;
+        名.title = x.名前;
+        card.appendChild(名);
+
+        const 追加 = document.createElement('button');
+        追加.type = 'button';
+        追加.className = 'btn btn-sm btn-secondary';
+        追加.textContent = '＋ スライドに追加';
+        追加.addEventListener('click', () => addLibrarySlide(x.id));
+        card.appendChild(追加);
+
+        box.appendChild(card);
+    });
+}
+
+function clearVideoSlides() {
+    // 保管庫由来のオブジェクトURLは、使い終わったら解放しておく
+    // （data: URIに対して呼んでも害はない）。
+    videoSlides.forEach((s) => {
+        try { URL.revokeObjectURL(s.el.src); } catch { /* 何もしない */ }
+    });
+    videoSlides = [];
+    renderVideoSlides();
+}
+
+function renderVideoSlides() {
+    const box = document.getElementById('media-slides');
+    if (!box) return;
+    if (!videoSlides.length) {
+        box.innerHTML = '<p class="hint">画像を追加すると、ここに並び順が表示されます。保管庫の画像・動画も追加できます。</p>';
+        updateVideoEstimate();
+        return;
+    }
+    box.innerHTML = videoSlides
+        .map((s, i) => {
+            const 中身 = s.kind === 'video'
+                ? '<div class="media-slide-video">🎬</div>'
+                : `<img src="${AReGLM_SECURITY.escapeAttr(s.el.src)}" alt="">`;
+            return `<figure class="media-slide">
+                ${中身}
+                <figcaption>${i + 1}. ${AReGLM_SECURITY.sanitizeHtml(s.name)}</figcaption>
+                <textarea class="media-slide-caption" data-slide-index="${i}" rows="2" placeholder="テロップ（任意）">${AReGLM_SECURITY.sanitizeHtml(s.caption || '')}</textarea>
+            </figure>`;
+        })
+        .join('');
+    box.querySelectorAll('.media-slide-caption').forEach((el) => {
+        el.addEventListener('input', () => {
+            const i = Number(el.dataset.slideIndex);
+            if (videoSlides[i]) videoSlides[i].caption = el.value;
+        });
+    });
+    updateVideoEstimate();
+}
+
+function updateVideoEstimate() {
+    const el = document.getElementById('media-estimate');
+    if (!el) return;
+    const per = parseFloat(document.getElementById('media-duration')?.value || '3');
+    const total = videoSlides.length * per;
+    el.textContent = videoSlides.length
+        ? `${videoSlides.length}枚 × ${per}秒 = 約${total.toFixed(0)}秒（${Math.floor(total / 60)}分${Math.round(total % 60)}秒）の動画になります`
+        : '';
+}
+
+/* ---------- 音源（BGM） ---------- */
+
+async function handleAudioFileSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await 音源を読み込んで設定する(file, file.name);
+}
+
+async function setMediaAudioFromLibrary(id, name) {
+    if (typeof 保管庫から取る !== 'function') return;
+    const もの = await 保管庫から取る(id);
+    if (!もの || !もの.中身) {
+        showNotification('保管庫から取り出せませんでした', 'error');
+        return;
+    }
+    await 音源を読み込んで設定する(もの.中身, もの.名前 || name);
+}
+
+/**
+ * 音源をデコードして持っておく。
+ *
+ * ファイルのままではなく、AudioBuffer（デコード済み）で持つ。
+ * こうしておくと、書き出すときに「動画の長さより短ければ繰り返し、
+ * 長ければ打ち切る」という調整が、そのつど計算し直さずにできる。
+ */
+async function 音源を読み込んで設定する(blob, name) {
+    setMediaStatus('音源を読み込んでいます…');
+    try {
+        const 配列 = await blob.arrayBuffer();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        mediaAudioBuffer = await ctx.decodeAudioData(配列);
+        ctx.close().catch(() => { /* 閉じられなくても実害はない */ });
+        mediaAudioName = name;
+        renderMediaAudioStatus();
+        showNotification(`音源「${name}」を設定しました`, 'success');
+    } catch (err) {
+        mediaAudioBuffer = null;
+        mediaAudioName = '';
+        renderMediaAudioStatus();
+        showNotification('音源を読み込めませんでした: ' + err.message, 'error');
+    } finally {
+        setMediaStatus('');
+    }
+}
+
+function clearMediaAudio() {
+    mediaAudioBuffer = null;
+    mediaAudioName = '';
+    renderMediaAudioStatus();
+}
+
+function renderMediaAudioStatus() {
+    const el = document.getElementById('media-audio-status');
+    if (!el) return;
+    el.textContent = mediaAudioBuffer
+        ? `🎵 音源: ${mediaAudioName}（動画の長さに合わせて、短ければ繰り返し・長ければ途中で止めます）`
+        : '音源は設定されていません（このままだと無音で書き出します）';
+}
+
+/** 保管庫の音声を一覧して、選ぶボタンを並べる */
+async function renderMediaAudioLibraryPicker() {
+    const box = document.getElementById('media-audio-lib-picker');
+    if (!box) return;
+    if (typeof 一覧を読む !== 'function') {
+        box.innerHTML = '<p class="hint">保管庫が使えません</p>';
+        return;
+    }
+
+    box.innerHTML = '<p class="hint">読み込み中…</p>';
+    const 一覧 = (await 一覧を読む()).filter((x) => x.種類 === '音声');
+    if (!一覧.length) {
+        box.innerHTML = '<p class="hint">保管庫に音声がありません（保管庫ページから入れられます）</p>';
+        return;
+    }
+
+    box.innerHTML = '';
+    一覧.forEach((x) => {
+        const チップ = document.createElement('button');
+        チップ.type = 'button';
+        チップ.className = 'btn btn-sm btn-secondary';
+        チップ.textContent = `🎵 ${x.名前}`;
+        チップ.addEventListener('click', () => setMediaAudioFromLibrary(x.id, x.名前));
+        box.appendChild(チップ);
+    });
+}
+
+/**
+ * 音声トラックを、録画中のstreamに混ぜる。
+ *
+ * canvas.captureStream() は映像だけしか持たない。
+ * ここでデコード済みの音源から音声トラックを作り、streamに足す。
+ * 録画が終わったら呼ぶための「後片付け」関数を返す。
+ */
+function 音声トラックを混ぜる(stream, audioBuffer, 総尺ms) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const dest = ctx.createMediaStreamDestination();
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    // 動画より短い音源は繰り返す。長い音源は動画の尺で止める。
+    source.loop = audioBuffer.duration * 1000 < 総尺ms;
+    source.connect(dest);
+    source.start();
+    source.stop(ctx.currentTime + 総尺ms / 1000);
+
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+
+    return () => {
+        try { source.stop(); } catch { /* すでに止まっていてもよい */ }
+        ctx.close().catch(() => { /* 閉じられなくても実害はない */ });
+    };
+}
+
+/**
+ * 画像・動画クリップを順に描画しながら canvas を録画して動画ファイルを作る。
+ * 長さの上限は設けていない（枚数×秒数のぶんだけ生成される）。
+ */
+async function buildVideo() {
+    if (!videoSlides.length) {
+        showNotification('先に画像を追加してください', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('media-video-build');
+    const per = parseFloat(document.getElementById('media-duration')?.value || '3') * 1000;
+    const size = (document.getElementById('media-video-size')?.value || '1080x1080').split('x').map(Number);
+    const fade = document.getElementById('media-fade')?.checked;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size[0];
+    canvas.height = size[1];
+    const ctx = canvas.getContext('2d');
+
+    const stream = canvas.captureStream(30);
+    const mime = pickVideoMime();
+    if (!mime) {
+        showNotification('このブラウザは動画の書き出しに対応していません（Chrome推奨）', 'error');
+        return;
+    }
+
+    const 総尺ms = videoSlides.length * per;
+    let 音声後片付け = null;
+    if (mediaAudioBuffer) {
+        try {
+            音声後片付け = 音声トラックを混ぜる(stream, mediaAudioBuffer, 総尺ms);
+        } catch (e) {
+            console.warn('音源を混ぜられませんでした:', e.message);
+        }
+    }
+
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+    const chunks = [];
+    rec.ondataavailable = (ev) => {
+        if (ev.data.size) chunks.push(ev.data);
+    };
+
+    const done = new Promise((resolve) => {
+        rec.onstop = () => resolve(new Blob(chunks, { type: mime }));
+    });
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '書き出し中…';
+    }
+    setMediaStatus(mediaAudioBuffer ? '動画を書き出しています…（音源あり）' : '動画を書き出しています…');
+
+    rec.start();
+
+    for (let i = 0; i < videoSlides.length; i++) {
+        await renderSlideFor(ctx, canvas, videoSlides[i], per, fade);
+    }
+
+    rec.stop();
+    const blob = await done;
+    if (音声後片付け) 音声後片付け();
+
+    downloadBlob(blob, `areglm_movie_${Date.now()}.webm`);
+    setMediaStatus(`書き出し完了（${(blob.size / 1024 / 1024).toFixed(1)}MB）`);
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = '動画を書き出す';
+    }
+    if (window.logActivity) {
+        logActivity('動画を書き出し', {
+            category: 'media', 素材数: videoSlides.length, 音源あり: !!mediaAudioBuffer,
+        });
+    }
+
+    lastBuiltVideoBlob = blob;
+    await 動画を保管庫に保存してキュー準備(blob, mime);
+}
+
+/** 1枚のスライドを指定時間ぶん描画する（画像・動画のどちらでも） */
+function renderSlideFor(ctx, canvas, slide, durationMs, fade) {
+    if (slide.kind === 'video') return renderVideoSlideFor(ctx, canvas, slide.el, durationMs, fade, slide.caption);
+    return renderImageSlideFor(ctx, canvas, slide.el, durationMs, fade, slide.caption);
+}
+
+/** 1枚の画像を指定時間ぶん描画する（任意でフェード・テロップ） */
+function renderImageSlideFor(ctx, canvas, img, durationMs, fade, caption) {
+    return new Promise((resolve) => {
+        const start = performance.now();
+        const fadeMs = fade ? Math.min(400, durationMs / 3) : 0;
+
+        const draw = (now) => {
+            const elapsed = now - start;
+            if (elapsed >= durationMs) return resolve();
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let alpha = 1;
+            if (fadeMs) {
+                if (elapsed < fadeMs) alpha = elapsed / fadeMs;
+                else if (elapsed > durationMs - fadeMs) alpha = (durationMs - elapsed) / fadeMs;
+            }
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+            // アスペクト比を保って中央に収める
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            ctx.globalAlpha = 1;
+
+            if (caption) drawCaption(ctx, canvas, caption);
+
+            requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+    });
+}
+
+/**
+ * 1本の動画クリップを、指定時間ぶん再生しながら描画する。
+ *
+ * クリップ自身の音声は使わない（muted）。BGMは別に混ぜてある。
+ * クリップがスライドの持ち時間より短ければ繰り返し、
+ * 長ければ持ち時間で打ち切る。
+ */
+function renderVideoSlideFor(ctx, canvas, video, durationMs, fade, caption) {
+    return new Promise((resolve) => {
+        video.currentTime = 0;
+        video.loop = true;
+        let 開始済み = false;
+        const start = performance.now();
+        const fadeMs = fade ? Math.min(400, durationMs / 3) : 0;
+
+        const 終える = () => {
+            video.pause();
+            video.loop = false;
+            resolve();
+        };
+
+        const draw = (now) => {
+            const elapsed = now - start;
+            if (elapsed >= durationMs) return 終える();
+
+            if (!開始済み) {
+                video.play().catch(() => { /* 自動再生できなくても、描画は続ける */ });
+                開始済み = true;
+            }
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let alpha = 1;
+            if (fadeMs) {
+                if (elapsed < fadeMs) alpha = elapsed / fadeMs;
+                else if (elapsed > durationMs - fadeMs) alpha = (durationMs - elapsed) / fadeMs;
+            }
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+            const vw = video.videoWidth || canvas.width;
+            const vh = video.videoHeight || canvas.height;
+            const scale = Math.min(canvas.width / vw, canvas.height / vh);
+            const w = vw * scale;
+            const h = vh * scale;
+            ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            ctx.globalAlpha = 1;
+
+            if (caption) drawCaption(ctx, canvas, caption);
+
+            requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+    });
+}
+
+/** 画像・動画の下側に、テロップ（帯＋文字）を重ねて描く。長い文は自動で折り返す。 */
+function drawCaption(ctx, canvas, caption) {
+    const fontSize = Math.max(20, Math.round(canvas.width / 24));
+    ctx.font = `bold ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+
+    const maxWidth = canvas.width * 0.86;
+    const 行たち = [];
+    let 現在行 = '';
+    for (const 文字 of caption) {
+        const 候補 = 現在行 + 文字;
+        if (ctx.measureText(候補).width > maxWidth && 現在行) {
+            行たち.push(現在行);
+            現在行 = 文字;
+        } else {
+            現在行 = 候補;
+        }
+    }
+    if (現在行) 行たち.push(現在行);
+    const 表示行 = 行たち.slice(0, 3);
+
+    const lineHeight = fontSize * 1.35;
+    const bandHeight = 表示行.length * lineHeight + fontSize * 0.8;
+    const bandY = canvas.height - bandHeight;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(0, bandY, canvas.width, bandHeight);
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    表示行.forEach((行, i) => {
+        ctx.fillText(行, canvas.width / 2, bandY + fontSize * 0.7 + i * lineHeight);
+    });
+    ctx.textAlign = 'left';
+}
+
+function pickVideoMime() {
+    const candidates = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+    ];
+    return candidates.find((m) => MediaRecorder.isTypeSupported(m)) || null;
+}
+
+/**
+ * 書き出した動画を保管庫にも保存し、
+ * 「このままSNS投稿キューに追加する」ミニフォームを出す。
+ *
+ * 保管庫に保存できれば、あとで探し直さなくて済むように
+ * 投稿キューの項目からIDで指し示せるようにする。
+ * 保存できなくても、キャプションだけでキューに追加できるようにしておく
+ * （動画はダウンロード済みのファイルを本人が手で使えばよい）。
+ */
+async function 動画を保管庫に保存してキュー準備(blob, mime) {
+    const form = document.getElementById('media-video-queue-form');
+    lastBuiltVideo = null;
+
+    let 保存できた = false;
+    let 保存の訳 = '';
+
+    if (typeof 保管庫にしまう === 'function') {
+        const 名 = `areglm_movie_${Date.now()}.webm`;
+        const 覚え書き = `メディアスタジオで作成（素材${videoSlides.length}点${mediaAudioBuffer ? '・音源あり' : ''}）`;
+        const file = new File([blob], 名, { type: mime });
+        const r = await 保管庫にしまう(file, 覚え書き);
+        保存できた = !!r.ok;
+        保存の訳 = r.訳;
+        if (r.ok) {
+            lastBuiltVideo = { id: r.id, name: 名 };
+            if (typeof renderLibrary === 'function') renderLibrary();
+            renderMediaLibraryPicker();
+        }
+    }
+
+    if (!form) return;
+    form.hidden = false;
+    populateMediaVideoPlatformSelect();
+
+    const 注記 = document.getElementById('media-video-queue-note');
+    if (注記) {
+        注記.textContent = 保存できた
+            ? '動画を保管庫に保存しました。このままSNS投稿キューに追加できます。'
+            : `保管庫には保存できませんでした（${保存の訳 || '不明なエラー'}）。`
+                + 'ダウンロードしたファイルを手動で使ってください。動画なしでキャプションだけキューに追加することもできます。';
+    }
+}
+
+/**
+ * 直前に書き出した動画を、YouTube公式Data API v3でそのままアップロードする。
+ * 既定は「限定公開」（本人がリンクを知っていれば見られる）にし、
+ * 誤って全世界公開になることを避ける。
+ */
+async function 直前の動画をYouTubeへ上げる() {
+    const btn = document.getElementById('media-youtube-upload-btn');
+    const 状態 = document.getElementById('media-youtube-upload-status');
+
+    if (!lastBuiltVideoBlob) {
+        showNotification('先に動画を書き出してください', 'error');
+        return;
+    }
+    if (!window.AReGLM_YOUTUBE || !(await AReGLM_YOUTUBE.isReady())) {
+        showNotification('Googleと連携していません → 設定（⚙）のGoogle連携から', 'error');
+        return;
+    }
+
+    const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'ARELM');
+    if (!policy.ok) {
+        showNotification(policy.message, 'error');
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (状態) 状態.textContent = 'YouTubeへアップロードしています…（動画の大きさによっては数分かかります）';
+
+    try {
+        const タイトル = caption ? caption.split('\n')[0].slice(0, 90) : `ARELM ${new Date().toLocaleDateString('ja-JP')}`;
+        const 結果 = await AReGLM_YOUTUBE.upload(lastBuiltVideoBlob, タイトル, caption, 'unlisted');
+        if (状態) {
+            状態.innerHTML = `✅ アップロードしました（限定公開）: <a href="${AReGLM_SECURITY.escapeAttr(結果.url)}" target="_blank" rel="noopener">${AReGLM_SECURITY.sanitizeHtml(結果.url)}</a>`;
+        }
+        showNotification('YouTubeへアップロードしました', 'success');
+        if (window.logActivity) logActivity('YouTubeへ動画をアップロード', { category: 'media' });
+    } catch (e) {
+        if (状態) 状態.textContent = 'アップロードできませんでした: ' + e.message;
+        showNotification('YouTubeへのアップロードに失敗しました: ' + e.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/**
+ * 直前に書き出した動画を、TikTok公式Content Posting APIでアップロードする。
+ * 既定は「自分にだけ見える」にし、誤って公開になることを避ける
+ * （審査を受けていないアプリは既定でこの範囲までという制約もある）。
+ */
+async function 直前の動画をTikTokへ上げる() {
+    const btn = document.getElementById('media-tiktok-upload-btn');
+    const 状態 = document.getElementById('media-tiktok-upload-status');
+
+    if (!lastBuiltVideoBlob) {
+        showNotification('先に動画を書き出してください', 'error');
+        return;
+    }
+    if (!window.AReGLM_TIKTOK || !(await AReGLM_TIKTOK.isConnected())) {
+        showNotification('TikTokと連携していません → 設定（⚙）のTikTok連携から', 'error');
+        return;
+    }
+
+    const caption = document.getElementById('media-video-caption')?.value?.trim() || '';
+    const policy = AReGLM_CONTENT_POLICY.validate(caption || 'ARELM');
+    if (!policy.ok) {
+        showNotification(policy.message, 'error');
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (状態) 状態.textContent = 'TikTokへアップロードしています…';
+
+    try {
+        const publishId = await AReGLM_TIKTOK.publishVideo(lastBuiltVideoBlob, caption, 'SELF_ONLY');
+        if (状態) 状態.textContent = `✅ アップロードしました（自分にだけ見える設定）。処理番号: ${publishId}`;
+        showNotification('TikTokへアップロードしました', 'success');
+        if (window.logActivity) logActivity('TikTokへ動画をアップロード', { category: 'media' });
+    } catch (e) {
+        if (状態) 状態.textContent = 'アップロードできませんでした: ' + e.message;
+        showNotification('TikTokへのアップロードに失敗しました: ' + e.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+function populateMediaVideoPlatformSelect() {
+    const sel = document.getElementById('media-video-platform');
+    if (!sel || !window.AREGLM_PROFILE) return;
+    sel.innerHTML = Object.entries(AREGLM_PROFILE.sns)
+        .map(([id, s]) => `<option value="${id}">${AReGLM_SECURITY.escapeAttr(s.name)}</option>`)
+        .join('');
+}
+
+/**
+ * 直前に作った動画（保管庫に保存できていれば、そのID）を、
+ * キャプションと一緒にSNS投稿キューへ追加する。
+ *
+ * 既存の handleSnsPost（sns.js）と同じ形でキューに積むので、
+ * 「投稿キュー」の一覧・「出先から投稿する」にそのまま乗る。
+ */
+function addBuiltVideoToSnsQueue() {
+    const platformSel = document.getElementById('media-video-platform');
+    const captionBox = document.getElementById('media-video-caption');
+    const platform = platformSel?.value;
+    const caption = captionBox?.value?.trim();
+
+    if (!platform || !caption) {
+        showNotification('プラットフォームとキャプションを入力してください', 'error');
+        return;
+    }
+
+    const policy = AReGLM_CONTENT_POLICY.validate(caption);
+    if (!policy.ok) {
+        showNotification(policy.message, 'error');
+        return;
+    }
+
+    const queue = JSON.parse(localStorage.getItem('areglm_sns_queue') || '[]');
+    queue.push({
+        id: 'sns_' + Date.now(),
+        platform,
+        caption,
+        profileUrl: AREGLM_PROFILE.sns[platform]?.url,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        動画保管庫id: lastBuiltVideo?.id || null,
+        動画名: lastBuiltVideo?.name || null,
+    });
+    localStorage.setItem('areglm_sns_queue', JSON.stringify(queue));
+
+    if (captionBox) captionBox.value = '';
+    if (typeof loadSnsData === 'function') loadSnsData();
+    showNotification(
+        lastBuiltVideo ? 'SNS投稿キューに追加しました（動画つき）' : 'SNS投稿キューに追加しました',
+        'success'
+    );
+    if (window.logActivity) {
+        logActivity(`${AREGLM_PROFILE.sns[platform]?.name || platform} 向けの投稿をキューへ追加`, { category: 'sns' });
+    }
+}
+
+/* ---------- 画面録画・録音 ---------- */
+
+async function startRecording(kind) {
+    if (mediaRecorder) {
+        showNotification('すでに録画・録音中です', 'info');
+        return;
+    }
+
+    try {
+        if (kind === 'screen') {
+            mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } else if (kind === 'camera') {
+            // 舞台裏デモの顔出し録画用。台本を読み上げながら自分の姿を映せるよう、
+            // 録画中はプレビューを画面に出す（音声・映像とも保存先はローカルのみ）。
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } else {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+    } catch (err) {
+        showNotification('開始できませんでした: ' + err.message, 'error');
+        return;
+    }
+
+    const mime = (kind === 'screen' || kind === 'camera') ? pickVideoMime() : pickAudioMime();
+    if (!mime) {
+        showNotification('このブラウザは録画・録音の書き出しに対応していません', 'error');
+        stopTracks();
+        return;
+    }
+
+    const preview = document.getElementById('media-camera-preview');
+    if (kind === 'camera' && preview) {
+        preview.srcObject = mediaStream;
+        preview.hidden = false;
+    }
+
+    mediaChunks = [];
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: mime });
+    mediaRecorder.ondataavailable = (ev) => {
+        if (ev.data.size) mediaChunks.push(ev.data);
+    };
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(mediaChunks, { type: mime });
+        const ext = (kind === 'screen' || kind === 'camera') ? 'webm' : mime.includes('ogg') ? 'ogg' : 'webm';
+        downloadBlob(blob, `areglm_${kind}_${Date.now()}.${ext}`);
+        setMediaStatus(`${MEDIA_KIND_LABEL[kind] || kind}を保存しました（${(blob.size / 1024 / 1024).toFixed(1)}MB）`);
+        stopTracks();
+        if (preview) {
+            preview.hidden = true;
+            preview.srcObject = null;
+        }
+        mediaRecorder = null;
+        toggleRecordingUi(false);
+        if (window.logActivity) logActivity(`${MEDIA_KIND_LABEL[kind] || kind}を保存`, { category: 'media' });
+    };
+
+    // ユーザーが共有停止ボタンを押した場合にも確実に止める
+    mediaStream.getTracks().forEach((t) => {
+        t.addEventListener('ended', () => {
+            if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+        });
+    });
+
+    mediaRecorder.start();
+    toggleRecordingUi(true);
+    setMediaStatus(`${MEDIA_KIND_LABEL[kind] || kind}中…`);
+}
+
+const MEDIA_KIND_LABEL = { screen: '画面録画', camera: 'カメラ録画', audio: '録音' };
+
+function pickAudioMime() {
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    return candidates.find((m) => MediaRecorder.isTypeSupported(m)) || null;
+}
+
+function stopRecording() {
+    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+}
+
+function stopTracks() {
+    mediaStream?.getTracks().forEach((t) => t.stop());
+    mediaStream = null;
+}
+
+function toggleRecordingUi(recording) {
+    const stopBtn = document.getElementById('media-stop-btn');
+    if (stopBtn) stopBtn.disabled = !recording;
+    ['media-screen-btn', 'media-camera-btn', 'media-audio-btn'].forEach((id) => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = recording;
+    });
+}
+
+/* ---------- スクリーンショット ---------- */
+
+async function takeScreenshot() {
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const track = stream.getVideoTracks()[0];
+
+        // 1フレーム描画してから取り込む
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        await video.play();
+        await new Promise((r) => setTimeout(r, 300));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+
+        track.stop();
+        video.srcObject = null;
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                downloadBlob(blob, `areglm_screenshot_${Date.now()}.png`);
+                setMediaStatus('スクリーンショットを保存しました');
+                if (window.logActivity) logActivity('スクリーンショットを保存', { category: 'media' });
+            }
+        }, 'image/png');
+    } catch (err) {
+        showNotification('取得できませんでした: ' + err.message, 'error');
+    }
+}
+
+/* ---------- 共通 ---------- */
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function setMediaStatus(msg) {
+    const el = document.getElementById('media-status');
+    if (el) el.textContent = msg;
+}
+
+window.initMediaStudio = initMediaStudio;
+window.updateVideoEstimate = updateVideoEstimate;
+window.applyMediaStudioBackstage = applyMediaStudioBackstage;
