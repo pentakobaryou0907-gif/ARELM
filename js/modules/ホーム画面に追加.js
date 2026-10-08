@@ -46,7 +46,12 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
         return ['Safariなら、メニューの「ファイル」→「Dockに追加…」', 'Chromeなら、右上「⋮」→「保存して共有」→「ショートカットを作成…」→「ウィンドウとして開く」にチェック'];
     }
     if (端末 === 'Windows') {
-        return ['Chromeの右上「⋮」→「保存して共有」→「ショートカットを作成…」', '「ウィンドウとして開く」にチェックして「作成」', 'Edgeなら、右上「…」→「アプリ」→「このサイトをアプリとしてインストール」'];
+        return [
+            'Chromeの右上「⋮」→「保存と共有」（または「キャスト、保存、共有」）→「ショートカットを作成…」',
+            '名前（ARELM）を確かめて、「ウィンドウとして開く」にチェックを入れて「作成」',
+            'デスクトップに「ARELM」のアイコンができます。次からは、これをダブルクリックするだけで開きます',
+            'Edgeなら、右上「…」→「アプリ」→「このサイトをアプリとしてインストール」',
+        ];
     }
     return ['ブラウザのメニューから「ホーム画面に追加」（またはショートカットの作成）を選んでください'];
 }
@@ -57,7 +62,10 @@ function ホーム画面への追加を案内する() {
         if (localStorage.getItem(追加案内の鍵) === '1') return;
     } catch { return; }
     const 端末 = ホーム画面用の端末();
-    if (端末 !== 'iPad' && 端末 !== 'iPhone') return;           // パソコン・Androidは、設定画面の手順だけにする
+    // Macには、本物のアプリ（AReGLM.app）がある。Androidは、設定画面の手順だけにする。
+    // Windowsは、遠くから入れられない（ファイルの実行は、そのパソコンで行う必要がある）うえに、
+    // 以前は案内が設定の奥にしか無く、「このパソコンにアプリが無い」と気づけなかった。
+    if (端末 !== 'iPad' && 端末 !== 'iPhone' && 端末 !== 'Windows') return;
     if (ホーム画面のアプリとして開いているか()) return;
     if (document.getElementById('main-app')?.style.display === 'none') return;
     // ほかの案内（指紋の登録・続きから）と重ならないよう、先に出ていれば待つ
@@ -74,7 +82,9 @@ function ホーム画面への追加を案内する() {
         + 'background:#fff;color:#111;border-radius:12px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.3)';
     const 題 = document.createElement('p');
     題.style.cssText = 'margin:0 0 6px;font-weight:600';
-    題.textContent = `${端末}のホーム画面に、ARELMのアイコンを置けます`;
+    題.textContent = 端末 === 'Windows'
+        ? 'このパソコンのデスクトップに、ARELMのアイコンを置けます（4回のクリックです）'
+        : `${端末}のホーム画面に、ARELMのアイコンを置けます`;
     const 手順 = document.createElement('ol');
     手順.style.cssText = 'margin:0 0 10px;padding-left:1.3em;font-size:.9rem';
     ホーム画面への手順(端末).forEach((t) => { const li = document.createElement('li'); li.textContent = t; 手順.appendChild(li); });
@@ -91,7 +101,18 @@ function ホーム画面への追加を案内する() {
     もう.textContent = 'もう出さない';
     もう.addEventListener('click', () => { try { localStorage.setItem(追加案内の鍵, '1'); } catch { /* 無視 */ } 枠.remove(); });
     並び.append(あとで, もう);
-    枠.append(題, 手順, 並び);
+    枠.append(題, 手順);
+    if (端末 === 'Windows') {
+        // 別の方法: ファイルで入れる（ブラウザのメニューが使えないとき）
+        const 別 = document.createElement('p');
+        別.style.cssText = 'margin:0 0 10px;font-size:.8rem;color:#555';
+        const a = document.createElement('a');
+        a.href = '/windows-kit.zip';
+        a.textContent = 'Windows用のアプリ（ZIP）';
+        別.append('メニューが見つからないときは、', a, 'をダウンロードして、「すべて展開」→「ARELM-install.bat」を実行しても、同じアイコンができます。');
+        枠.appendChild(別);
+    }
+    枠.appendChild(並び);
     document.body.appendChild(枠);
 }
 
