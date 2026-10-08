@@ -380,6 +380,29 @@ app.get('/windows-kit.zip', (req, res) => {
     }
 });
 
+/**
+ * Chromeの拡張機能「ARELMの手」を、ZIPにして渡す（Mac・Windows の Chrome に入れる）。
+ * 公開先では pages.yml が同じZIPを置く。中身は arelm-hand/ の決まったファイルだけ（鍵・データは入らない）。
+ */
+const 手のファイル = ['manifest.json', 'background.js', 'bridge.js', 'popup.html', 'popup.js', 'icon.png'];
+app.get('/arelm-hand.zip', (req, res) => {
+    try {
+        const 置き場 = path.join(__dirname, '..', 'arelm-hand');
+        const zip = require('./Windows用キット').zipにする(手のファイル.map((f) => ({
+            名前: 'arelm-hand/' + f,
+            中身: fs.readFileSync(path.join(置き場, f)),
+        })));
+        res.set({
+            'Content-Type': 'application/zip',
+            'Content-Disposition': 'attachment; filename="arelm-hand.zip"',
+            'Cache-Control': 'no-store',
+        });
+        res.send(zip);
+    } catch (e) {
+        res.status(500).type('text/plain; charset=utf-8').end('作れませんでした: ' + e.message);
+    }
+});
+
 // 永久の記憶（読むだけ。ログイン中の本人だけ）
 app.get('/api/memory/status', (req, res) => {
     if (!本人だけ(req, res)) return;
@@ -1378,6 +1401,32 @@ app.post('/api/remote-task/step', async (req, res) => {
         訳: 決めた['訳'],
         結果,
     });
+});
+
+/**
+ * Chromeの手 ― 次の一手を、この端末の中のAIに決めてもらう。
+ *
+ * 動かすのは、画面の側（このChromeに入れた拡張機能「ARELMの手」）。
+ * /api/remote-task/step と違い、ここでは何も動かさず、決めた一手を返すだけ。
+ * 画面（いまのページのまとめ）は、拡張機能が読んだもの。この端末の中のAIにだけ渡す。
+ */
+app.post('/api/hand/step', async (req, res) => {
+    const b = req.body || {};
+    const 目的 = String(b['目的'] || '').trim().slice(0, 500);
+    if (!目的) return res.status(400).json({ する: false, 訳: '目的が要ります' });
+    const これまで = Array.isArray(b['これまで']) ? b['これまで'].slice(-15) : [];
+    const 使える作業 = Array.isArray(b['使える作業']) ? b['使える作業'].slice(0, 20) : [];
+    const 画面 = String(b['画面'] || '').slice(0, 6000);
+    try {
+        const r = await fetch(`http://127.0.0.1:${AI_ENGINE_PORT}/remote-task/step`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 目的, これまで, 使える作業, 画面, 上限: 15 }),
+        });
+        res.json(await r.json());
+    } catch (e) {
+        res.json({ する: false, 終わり: true, 訳: '考える仕組み（この端末の中のAI）に繋がりませんでした: ' + e.message });
+    }
 });
 
 /**

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ARELMの手",
+  "version": "1.0.0",
+  "description": "ARELMから、このChromeのタブを読む・押す・打つ（本人の指示で、一手ずつ）。読んだ中身を外へ送りません。",
+  "permissions": ["tabs", "scripting", "storage", "debugger"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://pentakobaryou0907-gif.github.io/ARELM/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": { "default_title": "ARELMの手", "default_popup": "popup.html", "default_icon": "icon.png" },
+  "icons": { "16": "icon.png", "48": "icon.png", "128": "icon.png" }
+}

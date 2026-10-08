@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ARELMの手</title>
+<style>
+  body { font: 14px/1.5 -apple-system, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; margin: 0; padding: 12px 14px; width: 320px; color: #222; background: #fbf8f2; }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  .状態 { padding: 8px 10px; border-radius: 8px; margin: 6px 0 10px; font-weight: 600; }
+  .動く { background: #e7f5ec; color: #17603a; }
+  .止め { background: #fde8e8; color: #9b1c1c; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #c9bfae; background: #fff; cursor: pointer; }
+  button.主 { background: #b4703c; color: #fff; border-color: #b4703c; }
+  h2 { font-size: 13px; margin: 14px 0 4px; color: #555; }
+  ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow: auto; }
+  li { font-size: 12px; padding: 3px 0; border-bottom: 1px solid #eee5d6; display: flex; justify-content: space-between; gap: 6px; }
+  .小 { font-size: 12px; color: #666; }
+  input { font: inherit; width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 8px; border: 1px solid #c9bfae; margin: 4px 0; }
+</style>
+</head>
+<body>
+  <h1>🖐 ARELMの手</h1>
+  <div id="状態" class="状態">読み込み中…</div>
+  <button id="切り替え" class="主">止める</button>
+  <p class="小">ARELMの画面からの頼みで、このChromeのタブを読む・押す・打つ。読んだ中身を外へ送りません。送信・購入・公開・削除などの前は、ARELMの画面で必ず確かめます。</p>
+
+  <h2>最近したこと</h2>
+  <ul id="記録"></ul>
+
+  <h2>ARELMの入り口</h2>
+  <ul id="入り口"></ul>
+  <p class="小">Macの住所（例: http://192.168.1.9:8080）や Tailscale の住所でARELMを開くときは、ここに足します。</p>
+  <input id="住所" placeholder="http://192.168.1.9:8080" autocomplete="off">
+  <button id="足す">足す</button>
+  <p id="知らせ" class="小"></p>
+  <script src="popup.js"></script>
+</body>
+</html>

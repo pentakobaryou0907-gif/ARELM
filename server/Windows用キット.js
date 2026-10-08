@@ -107,4 +107,4 @@ function キットを作る(ポート, 番号たち, 報告の印 = '') {
     return zipにする(項目);
 }
 
-module.exports = { キットを作る, Macの名前 };
+module.exports = { キットを作る, Macの名前, zipにする };
