@@ -138,6 +138,7 @@ function switchHubTab(tab) {
     // 表を開いたときに、その場で描き直す。
     if (tab === 'sheet' && typeof renderSheet === 'function') renderSheet();
     if (tab === 'preorder' && typeof renderPreorders === 'function') renderPreorders();
+    if (tab === 'profit' && typeof render利益の表 === 'function') render利益の表();
 }
 
 function getSuzuriProductsOnly() {
@@ -285,7 +286,9 @@ function updateEcStats() {
     // SUZURI から来たものだけを数えていたので、
     // 手で登録した商品がいくらあっても 0 のままだった。
     const products = JSON.parse(localStorage.getItem('products') || '[]');
-    const sales = JSON.parse(localStorage.getItem('areglm_sales') || '[]');
+    // 「売上登録」は sales に残り、取り込んだ売上は areglm_sales に残る。
+    // 以前は areglm_sales だけを数えていて、画面で登録した売上が合計に出ていなかった。
+    const sales = JSON.parse(localStorage.getItem('sales') || '[]').concat(JSON.parse(localStorage.getItem('areglm_sales') || '[]'));
     setHubText('hub-total-products', products.length);
     setHubText('hub-total-sales', `¥${sales.reduce((s, x) => s + (x.total || 0), 0).toLocaleString('ja-JP')}`);
 

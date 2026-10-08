@@ -987,13 +987,9 @@ function displaySalesHistory(salesHistory) {
     salesHistory.forEach(sale => {
         const row = document.createElement('tr');
         const date = new Date(sale.date).toLocaleDateString('ja-JP');
-        row.innerHTML = `
-            <td>${date}</td>
-            <td>${sale.product_name}</td>
-            <td>${sale.quantity}</td>
-            <td>¥${sale.price.toLocaleString('ja-JP')}</td>
-            <td>¥${sale.total.toLocaleString('ja-JP')}</td>
-        `;
+        // 商品名は本人や取り込みが入れた文字なので、HTMLとして解釈させない（textContentで入れる）
+        [date, sale.product_name, sale.quantity, `¥${Number(sale.price || 0).toLocaleString('ja-JP')}`, `¥${Number(sale.total || 0).toLocaleString('ja-JP')}`]
+            .forEach((v) => { const td = document.createElement('td'); td.textContent = v == null ? '' : String(v); row.appendChild(td); });
         tbody.appendChild(row);
     });
     
@@ -1358,6 +1354,8 @@ function handleSaleSubmit(e) {
         const sales = JSON.parse(localStorage.getItem('sales') || '[]');
         const sale = {
             date: new Date().toISOString(),
+            // 名前だけだと、同じ名前の商品や名前を変えたときに、利益の表で取り違える
+            product_sku: product.sku,
             product_name: product.name,
             quantity: data.quantity,
             price: data.price,

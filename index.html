@@ -1548,6 +1548,7 @@
                         <button type="button" class="hub-tab-btn" data-hub-tab="sales" data-hub-group="money">売上</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="sheet" data-hub-group="money">表計算</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="preorder" data-hub-group="money">受注</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="profit" data-hub-group="money">利益</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="sync" data-hub-group="link">同期履歴</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="autosort" data-hub-group="link">自動仕分け</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="customers" data-hub-group="link">取引先</button>
@@ -1598,6 +1599,11 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="hub-panel-profit" class="hub-panel">
+                        <h3>利益（売上・手数料・原価・利益）</h3>
+                        <div id="profit-panel"></div>
                     </div>
 
                     <div id="hub-panel-sync" class="hub-panel">
@@ -3489,6 +3495,7 @@
     <script src="js/modules/画面を整える.js" defer></script>
     <script src="js/modules/遠隔投稿.js" defer></script>
     <script src="js/modules/inventory-hub.js" defer></script>
+    <script src="js/modules/利益の表.js" defer></script>
     <script src="js/modules/product-dev.js" defer></script>
     <script src="js/modules/oem-techpack-deck.js" defer></script>
     <script src="js/modules/商品自動作成.js" defer></script>
