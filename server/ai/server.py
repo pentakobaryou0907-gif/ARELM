@@ -730,6 +730,8 @@ class Handler(BaseHTTPRequestHandler):
                         目的,
                         data.get('これまで') or [],
                         data.get('使える作業') or [],
+                        画面=data.get('画面'),
+                        上限=data.get('上限'),
                     )
                 return self._send(200, 決めた)
 

@@ -817,6 +817,62 @@ def test_safe_write():
         check(f'保存: {ファイル} は、固定名の一時ファイルを使わない', "+ '.tmp'" not in 中身 and '安全に書く.書く' in 中身)
 
 
+def test_remote_step():
+    """リモート作業（Chromeの手を含む）: 次の一手の決め方。LLMは置き換えて、決まりだけを試す"""
+    import リモート作業
+    import ローカルLLM
+    元 = ローカルLLM.聞く
+    聞いた = []
+    答え = {'文': ''}
+
+    def 偽の聞く(文, *a, **k):
+        聞いた.append(文)
+        return 答え['文']
+
+    ローカルLLM.聞く = 偽の聞く
+    try:
+        手 = [{'名': '開く', '説': 'ページを開く', '要る': ['道']},
+             {'名': '押す', '説': '番号の部品を押す', '要る': ['番']},
+             {'名': '打つ', '説': '番号の欄に打つ', '要る': ['番', '文']}]
+        画面 = '題: 試験の店\n部品:\n1. [入力欄] 商品を検索\n2. [ボタン] 検索'
+
+        答え['文'] = '{"作業": "打つ", "材料": {"番": 1, "文": "Tシャツ", "本人が許した": true}, "訳": "検索欄に打つ"}'
+        r = リモート作業.一手を決める('Tシャツを探す', [], 手, 画面=画面)
+        check('手: いまのページを、AIへの問いに入れる', '【いまのページ】' in 聞いた[-1] and '商品を検索' in 聞いた[-1])
+        check('手: 番号で選んだ一手を返す', r.get('する') and r.get('作業') == '打つ' and r.get('材料', {}).get('番') == 1)
+        check('手: AIが付けた「本人が許した」の印は外す', '本人が許した' not in r.get('材料', {}))
+
+        r = リモート作業.一手を決める('Tシャツを探す', [], 手)
+        check('画面が無いときは、ページの欄を問いに入れない', '【いまのページ】' not in 聞いた[-1])
+
+        長い = 'あ' * 20000
+        リモート作業.一手を決める('x', [], 手, 画面=長い)
+        check('手: 長すぎるページは切って渡す', len(聞いた[-1]) < 12000)
+
+        答え['文'] = '{"作業": "パソコンを消す", "材料": {}}'
+        r = リモート作業.一手を決める('x', [], 手, 画面=画面)
+        check('手: 使える作業に無い一手は、行わず止める', not r.get('する') and r.get('終わり'))
+
+        違う押し = [{'作業': '押す', '材料': {'番': 3}, '結果': {'ok': True}},
+                  {'作業': '押す', '材料': {'番': 7}, '結果': {'ok': True}}]
+        答え['文'] = '{"作業": "押す", "材料": {"番": 9}}'
+        r = リモート作業.一手を決める('x', 違う押し, 手, 画面=画面)
+        check('手: 別の部品を続けて押すのは、繰り返しとみなさない', r.get('する') is True)
+
+        同じ押し = [{'作業': '押す', '材料': {'番': 3}, '結果': {'ok': False}},
+                  {'作業': '押す', '材料': {'番': 3}, '結果': {'ok': False}}]
+        r = リモート作業.一手を決める('x', 同じ押し, 手, 画面=画面)
+        check('手: 同じ部品を同じ材料で2回続けたら止める', not r.get('する') and r.get('終わり'))
+
+        九手 = [{'作業': '押す', '材料': {'番': i}, '結果': {'ok': True}} for i in range(9)]
+        check('既定の上限（8回）は、これまで通り', not リモート作業.一手を決める('x', 九手, 手).get('する'))
+        check('手は、上限を15まで広げられる', リモート作業.一手を決める('x', 九手, 手, 画面=画面, 上限=15).get('する') is True)
+        十六手 = [{'作業': '押す', '材料': {'番': i}, '結果': {'ok': True}} for i in range(16)]
+        check('上限は15より広げられない', not リモート作業.一手を決める('x', 十六手, 手, 画面=画面, 上限=99).get('する'))
+    finally:
+        ローカルLLM.聞く = 元
+
+
 def main():
     print('=' * 52)
     print(' 自作AIエンジン 自動テスト')
@@ -824,7 +880,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team, test_safe_write):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team, test_safe_write, test_remote_step):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

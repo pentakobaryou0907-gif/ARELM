@@ -38,13 +38,28 @@ start_service() {
         || launchctl bootstrap "gui/$UID_NUM" "$plist" 2>/dev/null
 }
 
+# ARELM が答えているか。8080 は、同じMacの別のアプリ（エディタ等）が先に持つことがあり、
+# そのアプリの返事を「動いている」と取り違えて、止まった ARELM を起こさないまま開いていた。
+# 返事の中身に ARELM があるかで見分ける。
+arelm_alive() { curl -s -m 2 "http://127.0.0.1:$1/api/health" 2>/dev/null | grep -q 'ARELM'; }
+LOGDIR="$HOME/Library/Logs/AReGLM"
+mkdir -p "$LOGDIR"
+
 # --- サーバー ---
-if ! curl -s -m 2 "http://127.0.0.1:8080/api/health" > /dev/null 2>&1; then
+if ! arelm_alive 8090 && ! arelm_alive 8080; then
     start_service "com.ari.areglm.server" "$HOME/Library/LaunchAgents/com.ari.areglm.server.plist"
     for _ in $(seq 1 15); do
         sleep 1
-        curl -s -m 2 "http://127.0.0.1:8080/api/health" > /dev/null 2>&1 && break
+        arelm_alive 8090 && break
     done
+    # launchd の設定が消えた・壊れたときは、launchd では起きない。直接起こす
+    if ! arelm_alive 8090 && ! arelm_alive 8080; then
+        (cd "$TOOL_DIR" && nohup /bin/bash "$TOOL_DIR/start_server.sh" >> "$LOGDIR/server.log" 2>&1 &)
+        for _ in $(seq 1 15); do
+            sleep 1
+            arelm_alive 8090 && break
+        done
+    fi
 fi
 
 # --- 自作AI（無くてもツールは使えるので待ちすぎない） ---
@@ -53,13 +68,24 @@ if ! curl -s -m 2 "http://127.0.0.1:8765/health" > /dev/null 2>&1; then
 fi
 
 # --- サーバーが起動しなかった場合は知らせる ---
-if ! curl -s -m 2 "http://127.0.0.1:8080/api/health" > /dev/null 2>&1; then
-    osascript -e 'display alert "ARELM を起動できませんでした" message "サーバーが応答しません。ログを確認してください:\n~/Developer/AReGLM/server_launchd.log" as critical' 2>/dev/null
+# 以前は「ログを確認してください」だけで、理由も、次にどうすればよいかも分からなかった。
+# ログの最後を見せ、Macが無くても使える公開先をボタン一つで開けるようにする。
+if ! arelm_alive 8090 && ! arelm_alive 8080; then
+    LOGTAIL=$( { tail -n 6 "$LOGDIR/server.log"; tail -n 6 "$TOOL_DIR/server_launchd.log"; } 2>/dev/null | tail -n 8 | tr -d '"\\' | cut -c1-160 )
+    CHOICE=$(osascript -e "display dialog \"サーバーが応答しません。
+
+最後の記録:
+${LOGTAIL:-（記録がありません）}
+
+Macが無くても、公開先で開けます。\" with title \"ARELM を起動できませんでした\" buttons {\"閉じる\", \"公開先で開く\"} default button \"公開先で開く\" with icon caution" 2>/dev/null)
+    case "$CHOICE" in
+        *公開先で開く*) open "https://pentakobaryou0907-gif.github.io/ARELM/" ;;
+    esac
     exit 1
 fi
 
 # --- アプリ用の入口が応答しなければ、従来の入口で開く ---
-if ! curl -s -m 3 "http://127.0.0.1:8090/api/health" > /dev/null 2>&1; then
+if ! arelm_alive 8090; then
     URL="http://localhost:8080"
 fi
 

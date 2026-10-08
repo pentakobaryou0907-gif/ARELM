@@ -394,6 +394,9 @@ async function ログイン画面に表示する() {
 }
 
 async function ログイン画面を整える() {
+    // 公開先（サーバーの無い置き場）では、問い合わせを待たずに合言葉の入り口を出す。
+    // ログイン欄が一瞬でも出ると、そこに打って「サーバーに繋がりませんでした」で止まってしまう
+    if (typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か()) { サーバーの無い置き場の入り口を出す(); return; }
     if (await ログインなしなら入る()) return;
     前回のユーザー名を入れる();
     ログイン画面に表示する();
@@ -426,7 +429,37 @@ async function ログイン画面を整える() {
         // （以前は 404 でしか合言葉の欄を出さず、圏外ではログイン欄だけになって入れなかった）。
         if (端末の合言葉を読む()) サーバーの無い置き場の入り口を出す();
         else オフラインで開く案内を出す();
+        Macにつながらない案内を出す();
     }
+}
+
+/**
+ * Macのサーバーが止まっている・寝ているときに、ログイン欄の下へ、理由と次の行き先を出す。
+ * 以前は、パスワードを打って押すと「サーバーに繋がりませんでした」と出るだけで、
+ * どうすればよいか分からず、アプリが起動しないのと同じ状態になっていた。
+ */
+function Macにつながらない案内を出す() {
+    if (document.getElementById('mac-down-note')) return;
+    const ログイン = document.getElementById('login-form');
+    if (!ログイン) return;
+    const 枠 = document.createElement('div');
+    枠.id = 'mac-down-note';
+    枠.className = 'status-banner warn';
+    枠.setAttribute('role', 'status');
+    const 題 = document.createElement('strong');
+    題.textContent = 'Macのサーバーにつながりません。';
+    const 文 = document.createElement('p');
+    文.textContent = 'Macが止まっているか、寝ています。Macのアプリを開き直すか、Macを再起動すると戻ります。Macが無くても、下の入り口で開けます（データは「☁ Mac無しで使う」で共有している分だけ）。';
+    枠.append(題, 文);
+    // 住所は ホーム画面に追加.js の一か所だけに書く（ここに外の住所を書くと、このファイルの通信が外向きに見えてしまう）
+    if (typeof 公開先の住所 === 'string') {
+        const 行く = document.createElement('a');
+        行く.className = 'btn btn-primary';
+        行く.href = 公開先の住所;
+        行く.textContent = 'Macが無くても開ける入り口で開く';
+        枠.append(行く);
+    }
+    ログイン.insertAdjacentElement('afterend', 枠);
 }
 
 /**
@@ -698,7 +731,9 @@ async function handleLogin(e) {
         if (typeof パスキー登録を案内する === 'function') パスキー登録を案内する();
     } catch (error) {
         console.error('ログイン処理エラー:', error);
-        showNotification('サーバーに繋がりませんでした。ARELMが起動しているか確認してください', 'error');
+        if (typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か()) { サーバーの無い置き場の入り口を出す(); return; }
+        showNotification('Macのサーバーに繋がりませんでした。下の案内から、Macが無くても開けます', 'error');
+        Macにつながらない案内を出す();
     }
 }
 

@@ -11,7 +11,7 @@ name: 画面を公開する
 on:
   push:
     branches: [main]
-    paths: ['index.html', 'manifest.json', 'sw.js', 'css/**', 'js/**', 'fonts/**', 'images/**', '.github/workflows/pages.yml']
+    paths: ['index.html', 'manifest.json', 'sw.js', 'css/**', 'js/**', 'fonts/**', 'images/**', 'arelm-hand/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -29,6 +29,9 @@ jobs:
           cp index.html manifest.json sw.js _site/
           cp -r css js fonts images _site/
           touch _site/.nojekyll
+          # Chromeの拡張機能「ARELMの手」。Macが無くても、公開先から受け取れるように（Macでは server が同じZIPを作る）
+          zip -q -r -X _site/arelm-hand.zip arelm-hand
+          unzip -l _site/arelm-hand.zip | grep -q 'arelm-hand/manifest.json'
           # 公開先の目印。これがあるときだけ、画面はサーバー無しの代わり（GitHubの倉庫・Gemini）を使う
           sed -i 's#<head>#<head>\n    <meta name="arelm-host" content="static">#' _site/index.html
           grep -q 'name="arelm-host" content="static"' _site/index.html
