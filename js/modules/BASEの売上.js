@@ -220,3 +220,7 @@ function renderBASEの売上() {
 window.renderBASEの売上 = renderBASEの売上;
 window.BASEの注文CSVを読む = BASEの注文CSVを読む;
 window.BASE_手数料を読む = BASE_手数料を読む;
+
+// 試験（tools/サーバーの試験.js）から、画面を描かずに計算の部分だけを require で読むための出口。
+// ブラウザには module が無いので、ここは何もしない（試験で、文字をコードとして動かす書き方を使わないため）。
+if (typeof module !== 'undefined' && module.exports) module.exports = { BASEの注文CSVを読む, BASEの売上を取り込む, BASEをまとめる };

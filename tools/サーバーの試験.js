@@ -255,7 +255,9 @@ const 公開の設定 = fs.readFileSync(path.join(__dirname, '..', '.github', 'w
 const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server', 'index.js'), 'utf8');
 確かめる('代わり: 関所の例外は、GitHubは決めた倉庫の道だけ', /startsWith\(道 \+ '\/contents\/'\)/.test(関所JS) && /\/repos\/\$\{置き場\.持ち主\}\/\$\{置き場\.倉庫\}/.test(関所JS));
 確かめる('代わり: 関所の例外は、Geminiは文章を作る窓口だけ', /generateContent\$\//.test(関所JS));
-確かめる('代わり: 関所の3か所(fetch/XHR/WebSocket/beacon)すべてで例外を同じに見る', (関所JS.match(/!選んだ外の置き場か\(/g) || []).length === 4);
+確かめる('代わり: 関所の4つの通信口(fetch/XHR/WebSocket/beacon)すべてで例外を同じに見る', (関所JS.match(/!中の行き先か\([^)]*\) && !選んだ外の置き場か\(/g) || []).length === 4);
+確かめる('関所: 外への入口は、選んだ置き場以外へは送らず、Geminiはお金の見張りの許可が要る', /function 選んだ置き場へ送る[\s\S]{0,200}if \(!選んだ外の置き場か\(url\)\)/.test(関所JS) && /使ってよいか\('gemini'\)/.test(関所JS));
+確かめる('関所: 公開先の代わり・GitHubの様子は、直接 fetch で外へ出ない（入口を通す）', !/await fetch\(/.test(代わりJS) && !/await fetch\(`https/.test(fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '入場とGitHub.js'), 'utf8')));
 確かめる('代わり: 鍵の金庫と外の置き場の設定は、同期しない', ['areglm_local_vault', 'areglm_ext_store', 'areglm_ext_ai'].every((k) => 同期JS.includes(`'${k}'`)));
 確かめる('代わり: 公開先の目印があるときだけ働く（Macでは働かない）', /if \(!サーバーの無い公開先か\(\)\) return;/.test(代わりJS));
 確かめる('代わり: 公開の処理が、公開先の目印を入れて確かめる', /arelm-host" content="static"/.test(公開の設定) && /grep -q/.test(公開の設定));
@@ -303,11 +305,19 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 確かめる('関所: GitHubの様子は、本人が「見る」を押した印があるときだけ・読む3つの道だけ', /areglm_ext_github_view'\) === 'true'\s*&& \/\^\\\/repos\\\/pentakobaryou0907-gif\\\/ARELM\\\/\(commits\|pulls\|actions\\\/runs\)\$\//.test(関所JS));
 確かめる('公開先: 合言葉の間違いが続いたら、しばらく試せない', /端末の合言葉の待ち\(\)/.test(本体JS) && /端末の合言葉の許す間違い = 5/.test(本体JS));
 
+/* ---------- 画面の計算の部分を読むための土台 ----------
+   画面のファイルは window・localStorage・document を前提にしているので、試験では空の物を置いてから require する。
+   （以前は文字をコードとして動かす書き方で読んでいたが、それはストッパーが止める決まり） */
+function 画面のファイルを読む(名前, 窓 = {}) {
+    globalThis.window = Object.assign(globalThis.window || {}, 窓);
+    globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem() {}, removeItem() {} };
+    globalThis.document = globalThis.document || { addEventListener() {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
+    return require(path.join(__dirname, '..', 'js', 'modules', 名前));
+}
+
 /* ---------- 自分磨き・お金（画面の計算の部分） ---------- */
 {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '自分磨き.js'), 'utf8');
-    const 取り出す = new Function('window', 'localStorage', src + '\nreturn { 自分磨きをまとめる };');
-    const { 自分磨きをまとめる } = 取り出す({}, { getItem: () => null, setItem() {} });
+    const { 自分磨きをまとめる } = 画面のファイルを読む('自分磨き.js');
     const 基準 = new Date(2026, 9, 8);
     const x = { 目標: { 筋トレ: '週3回' }, 記録: [
         { 日: '2026-10-08', 項目: '筋トレ', メモ: '腕立て' }, { 日: '2026-10-07', 項目: '筋トレ', メモ: '腹筋' }, { 日: '2026-10-06', 項目: '筋トレ' },
@@ -323,8 +333,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 }
 {
     const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'お金.js'), 'utf8');
-    const 取り出す = new Function('window', 'localStorage', src + '\nreturn { お金をまとめる, お金の動きを足す, 明細のCSVを読む, 積立の見込み, 練習の損益 };');
-    const f = 取り出す({}, { getItem: () => null, setItem() {} });
+    const f = 画面のファイルを読む('お金.js');
     const x = { 口座: [{ id: 'a', 名: '銀行', 種類: '銀行', 残高: 10000 }, { id: 'c', 名: 'カード', 種類: 'クレジットカード', 残高: 0 }], 動き: [], 予算: { 食費: 500 } };
     f.お金の動きを足す(x, { 日: '2026-10-01', 向き: '支出', 分類: '食費', 金額: 800, 口座: 'a' });
     f.お金の動きを足す(x, { 日: '2026-10-02', 向き: '支出', 分類: '仕入れ・材料', 金額: 3000, 口座: 'c' });
@@ -352,8 +361,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 }
 
 {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '利益の表.js'), 'utf8');
-    const { 利益を計算する } = new Function('window', 'localStorage', src + '\nreturn { 利益を計算する };')({}, { getItem: () => null, setItem() {} });
+    const { 利益を計算する } = 画面のファイルを読む('利益の表.js');
     const 商品 = [
         { sku: 'T1', name: 'SUZURIのTシャツ', price: 3500, source: 'suzuri' },
         { sku: 'H1', name: '予約のパーカー', price: 8000 },
@@ -379,8 +387,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 }
 
 {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'BASEの売上.js'), 'utf8');
-    const f = new Function('window', 'localStorage', src + '\nreturn { BASEの注文CSVを読む, BASEの売上を取り込む, BASEをまとめる };')({}, { getItem: () => null, setItem() {} });
+    const f = 画面のファイルを読む('BASEの売上.js');
     const csv = '注文ID,注文日時,氏名(姓),メールアドレス,電話番号,住所,商品名,バリエーション,価格,数量,対応状況\n'
         + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,"黒Tシャツ, 限定",M,4000,2,未対応\n'
         + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,キャップ,,3000,1,未対応\n'
@@ -396,8 +403,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
     確かめる('BASE: 月の売上・注文数・手数料（率＋1件あたり×注文数）・未発送', ま.売上 === 11000 && ま.注文数 === 1 && ま.手数料 === 396 + 40 && ま.未発送 === 1);
     確かめる('BASE: 必要ない個人情報の列が無いCSVでも読む／商品名の無いCSVは読まない', f.BASEの注文CSVを読む('注文番号,商品名,数量,単価\nX,帽子,1,1000').length === 1 && f.BASEの注文CSVを読む('注文番号,数量\nX,1').length === 0);
 
-    const src2 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '利益の表.js'), 'utf8');
-    const { 利益を計算する } = new Function('window', 'localStorage', src2 + '\nreturn { 利益を計算する };')({}, { getItem: () => null, setItem() {} });
+    const { 利益を計算する } = 画面のファイルを読む('利益の表.js');
     const r = 利益を計算する(
         [{ sku: 'T1', name: '黒T', price: 4000, source: 'suzuri' }],
         [{ product_sku: 'T1', quantity: 1, total: 4000 }, { product_sku: 'T1', quantity: 2, total: 8000, 販売先: 'BASE', 注文ID: 'B9' }, { product_name: '登録していない帽子', quantity: 1, total: 3000 }],
@@ -409,9 +415,8 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 }
 
 {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '端末の機能.js'), 'utf8');
     const 窓 = { AREGLM_PROFILE: { shops: { suzuri: { url: 'https://suzuri.jp/areglm' }, base: { url: 'javascript:alert(1)' } }, sns: { instagram: { url: 'https://www.instagram.com/areglm/' } } } };
-    const { 端末の機能のURL, この端末への頼み } = new Function('window', 'localStorage', 'document', src.replace("document.addEventListener('DOMContentLoaded'", "(() => {})('DOMContentLoaded'") + '\nreturn { 端末の機能のURL, この端末への頼み };')(窓, { getItem: () => null, setItem() {} }, {});
+    const { 端末の機能のURL, この端末への頼み } = 画面のファイルを読む('端末の機能.js', 窓);
     確かめる('端末の機能: iPhoneでは、ショートカットを名前で呼べる（文字はURLの形に崩す）', 端末の機能のURL('shortcut', ['在庫を数える', 'a&b=c'], 'iPhone') === 'shortcuts://run-shortcut?name=%E5%9C%A8%E5%BA%AB%E3%82%92%E6%95%B0%E3%81%88%E3%82%8B&input=text&text=a%26b%3Dc');
     確かめる('端末の機能: Windowsでは、ショートカットは呼べない', 端末の機能のURL('shortcut', ['x'], 'Windows') === null);
     確かめる('端末の機能: 地図は、Apple の端末は「マップ」、ほかはGoogleマップ', /^maps:\/\/\?q=/.test(端末の機能のURL('map', ['渋谷'], 'iPad')) && /^https:\/\/www\.google\.com\/maps\//.test(端末の機能のURL('map', ['渋谷'], 'Windows')));
@@ -424,8 +429,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 }
 
 {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'シリーズの段取り.js'), 'utf8');
-    const { 段取りの回を作る, 段取りの様子 } = new Function('window', 'localStorage', src + '\nreturn { 段取りの回を作る, 段取りの様子 };')({}, { getItem: () => null, setItem() {} });
+    const { 段取りの回を作る, 段取りの様子 } = 画面のファイルを読む('シリーズの段取り.js');
     const 回 = 段取りの回を作る('AReGLM（予約販売）', '', new Date(2026, 9, 8));
     確かめる('段取り: 型から手順を写し、題が無ければ日付で名付ける', 回.手順.length === 10 && /AReGLM（予約販売） 2026-10-0[78]/.test(回.題) && 回.状態 === '進行中');
     確かめる('段取り: 公開・課金の手順は「本人が行う」', 回.手順.filter((t) => t.本人).length === 2 && 回.手順.some((t) => t.本人 && /公開ボタンは本人/.test(t.名)) && 回.手順.some((t) => t.本人 && /Shopifyは有料/.test(t.名)));

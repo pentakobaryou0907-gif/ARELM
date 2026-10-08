@@ -167,6 +167,28 @@ function 関所を置く() {
     }
 }
 
+/**
+ * 本人が選んだ外の置き場へ送る、ただ一つの入口（公開先の倉庫・Gemini・GitHubの様子）。
+ *
+ * 画面のあちこちから外へ fetch すると、外への道が散らばって見張れなくなる
+ * （ストッパーも、画面のファイルからの外への通信を止める）。そこで、外へ出る道はここ一か所にまとめる。
+ *   ・行き先が「本人が選んだ置き場」（選んだ外の置き場か）でなければ、送らずに止める
+ *     （「外を全部許す」設定があっても、この入口は選んだ置き場以外へは送らない）
+ *   ・Gemini は無料の枠を超えると課金されるため、お金の見張り（paid-guard）で本人が許可しているときだけ送る
+ */
+function 選んだ置き場へ送る(url, 設定) {
+    if (!選んだ外の置き場か(url)) {
+        止めたことを残す(url, '選んだ置き場へ送る');
+        return Promise.reject(new Error('本人が選んだ置き場ではないため、送りませんでした'));
+    }
+    let 先 = '';
+    try { 先 = new URL(url, location.href).hostname; } catch { 先 = ''; }
+    if (先 === 'generativelanguage.googleapis.com' && !(typeof 使ってよいか === 'function' && 使ってよいか('gemini'))) {
+        return Promise.reject(new Error('Gemini は、お金がかかりうるため止めてあります（設定の「☁ Mac無しで使う」でキーを保存すると、使う許可も記録されます）'));
+    }
+    return window.fetch(url, 設定);
+}
+
 /** 止めた記録を読む（設定画面で見せるため） */
 function 止めた記録を読む() {
     try { return JSON.parse(localStorage.getItem('areglm_blocked_out') || '[]'); }
@@ -178,4 +200,5 @@ function 止めた記録を読む() {
 window.中の行き先か = 中の行き先か;
 window.外を許しているか = 外を許しているか;
 window.選んだ外の置き場か = 選んだ外の置き場か;
+window.選んだ置き場へ送る = 選んだ置き場へ送る;
 window.止めた記録を読む = 止めた記録を読む;

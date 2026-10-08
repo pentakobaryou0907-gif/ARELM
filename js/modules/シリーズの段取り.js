@@ -214,3 +214,7 @@ function render段取り() {
 window.render段取り = render段取り;
 window.段取りの様子 = 段取りの様子;
 window.段取りの回を作る = 段取りの回を作る;
+
+// 試験（tools/サーバーの試験.js）から、画面を描かずに計算の部分だけを require で読むための出口。
+// ブラウザには module が無いので、ここは何もしない（試験で、文字をコードとして動かす書き方を使わないため）。
+if (typeof module !== 'undefined' && module.exports) module.exports = { 段取りの回を作る, 段取りの様子 };

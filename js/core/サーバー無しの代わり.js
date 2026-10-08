@@ -18,7 +18,7 @@
  *   Macで開いたときは、何もしない（いつも通りMacのサーバーが答える）。
  *
  * 守ること:
- *   ・外への通信は、関所（外に出さない.js）の「本人が選んだ置き場」だけを通る
+ *   ・外への通信は、関所（外に出さない.js）の入口「選んだ置き場へ送る」だけを通る（ここから直接 fetch しない）
  *   ・鍵とキーは、端末の金庫（合言葉で閉じた置き場）からしか出さない
  *   ・カード番号・APIキー・メールアドレスらしきものは、Geminiへ送らない（自作AIの rules.py と同じ決まり）
  *   ・倉庫には、全端末とMacで共通の「同期の合言葉」で閉じた（暗号化した）形でだけ置く（健康・お金も含めて同期するため）
@@ -144,7 +144,7 @@ const 外の倉庫 = {
 
     /** 倉庫の中身を読む。まだファイルが無ければ空 */
     async 読む() {
-        const r = await fetch(this._道(), { headers: await this._頭(), cache: 'no-store' });
+        const r = await 選んだ置き場へ送る(this._道(), { headers: await this._頭(), cache: 'no-store' });
         if (r.status === 404) return { データ: {}, sha: null };
         if (!r.ok) throw new Error('倉庫を読めませんでした（' + r.status + '）');
         const j = await r.json();
@@ -153,7 +153,7 @@ const 外の倉庫 = {
             文字 = base64を文字に(j.content);
         } else {
             // 1MBを超えると、中身は付いてこない。そのまま（raw）でもう一度取る
-            const r2 = await fetch(this._道(), { headers: await this._頭({ Accept: 'application/vnd.github.raw+json' }), cache: 'no-store' });
+            const r2 = await 選んだ置き場へ送る(this._道(), { headers: await this._頭({ Accept: 'application/vnd.github.raw+json' }), cache: 'no-store' });
             if (!r2.ok) throw new Error('倉庫を読めませんでした（' + r2.status + '）');
             文字 = await r2.text();
         }
@@ -180,7 +180,7 @@ const 外の倉庫 = {
             const 閉じた = await 倉庫の暗号.閉じる(JSON.stringify(中身), 合言葉, 塩);
             const 本文 = { message: 'ARELM: 端末からの更新', content: 文字をbase64に(JSON.stringify(閉じた)) };
             if (sha) 本文.sha = sha;
-            const r = await fetch(this._道(), {
+            const r = await 選んだ置き場へ送る(this._道(), {
                 method: 'PUT',
                 headers: await this._頭({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(本文),
@@ -219,15 +219,15 @@ const 外の倉庫 = {
 
     /** 鍵の持ち主を確かめ、倉庫が無ければ非公開で作る（設定の保存のときに使う） */
     async 準備する(倉庫の名) {
-        const 持ち主 = await fetch(`${this.窓口}/user`, { headers: await this._頭(), cache: 'no-store' });
+        const 持ち主 = await 選んだ置き場へ送る(`${this.窓口}/user`, { headers: await this._頭(), cache: 'no-store' });
         if (持ち主.status === 401) throw new Error('鍵が正しくないか、期限が切れています');
         if (!持ち主.ok) throw new Error('鍵の持ち主を確かめられませんでした（' + 持ち主.status + '）');
         const 名 = (await 持ち主.json()).login;
         localStorage.setItem(this.設定の名, JSON.stringify({ 持ち主: 名, 倉庫: 倉庫の名 }));
 
-        const 有無 = await fetch(`${this.窓口}/repos/${名}/${倉庫の名}`, { headers: await this._頭(), cache: 'no-store' });
+        const 有無 = await 選んだ置き場へ送る(`${this.窓口}/repos/${名}/${倉庫の名}`, { headers: await this._頭(), cache: 'no-store' });
         if (有無.status === 404) {
-            const 作る = await fetch(`${this.窓口}/user/repos`, {
+            const 作る = await 選んだ置き場へ送る(`${this.窓口}/user/repos`, {
                 method: 'POST',
                 headers: await this._頭({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ name: 倉庫の名, private: true, auto_init: true, description: 'ARELMの端末間で共有するデータ（非公開）' }),
@@ -329,7 +329,7 @@ const 外のAI = {
         const 候補 = this._使えた名 ? [this._使えた名] : this.候補;
         let 最後 = null;
         for (const 名 of 候補) {
-            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${名}:generateContent`, {
+            const r = await 選んだ置き場へ送る(`https://generativelanguage.googleapis.com/v1beta/models/${名}:generateContent`, {
                 method: 'POST',
                 // キーはURLに載せず、頭に載せる（記録に残りにくくするため）
                 headers: { 'Content-Type': 'application/json', 'x-goog-api-key': キー },
