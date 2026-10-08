@@ -158,6 +158,9 @@ function renderMac無しで使う() {
         try {
             await 端末の金庫.入れる('gemini', キー);
             localStorage.setItem(外のAI.設定の名, 'gemini');
+            // Gemini は無料の枠を超えると課金されうる。キーを保存したことを、お金の見張りの許可として記録する
+            // （いつ許可したかが残り、設定の「お金がかかる機能」からいつでも止められる）
+            if (typeof 使ってよいか === 'function' && !使ってよいか('gemini') && typeof 許可を切り替える === 'function') 許可を切り替える('gemini', true);
             const r = await 外のAI.答える('「準備ができました」とだけ答えてください。', {}, '__確かめ');
             document.getElementById('mac-free-gemini').value = '';
             ai結果.textContent = 'つながりました。AIの答え: ' + r.answer;
@@ -172,6 +175,7 @@ function renderMac無しで使う() {
     箱.appendChild(ai形);
     箱.appendChild(Mac無しの部品('p',
         'Macが無いときの会話は、Googleの Gemini に送られます（カード番号・キー・メールアドレスらしきものは送りません）。'
+        + 'キーを保存すると、設定の「お金がかかる機能」で Gemini を許可したことになります（無料の枠を超えると課金されるため。いつでも止められます）。'
         + '無料枠では、送った内容が Google のサービス改善に使われることがあります。'
         + '商品の登録などの「操作」は、Macの自作AIのときだけです。', 'hint'));
 }

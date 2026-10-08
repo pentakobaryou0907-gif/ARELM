@@ -483,3 +483,7 @@ window.renderお金 = renderお金;
 window.お金をまとめる = お金をまとめる;
 window.明細のCSVを読む = 明細のCSVを読む;
 window.積立の見込み = 積立の見込み;
+
+// 試験（tools/サーバーの試験.js）から、画面を描かずに計算の部分だけを require で読むための出口。
+// ブラウザには module が無いので、ここは何もしない（試験で、文字をコードとして動かす書き方を使わないため）。
+if (typeof module !== 'undefined' && module.exports) module.exports = { お金をまとめる, お金の動きを足す, 明細のCSVを読む, 積立の見込み, 練習の損益 };

@@ -218,10 +218,12 @@ done
 
 # 見つからなければ、この検査自身の位置から遡って探す
 if [ ! -d "$APP" ]; then
-    ここ="$(cd "$(dirname "$0")" && pwd)"
-    while [ "$ここ" != "/" ]; do
-        case "$ここ" in *.app) APP="$ここ"; break;; esac
-        ここ="$(dirname "$ここ")"
+    # 変数名は英字にする。日本語の変数名は、言語設定（LANG）が無いシェルでは変数にならず、
+    # "$ここ" がいつまでも "/" にならないため、この繰り返しが終わらなくなっていた（クラウドで確認）。
+    HERE="$(cd "$(dirname "$0")" && pwd)"
+    while [ -n "$HERE" ] && [ "$HERE" != "/" ]; do
+        case "$HERE" in *.app) APP="$HERE"; break;; esac
+        HERE="$(dirname "$HERE")"
     done
 fi
 if [ ! -d "$APP" ]; then
