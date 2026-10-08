@@ -27,7 +27,8 @@
  */
 
 /** 8.1の標準フォルダに対応する「分類」タグ一覧 */
-const 保管庫の分類一覧 = ['資料', 'プロジェクト', '素材', '商品', '投稿', '経理', 'ログ'];
+// 「使用済み」「不要」は、仕様書8.1の /Used /Unneeded。消さずに、ここへ移すだけ（中身は残る・いつでも元へ戻せる）
+const 保管庫の分類一覧 = ['資料', 'プロジェクト', '素材', '商品', '投稿', '経理', 'ログ', '使用済み', '不要'];
 
 /** 8.2の命名規則「商品番号_用途_日付」を組み立てる（表示・書き出し用。元ファイルは変えない） */
 function 標準ファイル名を作る(商品番号, 用途, 日付文字列, 元の名前) {
@@ -177,6 +178,27 @@ async function 保管庫から出す(id) {
     });
 }
 
+/**
+ * 分類を変える（使用済み・不要へ移す／元へ戻す）。中身は消さない。
+ * 使用済み・不要へ移すときは、元の分類を覚えておき、「元へ戻す」で戻せるようにする。
+ */
+async function 保管庫の分類を変える(id, 新しい分類) {
+    if (!保管庫の分類一覧.includes(新しい分類)) return false;
+    const もの = await 保管庫から取る(id);
+    if (!もの) return false;
+    if ((新しい分類 === '使用済み' || 新しい分類 === '不要') && もの.分類 !== '使用済み' && もの.分類 !== '不要') {
+        もの.前の分類 = もの.分類 || '資料';
+        もの.移した日 = new Date().toISOString();
+    }
+    もの.分類 = 新しい分類;
+    const 棚 = await 棚を使う(true);
+    return new Promise((返す) => {
+        const r = 棚.put(もの);
+        r.onsuccess = () => 返す(true);
+        r.onerror = () => 返す(false);
+    });
+}
+
 /** 端末に書き出す。商品番号・用途が入っていれば、8.2の標準名で書き出す（中身は変えない） */
 async function 保管庫から書き出す(id) {
     const もの = await 保管庫から取る(id);
@@ -310,6 +332,22 @@ async function renderLibrary() {
         });
 
         操.appendChild(出);
+        // 使用済み・不要へは「移す」だけ（消さない）。そこにあるものは、元の分類へ戻せる
+        const 移す = (文字, 先, 見せる) => {
+            if (!見せる) return;
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn-link';
+            b.textContent = 文字;
+            b.addEventListener('click', async () => {
+                if (await 保管庫の分類を変える(x.id, 先)) { await renderLibrary(); if (typeof showNotification === 'function') showNotification(`「${x.名前}」を${先}へ移しました（消していません）`, 'success'); }
+            });
+            操.appendChild(b);
+        };
+        const 片付け済み = x.分類 === '使用済み' || x.分類 === '不要';
+        移す('使用済みへ', '使用済み', !片付け済み);
+        移す('不要へ', '不要', !片付け済み);
+        移す(`元へ戻す（${x.前の分類 || '資料'}）`, x.前の分類 || '資料', 片付け済み);
         操.appendChild(消);
 
         c.appendChild(名);
@@ -374,3 +412,4 @@ window.保管庫にしまう = 保管庫にしまう;
 window.一覧を読む = 一覧を読む;
 window.標準ファイル名を作る = 標準ファイル名を作る;
 window.保管庫の分類一覧 = 保管庫の分類一覧;
+window.保管庫の分類を変える = 保管庫の分類を変える;

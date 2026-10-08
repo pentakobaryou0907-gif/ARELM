@@ -644,6 +644,11 @@
                         必ず立ち止まって確認します。
                     </p>
 
+                    <section class="panel-card full-width" id="device-functions-section">
+                        <h3><span class="sec-icon">📱</span>端末の機能（どの端末からでも）</h3>
+                        <div id="device-functions-panel"></div>
+                    </section>
+
                     <section class="panel-card full-width">
                         <form id="remote-auto-form" class="remote-auto-form">
                             <input type="text" id="remote-auto-goal"
@@ -1548,6 +1553,8 @@
                         <button type="button" class="hub-tab-btn" data-hub-tab="sales" data-hub-group="money">売上</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="sheet" data-hub-group="money">表計算</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="preorder" data-hub-group="money">受注</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="profit" data-hub-group="money">利益</button>
+                        <button type="button" class="hub-tab-btn" data-hub-tab="base" data-hub-group="money">BASE</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="sync" data-hub-group="link">同期履歴</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="autosort" data-hub-group="link">自動仕分け</button>
                         <button type="button" class="hub-tab-btn" data-hub-tab="customers" data-hub-group="link">取引先</button>
@@ -1598,6 +1605,16 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="hub-panel-profit" class="hub-panel">
+                        <h3>利益（売上・手数料・原価・利益）</h3>
+                        <div id="profit-panel"></div>
+                    </div>
+
+                    <div id="hub-panel-base" class="hub-panel">
+                        <h3>BASEの売上と注文（AReGLM.base.shop）</h3>
+                        <div id="base-sales-panel"></div>
                     </div>
 
                     <div id="hub-panel-sync" class="hub-panel">
@@ -1878,6 +1895,8 @@
                                     <option value="投稿">投稿</option>
                                     <option value="経理">経理</option>
                                     <option value="ログ">ログ</option>
+                                    <option value="使用済み">使用済み</option>
+                                    <option value="不要">不要</option>
                                 </select>
                             </label>
                             <label>商品番号（任意）
@@ -1904,6 +1923,8 @@
                             <button type="button" class="hub-tab-btn" data-lib-category="投稿">投稿 <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-category="経理">経理 <em class="lib-count"></em></button>
                             <button type="button" class="hub-tab-btn" data-lib-category="ログ">ログ <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="使用済み">使用済み <em class="lib-count"></em></button>
+                            <button type="button" class="hub-tab-btn" data-lib-category="不要">不要 <em class="lib-count"></em></button>
                         </div>
 
                         <div id="library-list" class="lib-list"></div>
@@ -3486,9 +3507,12 @@
     <script src="js/services/作業タブ.js" defer></script>
     <script src="js/modules/まとめて更新.js" defer></script>
     <script src="js/modules/遠隔とタスク.js" defer></script>
+    <script src="js/modules/端末の機能.js" defer></script>
     <script src="js/modules/画面を整える.js" defer></script>
     <script src="js/modules/遠隔投稿.js" defer></script>
     <script src="js/modules/inventory-hub.js" defer></script>
+    <script src="js/modules/BASEの売上.js" defer></script>
+    <script src="js/modules/利益の表.js" defer></script>
     <script src="js/modules/product-dev.js" defer></script>
     <script src="js/modules/oem-techpack-deck.js" defer></script>
     <script src="js/modules/商品自動作成.js" defer></script>

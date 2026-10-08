@@ -351,6 +351,78 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
     確かめる('お金: 実際の売買・金融機関へのログインはしない（fetch を使わない）', !/fetch\(/.test(お金JS));
 }
 
+{
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '利益の表.js'), 'utf8');
+    const { 利益を計算する } = new Function('window', 'localStorage', src + '\nreturn { 利益を計算する };')({}, { getItem: () => null, setItem() {} });
+    const 商品 = [
+        { sku: 'T1', name: 'SUZURIのTシャツ', price: 3500, source: 'suzuri' },
+        { sku: 'H1', name: '予約のパーカー', price: 8000 },
+        { sku: 'X1', name: '赤字の帽子', price: 1000 },
+        { sku: 'N1', name: '同じ名前', price: 2000 },
+        { sku: 'N2', name: '同じ名前', price: 2000 },
+    ];
+    const 売上 = [
+        { product_sku: 'T1', product_name: 'SUZURIのTシャツ', quantity: 2, price: 3500, total: 7000 },
+        { product_name: '予約のパーカー', quantity: 1, price: 8000, total: 8000 },   // 番号の無い古い記録は、名前で合わせる
+        { product_sku: 'N2', product_name: '同じ名前', quantity: 1, price: 2000, total: 2000 },
+    ];
+    const 設定 = { T1: { トリブン: 1200 }, H1: { 原価: 3000, 手数料率: 3.6, 送料: 500 }, X1: { 原価: 900, 手数料率: 10, 送料: 300 } };
+    const { 行たち, 合計 } = 利益を計算する(商品, 売上, 設定);
+    const 行 = (k) => 行たち.find((r) => r.鍵 === k);
+    確かめる('利益: SUZURIはトリブン×数が利益、売値との差はSUZURIの取り分', 行('T1').売り方 === 'SUZURI' && 行('T1').利益 === 2400 && 行('T1').手数料 === 4600);
+    確かめる('利益: 自分で売るものは、売上−手数料−原価−送料', 行('H1').手数料 === 288 && 行('H1').利益 === 8000 - 288 - 3000 - 500);
+    確かめる('利益: 1つ売ると赤字の商品を見つけ、目標の値段を示す', 行('X1').赤字 && 行('X1').一つあたり === 1000 - 100 - 900 - 300 && 行('X1').目標の値段 >= 2000);
+    確かめる('利益: 同じ名前の商品でも、番号で取り違えない', 行('N1').数 === 0 && 行('N2').数 === 1);
+    // N2 は設定がまだ（手数料・原価0）なので、売上2000円がそのまま利益に入る（だから「設定が無い」と知らせる）
+    確かめる('利益: 合計', 合計.売上 === 17000 && 合計.利益 === 2400 + (8000 - 288 - 3000 - 500) + 2000);
+    確かめる('利益: トリブン・原価が未設定の商品を知らせる', 行('N1').設定が無い && !行('T1').設定が無い);
+}
+
+{
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'BASEの売上.js'), 'utf8');
+    const f = new Function('window', 'localStorage', src + '\nreturn { BASEの注文CSVを読む, BASEの売上を取り込む, BASEをまとめる };')({}, { getItem: () => null, setItem() {} });
+    const csv = '注文ID,注文日時,氏名(姓),メールアドレス,電話番号,住所,商品名,バリエーション,価格,数量,対応状況\n'
+        + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,"黒Tシャツ, 限定",M,4000,2,未対応\n'
+        + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,キャップ,,3000,1,未対応\n'
+        + 'B2,2026/10/05 12:30:00,佐藤,b@example.com,080-0000-0000,大阪府,"黒Tシャツ, 限定",L,4000,0,発送済み\n'
+        + 'B3,2026/10/06 09:00:00,鈴木,c@example.com,070-0000-0000,京都府,黒Tシャツ, 限定,L,4000,1,未対応\n';
+    const 行 = f.BASEの注文CSVを読む(csv);
+    確かめる('BASE: 注文のCSVを読む（引用符の中のカンマ・数量0の行は除く）', 行.length === 2 && 行[0].product_name === '黒Tシャツ, 限定（M）' && 行[0].total === 8000 && 行[0].販売先 === 'BASE');
+    確かめる('BASE: 列がずれた行（引用符の無いカンマ）は、読み違えずに取り込まない', !行.some((r) => r.注文ID === 'B3'));
+    確かめる('BASE: お客さまの氏名・メール・電話・住所は取り込まない', !/山田|example\.com|090-|東京都/.test(JSON.stringify(行)));
+    const 足す = f.BASEの売上を取り込む(行, [{ 販売先: 'BASE', 注文ID: 'B1', product_name: 'キャップ' }], [{ sku: 'T9', name: '黒Tシャツ, 限定' }]);
+    確かめる('BASE: 同じ注文の同じ商品は二重に入れず、在庫の商品と同じ名前なら番号を付ける', 足す.length === 1 && 足す[0].product_sku === 'T9');
+    const ま = f.BASEをまとめる(行, { 率: 3.6, 固定: 40 }, {}, '2026-10');
+    確かめる('BASE: 月の売上・注文数・手数料（率＋1件あたり×注文数）・未発送', ま.売上 === 11000 && ま.注文数 === 1 && ま.手数料 === 396 + 40 && ま.未発送 === 1);
+    確かめる('BASE: 必要ない個人情報の列が無いCSVでも読む／商品名の無いCSVは読まない', f.BASEの注文CSVを読む('注文番号,商品名,数量,単価\nX,帽子,1,1000').length === 1 && f.BASEの注文CSVを読む('注文番号,数量\nX,1').length === 0);
+
+    const src2 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '利益の表.js'), 'utf8');
+    const { 利益を計算する } = new Function('window', 'localStorage', src2 + '\nreturn { 利益を計算する };')({}, { getItem: () => null, setItem() {} });
+    const r = 利益を計算する(
+        [{ sku: 'T1', name: '黒T', price: 4000, source: 'suzuri' }],
+        [{ product_sku: 'T1', quantity: 1, total: 4000 }, { product_sku: 'T1', quantity: 2, total: 8000, 販売先: 'BASE', 注文ID: 'B9' }, { product_name: '登録していない帽子', quantity: 1, total: 3000 }],
+        { T1: { トリブン: 1000, 原価: 1500, 送料: 300 } }, { 率: 3.6, 固定: 40 });
+    const t = r.行たち[0];
+    確かめる('利益: 同じ商品でも、SUZURIとBASEで売れた分を、売上ごとに別の決まりで計算する',
+        t.数 === 3 && r.販売先別.SUZURI.利益 === 1000 && r.販売先別.BASE.利益 === 8000 - (288 + 40) - 3000 - 600);
+    確かめる('利益: 在庫に無い商品の売上を、黙って落とさず数える', r.在庫に無い.件数 === 1 && r.在庫に無い.売上 === 3000);
+}
+
+{
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '端末の機能.js'), 'utf8');
+    const 窓 = { AREGLM_PROFILE: { shops: { suzuri: { url: 'https://suzuri.jp/areglm' }, base: { url: 'javascript:alert(1)' } }, sns: { instagram: { url: 'https://www.instagram.com/areglm/' } } } };
+    const { 端末の機能のURL, この端末への頼み } = new Function('window', 'localStorage', 'document', src.replace("document.addEventListener('DOMContentLoaded'", "(() => {})('DOMContentLoaded'") + '\nreturn { 端末の機能のURL, この端末への頼み };')(窓, { getItem: () => null, setItem() {} }, {});
+    確かめる('端末の機能: iPhoneでは、ショートカットを名前で呼べる（文字はURLの形に崩す）', 端末の機能のURL('shortcut', ['在庫を数える', 'a&b=c'], 'iPhone') === 'shortcuts://run-shortcut?name=%E5%9C%A8%E5%BA%AB%E3%82%92%E6%95%B0%E3%81%88%E3%82%8B&input=text&text=a%26b%3Dc');
+    確かめる('端末の機能: Windowsでは、ショートカットは呼べない', 端末の機能のURL('shortcut', ['x'], 'Windows') === null);
+    確かめる('端末の機能: 地図は、Apple の端末は「マップ」、ほかはGoogleマップ', /^maps:\/\/\?q=/.test(端末の機能のURL('map', ['渋谷'], 'iPad')) && /^https:\/\/www\.google\.com\/maps\//.test(端末の機能のURL('map', ['渋谷'], 'Windows')));
+    確かめる('端末の機能: 電話番号は数字だけにする（他の文字を混ぜて別の動きをさせない）', 端末の機能のURL('tel', ['090-1234-5678;javascript:x'], 'iPhone') === 'tel:09012345678');
+    確かめる('端末の機能: メールアドレスでないものには、メールを作らない', 端末の機能のURL('mail', ['not-an-address', 'a', 'b'], 'Mac') === null);
+    確かめる('端末の機能: お店・SNSは https の公式アドレスだけを開く（設定が壊れていても javascript: は開かない）', 端末の機能のURL('suzuri', [], 'Android') === 'https://suzuri.jp/areglm' && 端末の機能のURL('base', [], 'Android') === null);
+    確かめる('端末の機能: 一覧に無い機能は開かない', 端末の機能のURL('open-anything', ['file:///etc/passwd'], 'Mac') === null);
+    const 頼み = [{ 状態: '待ち', 宛先: 'iPhone' }, { 状態: '待ち', 宛先: '仕事用iPad' }, { 状態: '済', 宛先: 'iPhone' }, { 状態: '待ち', 宛先: 'どの端末でも' }];
+    確かめる('端末の機能: この端末（呼び名か種類）宛ての、まだの頼みだけを出す', この端末への頼み(頼み, '私のiPhone', 'iPhone').length === 2 && この端末への頼み(頼み, '仕事用iPad', 'iPad').length === 2);
+}
+
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }
