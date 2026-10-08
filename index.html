@@ -167,6 +167,8 @@
                         <button type="button" class="home-tab" data-home-tab="ai"><span>◈</span>AI</button>
                         <button type="button" class="home-tab" data-home-tab="note"><span>✎</span>記録</button>
                         <button type="button" class="home-tab" data-home-tab="plan"><span>◎</span>計画</button>
+                        <button type="button" class="home-tab" data-home-tab="self"><span>🌱</span>自分</button>
+                        <button type="button" class="home-tab" data-home-tab="money"><span>¥</span>お金</button>
                         <button type="button" class="home-tab" data-home-tab="config"><span>⚙</span>設定</button>
                     </div>
                     <div id="gateway-status" class="status-banner warn"></div>
@@ -499,9 +501,19 @@
                         </p>
                         <div id="weekly-report-list" class="weekly-report-list"></div>
                     </section>
+                    <section data-home-group="self" class="panel-card full-width" hidden>
+                        <h3><span class="sec-icon">🌱</span>自分磨き</h3>
+                        <p class="hint">顔・筋トレ・身長・知識・性格・モチベーションの、目標と毎日の取り組みを残して見直します（診断はしません）。</p>
+                        <div id="self-growth-panel"></div>
+                    </section>
+                    <section data-home-group="money" class="panel-card full-width" hidden>
+                        <h3><span class="sec-icon">¥</span>お金</h3>
+                        <p class="hint">口座・支払い・ポイント・投資の動きを一か所で。何に使ったかまで見えるようにします。</p>
+                        <div id="money-panel"></div>
+                    </section>
                     <section data-home-group="note" class="panel-card full-width">
                         <div class="panel-header-row">
-                            <h3><span class="sec-icon">♡</span>体調<small class="hint">（端末内のみ）</small></h3>
+                            <h3><span class="sec-icon">♡</span>体調<small class="hint">（自分の端末同士だけで同期・暗号化）</small></h3>
                         </div>
                         <form id="health-form" class="health-form">
                             <label>睡眠 <input type="number" id="health-sleep" min="0" max="24" step="0.5" placeholder="7"><small>時間</small></label>
@@ -3577,6 +3589,8 @@
     <script src="js/modules/rules-ui.js" defer></script>
     <script src="js/modules/self-check.js" defer></script>
     <script src="js/modules/requirements-ui.js" defer></script>
+    <script src="js/modules/自分磨き.js" defer></script>
+    <script src="js/modules/お金.js" defer></script>
     <script src="js/modules/home-tabs.js" defer></script>
     <script src="js/app-bootstrap.js" defer></script>
 </body>
