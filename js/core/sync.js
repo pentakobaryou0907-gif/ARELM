@@ -50,6 +50,8 @@ const AReGLM_SYNC = {
         'areglm_night_seen',
         // オフラインで開く許可は、その端末で実際にログインできたことの印。他の端末へ渡さない
         'areglm_offline_ok',
+        // 公開先で決めた、その端末だけの合言葉（崩した値）。他の端末へ渡さない
+        'areglm_local_lock',
     ]),
 
     _送信待ち: {},

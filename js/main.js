@@ -403,7 +403,10 @@ async function ログイン画面を整える() {
     if (!ログイン || !初期設定) return;
     try {
         // Macが寝ていると、返事を待ち続けてしまうので、4秒で見切る
-        const r = await fetch('/api/account/status', { cache: 'no-store', signal: AbortSignal.timeout(4000) }).then((y) => y.json());
+        const 応答 = await fetch('/api/account/status', { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+        // 404 = その場所にARELMのサーバーが無い（GitHub Pages などの公開先）。確かめる相手がいないので、端末の合言葉で入る
+        if (応答.status === 404) { サーバーの無い置き場の入り口を出す(); return; }
+        const r = await 応答.json();
         if (!r.初期設定済み) {
             if (r.本体から) {
                 ログイン.hidden = true;
@@ -419,7 +422,10 @@ async function ログイン画面を整える() {
     } catch {
         // サーバーに繋がらないときは、そのままログイン欄を出しておく（押せば理由が出る）。
         // 前にこの端末でログインできていれば、繋がるまでの間だけ、端末の中のデータで開ける。
-        オフラインで開く案内を出す();
+        // 公開先で合言葉を決めた端末は、通信が切れていても合言葉で開ける
+        // （以前は 404 でしか合言葉の欄を出さず、圏外ではログイン欄だけになって入れなかった）。
+        if (端末の合言葉を読む()) サーバーの無い置き場の入り口を出す();
+        else オフラインで開く案内を出す();
     }
 }
 
@@ -464,6 +470,108 @@ function オフラインで開く案内を出す() {
         showNotification('オフラインで開きました。AI・同期は、Macに繋がるまで使えません', 'info');
     });
     場所.insertAdjacentElement('afterend', 押す);
+}
+
+/**
+ * サーバーの無い置き場（GitHub Pages などの公開先）で開いたときの入り口。
+ *
+ * そこにはARELMのサーバーが無く、パスワードを確かめる相手がいない。
+ * 以前は、ログイン欄だけが出て、何を入れても入れなかった。
+ * そこで、その端末だけで使う合言葉を、本人が最初に決める（開発側は決めない・固定の初期値も無い）。
+ * 合言葉そのものは残さず、PBKDF2で崩した値だけをこの端末に置く。他の端末へは同期しない。
+ * 守れるのは「端末を手に取った人が、すぐには開けない」まで。データはこの端末の中だけにある。
+ */
+const 端末の合言葉の鍵 = 'areglm_local_lock';   // 端末ごと（同期しない）
+const 端末の合言葉の回数 = 600000;               // 門番・鍵の暗号化と同じ回数に揃える
+
+async function 端末の合言葉を崩す(言葉, 塩, 回数) {
+    const enc = new TextEncoder();
+    const 材料 = await crypto.subtle.importKey('raw', enc.encode(言葉), 'PBKDF2', false, ['deriveBits']);
+    const 崩した = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new Uint8Array(塩), iterations: 回数, hash: 'SHA-256' }, 材料, 256);
+    return Array.from(new Uint8Array(崩した), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function 端末の合言葉を読む() {
+    try {
+        const x = JSON.parse(localStorage.getItem(端末の合言葉の鍵) || 'null');
+        return x && Array.isArray(x.塩) && typeof x.値 === 'string' ? x : null;
+    } catch { return null; }
+}
+
+function 端末だけで入る() {
+    const 名前 = localStorage.getItem('areglm_login_name') || '本人';
+    if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(名前);
+    else createSession(名前);
+    updateUsernameDisplay(名前);
+    showMainApp();
+    showNotification('この端末だけで開きました。データはこの端末の中に残ります（AI・Macとの同期は使えません）', 'info');
+}
+
+function サーバーの無い置き場の入り口を出す() {
+    if (document.getElementById('local-lock-form')) return;
+    const ログイン = document.getElementById('login-form');
+    if (!ログイン) return;
+    // hidden 属性は、CSSの display に負けることがあるため、両方で隠す
+    ログイン.hidden = true;
+    ログイン.style.display = 'none';
+    document.getElementById('passkey-login-btn')?.setAttribute('hidden', '');
+
+    const 既に = 端末の合言葉を読む();
+    const 形 = document.createElement('form');
+    形.id = 'local-lock-form';
+    形.className = 'login-form';
+    const 説明 = document.createElement('p');
+    説明.className = 'hint';
+    説明.textContent = 既に
+        ? 'この端末で決めた合言葉を入れてください。'
+        : 'ここは、Macが無くても開ける公開先です。この端末だけで使う合言葉を、ご自身で決めてください（8文字以上。Macのパスワードとは別で構いません）。';
+    const 欄 = (id, 名, 補完) => {
+        const 枠 = document.createElement('div');
+        枠.className = 'form-group';
+        const l = document.createElement('label');
+        l.htmlFor = id;
+        l.textContent = 名;
+        const i = document.createElement('input');
+        i.type = 'password';
+        i.id = id;
+        i.required = true;
+        i.autocomplete = 補完;
+        枠.append(l, i);
+        return 枠;
+    };
+    形.append(説明, 欄('local-lock-1', '合言葉', 既に ? 'current-password' : 'new-password'));
+    if (!既に) 形.append(欄('local-lock-2', 'もう一度', 'new-password'));
+    const 押す = document.createElement('button');
+    押す.type = 'submit';
+    押す.className = 'btn btn-primary';
+    押す.textContent = 既に ? '開く' : '決めて始める';
+    形.append(押す);
+
+    形.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const 一 = document.getElementById('local-lock-1').value;
+        押す.disabled = true;
+        try {
+            if (既に) {
+                const 値 = await 端末の合言葉を崩す(一, 既に.塩, 既に.回数 || 端末の合言葉の回数);
+                if (値 !== 既に.値) { showNotification('合言葉が違います', 'error'); return; }
+            } else {
+                const 二 = document.getElementById('local-lock-2').value;
+                if (一.length < 8) { showNotification('8文字以上にしてください', 'error'); return; }
+                if (一 !== 二) { showNotification('2つの欄が違います', 'error'); return; }
+                const 塩 = Array.from(crypto.getRandomValues(new Uint8Array(16)));
+                const 値 = await 端末の合言葉を崩す(一, 塩, 端末の合言葉の回数);
+                localStorage.setItem(端末の合言葉の鍵, JSON.stringify({ 塩, 値, 回数: 端末の合言葉の回数 }));
+            }
+            形.querySelectorAll('input').forEach((i) => { i.value = ''; });
+            端末だけで入る();
+        } catch {
+            showNotification('この接続では合言葉を確かめられません（https で開いてください）', 'error');
+        } finally {
+            押す.disabled = false;
+        }
+    });
+    ログイン.insertAdjacentElement('afterend', 形);
 }
 
 function 入場券を覚える(r) {
