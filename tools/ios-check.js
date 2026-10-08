@@ -45,7 +45,8 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'u
 const manifestIcons = (manifest.icons || []).map((i) => i.src);
 
 [...new Set([...iconMatches, ...manifestIcons])].forEach((src) => {
-    fs.existsSync(path.join(root, src))
+    // 「?v=…」は、端末に古いアイコンを使わせないための印。ファイルの名前には含めない
+    fs.existsSync(path.join(root, src.split('?')[0]))
         ? ok(`アイコンが実在: ${src}`)
         : ng(`アイコンが見つかりません: ${src}`);
 });

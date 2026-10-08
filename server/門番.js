@@ -53,6 +53,7 @@ const 公開してよい道 = new Set([
     '/manifest.json',
     '/images/icon-192x192.png',
     '/images/icon-512x512.png',
+    '/images/apple-touch-icon.png',
 ]);
 
 /** 間違いの記録（相手ごと）。再起動で消えてよい。 */

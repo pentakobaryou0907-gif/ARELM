@@ -269,9 +269,9 @@ app.get('/ipad.mobileconfig', (req, res) => {
 <key>FullScreen</key><true/>
 <key>Icon</key><data>${絵}</data>
 <key>IsRemovable</key><true/>
-<key>Label</key><string>ARELM</string>
-<key>PayloadDescription</key><string>ARELMをホーム画面に追加します</string>
-<key>PayloadDisplayName</key><string>ARELM（ホーム画面のアイコン）</string>
+<key>Label</key><string>ARELM（アレラム）</string>
+<key>PayloadDescription</key><string>ARELM（アレラム）をホーム画面に追加します</string>
+<key>PayloadDisplayName</key><string>ARELM（アレラム）（ホーム画面のアイコン）</string>
 <key>PayloadIdentifier</key><string>jp.arelm.webclip.main</string>
 <key>PayloadType</key><string>com.apple.webClip.managed</string>
 <key>PayloadUUID</key><string>${uuid()}</string>
@@ -279,10 +279,10 @@ app.get('/ipad.mobileconfig', (req, res) => {
 <key>Precomposed</key><true/>
 <key>URL</key><string>${逃がす('http://' + 行き先 + '/')}</string>
 </dict></array>
-<key>PayloadDescription</key><string>ARELMのアイコンを、ホーム画面に追加します。入れても、設定は何も変わりません。いつでも削除できます。</string>
-<key>PayloadDisplayName</key><string>ARELM</string>
+<key>PayloadDescription</key><string>ARELM（アレラム）のアイコンを、ホーム画面に追加します。入れても、設定は何も変わりません。いつでも削除できます。</string>
+<key>PayloadDisplayName</key><string>ARELM（アレラム）</string>
 <key>PayloadIdentifier</key><string>jp.arelm.webclip</string>
-<key>PayloadOrganization</key><string>ARELM</string>
+<key>PayloadOrganization</key><string>ARELM（アレラム）</string>
 <key>PayloadRemovalDisallowed</key><false/>
 <key>PayloadType</key><string>Configuration</string>
 <key>PayloadUUID</key><string>${uuid()}</string>
