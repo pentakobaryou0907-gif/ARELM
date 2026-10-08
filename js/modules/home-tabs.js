@@ -58,6 +58,7 @@ function switchHomeTab(group) {
     // 切り替えた先の中身を最新にする
     if (group === 'today' && typeof renderCalendar === 'function') renderCalendar();
     if (group === 'note' && typeof renderHealth === 'function') renderHealth();
+    if (group === 'plan' && typeof render段取り === 'function') render段取り();
     if (group === 'self' && typeof render自分磨き === 'function') render自分磨き();
     if (group === 'money' && typeof renderお金 === 'function') renderお金();
     if (group === 'ai' && typeof renderLearningStatus === 'function') renderLearningStatus();
