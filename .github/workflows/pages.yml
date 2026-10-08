@@ -1,10 +1,13 @@
 # 画面のファイルだけを GitHub Pages に置き、Macが無くても各端末が最新を取れるようにする。
-# 手動で実行したときだけ動く（勝手には公開されない）。実行前に、リポジトリの
-# Settings → Pages → Source を「GitHub Actions」にしておく。
+# main に画面のファイルが入るたびに自動で公開し直す(手動でも実行できる)。
+# Pages がまだ無効なら、同じ処理の中で有効にする(enablement)。
 # 置くのは画面(index.html・css・js・fonts・images・manifest・sw.js)だけ。
 # server/ ・ server/data/ ・ server/certs/ ・スクリーンショット等は、置かない。
-name: 画面を公開する(手動)
+name: 画面を公開する
 on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'manifest.json', 'sw.js', 'css/**', 'js/**', 'fonts/**', 'images/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,6 +31,8 @@ jobs:
           cp -r css js fonts images _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
