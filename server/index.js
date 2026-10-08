@@ -222,13 +222,29 @@ app.post('/api/account/setup', (req, res) => {
     res.json({ ok: true, 訳: r.訳, 名前: 入.名前, 役: 入.役, 入場券: 入.入場券 });
 });
 
+/*
+ * 入場の記録。ログイン・合言葉の成否を残し、本人が見られるようにする（打ち込まれた中身は残さない）。
+ */
+const 入場の記録 = require('./入場の記録');
+const 入場の記録の場所 = path.join(DATA_DIR, '入場の記録.jsonl');
+門番.間違いの知らせ先を決める((何, 住所) => 入場の記録.残す(入場の記録の場所, 何, 住所));
+
 app.post('/api/account/login', (req, res) => {
     const { 名前, パスワード } = req.body || {};
     if (!アカウント.初期設定済みか()) {
         return res.status(409).json({ ok: false, 訳: 'まだアカウントがありません。先に最初の設定をしてください' });
     }
     const r = アカウント.ログイン(名前, パスワード, req.socket.remoteAddress);
+    入場の記録.残す(入場の記録の場所, r.ok ? '成功' : (r.締め出し ? '締め出し' : '失敗'), req.socket.remoteAddress);
     res.status(r.ok ? 200 : (r.締め出し ? 429 : 401)).json(r);
+});
+
+// 入場の記録を見る。ログインした本人（またはMac本体の画面）だけ
+app.get('/api/security/entries', (req, res) => {
+    if (!アカウント.入場券から人を知る(入場券を取り出す(req)) && !本体からか(req)) {
+        return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
+    }
+    res.json(Object.assign({ ok: true }, 入場の記録.まとめる(入場の記録.読む(入場の記録の場所))));
 });
 
 app.post('/api/account/logout', (req, res) => {
@@ -603,6 +619,8 @@ const 夜の当番の道具 = {
         try { return (await aiEngineFetch('/health', { signal: AbortSignal.timeout(5000) })).ok; } catch { return false; }
     },
     門番の設定: () => 門番.設定を読む(),
+    入場の知らせ: () => 入場の記録.まとめる(入場の記録.読む(入場の記録の場所)).知らせ,
+    倉庫の最後: () => 外の倉庫の最後,
     他の端末を許しているか: () => 他の端末を許しているか() || Tailscaleを許しているか(),
     どこでも: async () => {
         if (!Tailscaleを許しているか()) return { 許している: false };
