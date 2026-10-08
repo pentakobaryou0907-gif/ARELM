@@ -10178,3 +10178,21 @@ html[data-theme] .chat-bubble.user {
 
 /* ログイン画面の下に出す、ユーザー名とパスワード（本人が選んだときだけ） */
 .login-secret { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(127,127,127,.12); font-size: .85rem; word-break: break-all; user-select: all; }
+
+/* 欄をたたむ（js/modules/欄をたたむ.js）: 見出しだけを残し、中身を隠す。押すと開く */
+.sec-foldable.sec-folded > :not(.sec-head) { display: none !important; }
+.sec-foldable.sec-folded > .sec-head,
+.sec-foldable.sec-folded > .sec-head h2,
+.sec-foldable.sec-folded > .sec-head h3 { margin-bottom: 0; }
+.sec-toggle { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.4rem; }
+.sec-toggle:hover { opacity: 0.85; }
+.sec-toggle:focus-visible { outline: 2px solid var(--areglm-primary, #4f46e5); outline-offset: 3px; border-radius: 6px; }
+.sec-chevron { margin-left: auto; padding-left: 0.6rem; font-size: 0.85em; color: var(--tone-ink-dim, var(--areglm-muted)); }
+.fold-tools { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0 0 0.9rem; }
+/* hidden 属性は display に負けるため、はっきり隠す（ホームのタブ分け用） */
+.fold-tools[hidden] { display: none !important; }
+.panel-header-row > .sec-toggle { flex: 1 1 auto; }
+.fold-tools input[type="search"] {
+    flex: 1 1 160px; min-width: 0; padding: 0.55rem 0.75rem; border-radius: 10px;
+    border: 1px solid var(--tone-line, var(--areglm-border)); background: var(--areglm-surface, #fff); color: inherit; font-size: 0.95rem;
+}

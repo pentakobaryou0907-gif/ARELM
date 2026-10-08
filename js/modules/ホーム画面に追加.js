@@ -12,6 +12,7 @@
  */
 
 const 追加案内の鍵 = 'areglm_a2hs_dismissed';   // 端末ごと（同期しない）
+let ホーム画面の案内を待った回数 = 0;
 
 // ChromeやEdgeが「アプリとして入れられます」と知らせてきたときの合図を預かる（押されたときに使う）
 let アプリ入れの合図 = null;
@@ -54,7 +55,7 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
             '画面の上（iPad）または下（iPhone）にある「共有」ボタン（四角に上向きの矢印）をタップ',
             '出てきた一覧を下へ送り、「ホーム画面に追加」をタップ',
             '名前（ARELM）をそのままにして、右上の「追加」をタップ',
-            'ホーム画面に「ARELM」のアイコンができます。次からは、これをタップするだけで開きます。画面の中身は、開くたびに自動で最新になるので、消して入れ直す必要はありません（アイコンの絵だけは、iPadの仕様で、入れた時のまま変わりません）',
+            'ホーム画面に「ARELM」ができます。中身は開くたびに自動で最新になります（入れ直しは要りません）',
         ];
     }
     if (端末 === 'Android') {
@@ -98,9 +99,13 @@ function ホーム画面への追加を案内する() {
 
 function ホーム画面への追加を案内する続き(端末) {
     if (document.getElementById('main-app')?.style.display === 'none') return;
-    // ほかの案内（指紋の登録・続きから）と重ならないよう、先に出ていれば待つ
-    if (document.getElementById('passkey-offer') || document.getElementById('resume-offer')) {
-        setTimeout(ホーム画面への追加を案内する, 8000);
+    // ほかの案内（指紋の登録・続きから・朝のあいさつ・エージェントの画面）と重ならないよう、先に出ていれば待つ。
+    // スマホでは、開いた直後に案内が3つ重なり、画面が埋まっていたため
+    const 他の案内 = document.getElementById('passkey-offer') || document.getElementById('resume-offer') || document.getElementById('briefing')
+        || [...document.querySelectorAll('[role="dialog"]')].some((e) => e.id !== 'a2hs-offer' && e.offsetParent !== null);
+    if (他の案内) {
+        ホーム画面の案内を待った回数 = (ホーム画面の案内を待った回数 || 0) + 1;
+        if (ホーム画面の案内を待った回数 <= 5) setTimeout(ホーム画面への追加を案内する, 8000);
         return;
     }
     if (document.getElementById('a2hs-offer')) return;
