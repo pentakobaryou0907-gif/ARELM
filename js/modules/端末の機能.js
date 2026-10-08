@@ -207,3 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.render端末の機能 = render端末の機能;
 window.端末の機能のURL = 端末の機能のURL;
+
+// 試験（tools/サーバーの試験.js）から、画面を描かずに計算の部分だけを require で読むための出口。
+// ブラウザには module が無いので、ここは何もしない（試験で、文字をコードとして動かす書き方を使わないため）。
+if (typeof module !== 'undefined' && module.exports) module.exports = { 端末の機能のURL, この端末への頼み };

@@ -72,7 +72,7 @@ async function renderGitHubの様子(見る) {
     }
     箱.append(入場の部品('p', '読み込んでいます…', 'hint'));
     const 取る = async (道) => {
-        const r = await fetch(`https://api.github.com/repos/${GitHubの倉庫}/${道}`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+        const r = await 選んだ置き場へ送る(`https://api.github.com/repos/${GitHubの倉庫}/${道}`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
         if (r.status === 403 || r.status === 429) throw new Error('GitHubへの問い合わせが多すぎます。1時間ほどしてから、もう一度どうぞ');
         if (!r.ok) throw new Error('GitHubから読めませんでした（' + r.status + '）');
         return r.json();
