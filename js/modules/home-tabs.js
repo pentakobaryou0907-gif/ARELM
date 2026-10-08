@@ -62,6 +62,7 @@ function switchHomeTab(group) {
     if (group === 'money' && typeof renderお金 === 'function') renderお金();
     if (group === 'ai' && typeof renderLearningStatus === 'function') renderLearningStatus();
     if (group === 'config' && typeof renderPersonalizePanel === 'function') renderPersonalizePanel();
+    if (group === 'config' && typeof renderツールの説明 === 'function') renderツールの説明();
 
     // 上に戻して、切り替えた内容が最初から見えるようにする
     document.getElementById('dashboard-page')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
