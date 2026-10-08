@@ -28,3 +28,7 @@ __pycache__/
 
 # Syncthing（Mac⇄Windows間のコード同期）の内部マーカー。中身はない。
 .stfolder/
+
+# HTTPS用の自己署名証明書と秘密鍵。公開リポジトリに載せない(漏れた鍵は作り直す)。作るには make-cert.sh
+server/certs/key.pem
+server/certs/cert.pem
