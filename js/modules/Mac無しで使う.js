@@ -77,6 +77,7 @@ function renderMac無しで使う() {
     形.append(
         Mac無しの入力欄('mac-free-gh-token', 'GitHubの鍵（github_pat_…）', 'password'),
         Mac無しの入力欄('mac-free-gh-repo', '倉庫の名前', 'text', (倉庫 && 倉庫.倉庫) || 'ARELM-data'),
+        Mac無しの入力欄('mac-free-sync-pass', '同期の合言葉（全部の端末とMacで同じもの・8文字以上。倉庫の中身をこれで暗号化します）', 'password'),
     );
     const 保存 = Mac無しの部品('button', '保存して共有を始める', 'btn btn-primary');
     保存.type = 'submit';
@@ -89,15 +90,20 @@ function renderMac無しで使う() {
         const 鍵 = document.getElementById('mac-free-gh-token').value.trim();
         const 名 = document.getElementById('mac-free-gh-repo').value.trim() || 'ARELM-data';
         if (!/^[A-Za-z0-9_.-]+$/.test(名)) { 結果.textContent = '倉庫の名前は、英数字と - _ . だけにしてください'; return; }
+        const 合言葉 = document.getElementById('mac-free-sync-pass').value;
         if (!鍵 && !端末の金庫.入っているか('github')) { 結果.textContent = '鍵を貼ってください'; return; }
+        if (合言葉 && 合言葉.length < 8) { 結果.textContent = '同期の合言葉は8文字以上にしてください'; return; }
+        if (!合言葉 && !端末の金庫.入っているか('同期の合言葉')) { 結果.textContent = '同期の合言葉を決めてください（2台目からは、1台目と同じものを）'; return; }
         保存.disabled = true;
         結果.textContent = '確かめています…';
         try {
             if (鍵) await 端末の金庫.入れる('github', 鍵);
+            if (合言葉) await 端末の金庫.入れる('同期の合言葉', 合言葉);
             // 関所が /user と /user/repos を通せるよう、先に倉庫の名前だけ決める（持ち主は鍵から確かめる）
             localStorage.setItem(外の倉庫.設定の名, JSON.stringify({ 持ち主: '', 倉庫: 名 }));
             const 持ち主 = await 外の倉庫.準備する(名);
             document.getElementById('mac-free-gh-token').value = '';
+            document.getElementById('mac-free-sync-pass').value = '';
             const 変わった = await サーバー無しで取り込み直す();
             結果.textContent = `つながりました（${持ち主}/${名}）。この端末のデータを倉庫へ送っています。`;
             showNotification('データの共有を始めました', 'success');
@@ -125,7 +131,9 @@ function renderMac無しで使う() {
     });
     箱.appendChild(形);
     箱.appendChild(Mac無しの部品('p',
-        'データは、あなたのGitHubの非公開の倉庫に置かれます（他の人には見えません）。書くたびに前の中身が履歴に残るので、消えません。'
+        'データは、同期の合言葉で暗号化してから、あなたのGitHubの非公開の倉庫に置きます（GitHubからも中身は読めません）。'
+        + '健康・お金も含めて、全部の端末で同じになります。書くたびに前の中身が履歴に残るので、消えません。'
+        + '同期の合言葉を忘れると、新しい端末で倉庫を開けなくなります（各端末とMacの中のデータは残ります）。'
         + 'Macのデータも共有するには、Macが起きているときに、Macの設定で同じ倉庫を選んでください。', 'hint'));
 
     /* ---- AI（Gemini） ---- */
@@ -198,6 +206,7 @@ async function Macのデータも共有する欄(枠, 箱) {
     形.append(
         Mac無しの入力欄('mac-share-token', 'GitHubの鍵（github_pat_…。公開先で作ったものと同じでよい）', 'password'),
         Mac無しの入力欄('mac-share-repo', '倉庫の名前', 'text', 様.倉庫 || 'ARELM-data'),
+        Mac無しの入力欄('mac-share-pass', '同期の合言葉（公開先で決めたものと同じ）', 'password'),
     );
     const 保存 = Mac無しの部品('button', '保存して共有を始める', 'btn btn-primary');
     保存.type = 'submit';
@@ -213,9 +222,10 @@ async function Macのデータも共有する欄(枠, 箱) {
             const r = await fetch('/api/ext-store/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 鍵: document.getElementById('mac-share-token').value, 倉庫: document.getElementById('mac-share-repo').value }),
+                body: JSON.stringify({ 鍵: document.getElementById('mac-share-token').value, 倉庫: document.getElementById('mac-share-repo').value, 合言葉: document.getElementById('mac-share-pass').value }),
             }).then((y) => y.json());
             document.getElementById('mac-share-token').value = '';
+            document.getElementById('mac-share-pass').value = '';
             if (!r.ok) { 結果.textContent = r.訳 || '保存できませんでした'; return; }
             showNotification('Macのデータの共有を始めました', 'success');
             Macのデータも共有する欄(枠, 箱);
