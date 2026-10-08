@@ -9,6 +9,8 @@
  *   きろく   … メモ・体調
  *   けいかく … 目標・ブランドマニュアル
  *   せってい … API・活動履歴・ツールの馴染み
+ *   じぶん   … 自分磨き（顔・筋トレ・身長・知識・性格・モチベーション）
+ *   おかね   … 口座・収支・予算・投資の練習
  *
  * 開いていたタブは覚えておき、次に来たときも同じ場所から始められるようにする。
  */
@@ -56,6 +58,8 @@ function switchHomeTab(group) {
     // 切り替えた先の中身を最新にする
     if (group === 'today' && typeof renderCalendar === 'function') renderCalendar();
     if (group === 'note' && typeof renderHealth === 'function') renderHealth();
+    if (group === 'self' && typeof render自分磨き === 'function') render自分磨き();
+    if (group === 'money' && typeof renderお金 === 'function') renderお金();
     if (group === 'ai' && typeof renderLearningStatus === 'function') renderLearningStatus();
     if (group === 'config' && typeof renderPersonalizePanel === 'function') renderPersonalizePanel();
 
