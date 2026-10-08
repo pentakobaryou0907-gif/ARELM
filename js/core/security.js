@@ -163,6 +163,8 @@ const AReGLM_SECURITY = {
         localStorage.removeItem('username');
         localStorage.removeItem(this.STORAGE_KEY);
         sessionStorage.removeItem('areglm_device_salt');
+        // 公開先の鍵の金庫も閉じる（合言葉を入れ直すまで、GitHub・Geminiの鍵を開けない）
+        if (window.端末の金庫) 端末の金庫.閉じる();
         if (wipeSensitive) {
             this.wipeSecrets();
         }

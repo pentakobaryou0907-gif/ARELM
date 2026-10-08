@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+    <meta name="arelm-host" content="static">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self';">
@@ -2498,6 +2499,12 @@
                         <div id="devices-panel"></div>
                     </section>
 
+                    <section class="panel-card full-width" id="mac-free-section" style="display:none">
+                        <h3><span class="sec-icon">☁</span>Mac無しで使う（この端末）</h3>
+                        <p class="hint">Macが無いときも、iPad・Windowsで同じデータを使い、AIと話せるようにします（公開先 github.io と、Mac の両方で設定します）。</p>
+                        <div id="mac-free-panel"></div>
+                    </section>
+
                     <section class="panel-card">
                         <h3><span class="sec-icon">📲</span>ホーム画面に追加（iPad・iPhone・パソコン）</h3>
                         <p class="hint">アイコンをホーム画面に置いて、アプリのように、いつでも1タップで開けるようにします。</p>
@@ -3407,6 +3414,8 @@
     <script src="js/core/session.js"></script>
     <script src="js/core/蓄え.js"></script>
     <script src="js/core/security.js" defer></script>
+    <script src="js/core/端末の金庫.js" defer></script>
+    <script src="js/core/サーバー無しの代わり.js" defer></script>
     <script src="js/core/api-selector.js" defer></script>
     <script src="js/core/performance.js" defer></script>
     <script src="js/services/learning-engine.js" defer></script>
@@ -3554,6 +3563,7 @@
     <script src="js/modules/ホーム画面に追加.js" defer></script>
     <script src="js/core/qrcode.js" defer></script>
     <script src="js/modules/三端末.js" defer></script>
+    <script src="js/modules/Mac無しで使う.js" defer></script>
     <script src="js/modules/端末の記録.js" defer></script>
     <script src="js/modules/端末の許可.js" defer></script>
     <script src="js/modules/続きから.js" defer></script>
