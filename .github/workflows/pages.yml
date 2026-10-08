@@ -1,6 +1,10 @@
-# 画面のファイルだけを GitHub Pages に置き、Macが無くても各端末が最新を取れるようにする。
-# main に画面のファイルが入るたびに自動で公開し直す(手動でも実行できる)。
-# Pages がまだ無効なら、同じ処理の中で有効にする(enablement)。
+# 画面のファイルだけを gh-pages の枝に置き、GitHub Pages から配る。
+# Macが無くても、各端末が https://<持ち主>.github.io/ARELM/ から最新を取れるようにするため。
+#
+# main に画面のファイルが入るたびに、自動で送り直す（手動でも実行できる）。
+# 以前は configure-pages で有効化を試みたが、自動処理の権限では Pages を作れず、毎回失敗していた
+# （Resource not accessible by integration）。枝へ送るだけなら、この権限でできる。
+#
 # 置くのは画面(index.html・css・js・fonts・images・manifest・sw.js)だけ。
 # server/ ・ server/data/ ・ server/certs/ ・スクリーンショット等は、置かない。
 name: 画面を公開する
@@ -10,18 +14,13 @@ on:
     paths: ['index.html', 'manifest.json', 'sw.js', 'css/**', 'js/**', 'fonts/**', 'images/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: 画面のファイルだけを集める
@@ -30,11 +29,20 @@ jobs:
           cp index.html manifest.json sw.js _site/
           cp -r css js fonts images _site/
           touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: gh-pages の枝へ送る
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth 1 origin gh-pages; then
+            git worktree add _pub FETCH_HEAD
+          else
+            git worktree add --orphan -b gh-pages _pub
+          fi
+          cd _pub
+          # 前回の中身を入れ替える（main で消したファイルが、公開先に残り続けないように）
+          git rm -rq --ignore-unmatch .
+          cp -r ../_site/. .
+          git add -A
+          if git diff --cached --quiet; then echo "変わりなし"; exit 0; fi
+          git commit -m "画面を公開: ${GITHUB_SHA::7}"
+          git push origin HEAD:gh-pages
