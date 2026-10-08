@@ -19,6 +19,11 @@ const 開いた欄の鍵 = 'areglm_open_sections';   // 端末ごと（同期し
 const たたむ画面 = [
     { 頁: 'settings', 開けておく: 0 },
     { 頁: 'dashboard', タブ: 'config', 開けておく: 0 },
+    // 今日は、毎日見るものだけを開けておく。下の並びや別ページと重なるものは、一番下へ下げる
+    { 頁: 'dashboard', タブ: 'today', 開けておく題: ['作業の状況', 'タスク'], 下へ: ['機能をひらく', '遠隔操作とタスク', 'クイック操作'] },
+    { 頁: 'dashboard', タブ: 'ai', 開けておく: 1 },
+    { 頁: 'dashboard', タブ: 'note', 開けておく: 1 },
+    { 頁: 'dashboard', タブ: 'plan', 開けておく: 1 },
     { 頁: 'mainai', 開けておく: 2 },
     { 頁: 'sns', 開けておく: 2 },
     { 頁: 'studio', 開けておく: 2 },
@@ -73,6 +78,11 @@ function 欄を開け閉めする(節, 開く, 覚える = true) {
 /** 一つの画面の欄を、たためる形にする（何度呼んでも同じ結果） */
 function 画面の欄をたためるようにする(設定) {
     const 記憶 = 開いた欄を読む();
+    // 他の場所と重なる欄は、同じ入れ物の一番下へ下げる（消さない。開けば使える）
+    (設定.下へ || []).forEach((名) => {
+        const 節 = たたむ欄たち(設定).find((x) => 欄の題(x).includes(名));
+        if (節 && 節.dataset.下げた !== 'はい') { 節.dataset.下げた = 'はい'; 節.parentNode.appendChild(節); }
+    });
     const 欄たち = たたむ欄たち(設定);
     欄たち.forEach((節, i) => {
         if (節.dataset.たためる === 'はい') return;
@@ -95,7 +105,8 @@ function 画面の欄をたためるようにする(設定) {
         押す所.addEventListener('click', 切り替える);
         押す所.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 切り替える(); } });
         const 覚えている = 記憶[節.dataset.欄の鍵];
-        const 開く = 覚えている != null ? 覚えている : i < 設定.開けておく;
+        const 既定で開く = 設定.開けておく題 ? 設定.開けておく題.some((名) => 題.includes(名)) : i < (設定.開けておく || 0);
+        const 開く = 覚えている != null ? 覚えている : 既定で開く;
         欄を開け閉めする(節, 開く, false);
     });
     if (欄たち.length >= 4) 道具の帯を置く(設定, 欄たち);
@@ -103,7 +114,7 @@ function 画面の欄をたためるようにする(設定) {
 
 /** 画面の上に「探す」と「すべて開く／たたむ」を置く */
 function 道具の帯を置く(設定, 欄たち) {
-    const 印 = `fold-tools-${設定.頁}`;
+    const 印 = `fold-tools-${設定.頁}${設定.タブ ? '-' + 設定.タブ : ''}`;
     if (document.getElementById(印)) return;
     const 最初 = 欄たち[0];
     const 帯 = document.createElement('div');
