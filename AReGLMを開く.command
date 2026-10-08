@@ -33,6 +33,9 @@ else
     else
         echo "  ✗ サーバーを起動できませんでした"
         echo "     ログ: $(pwd)/server_launchd.log"
+        # 理由が分からないまま止まっていたので、最後の記録をここに出す。Macが無くても使える入り口も示す
+        { tail -n 8 "$HOME/Library/Logs/AReGLM/server.log"; tail -n 8 "$(pwd)/server_launchd.log"; } 2>/dev/null | tail -n 10 | sed 's/^/     | /'
+        echo "     Macが無くても開ける入り口: https://pentakobaryou0907-gif.github.io/ARELM/"
     fi
 fi
 
