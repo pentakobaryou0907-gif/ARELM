@@ -258,7 +258,7 @@ function ペアを頼む(住所, 名前) {
     待ちを掃除();
     const 今 = Date.now();
     const 記録 = (頼みの記録.get(住所) || []).filter((t) => 今 - t < 10 * 60000);
-    if (記録.length >= 3) return { ok: false, 訳: '続けて頼みすぎです。しばらく待ってください' };
+    if (記録.length >= 10) return { ok: false, 訳: '続けて頼みすぎです。しばらく待ってください' };
     if (待ち.size >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
     記録.push(今);
     頼みの記録.set(住所, 記録);
@@ -386,20 +386,37 @@ function 合言葉を聞く画面(訳, 初期の名前 = '') {
   <p id="pairmsg"></p>
 </form>
 <script>
-document.getElementById('pair').addEventListener('click', async function () {
+// iPadは、別のアプリへ切り替えて戻るとページを読み込み直すことがあり、そのたびに新しい頼み（新しいコード）を
+// 出していた。コードが変わってMacで確かめられず、すぐ回数の上限に達した。頼みはこのタブに覚えておき、続きから待つ。
+var 覚え鍵 = 'areglm_pair_wait';
+function 待ちを見せる(r) {
   var m = document.getElementById('pairmsg');
-  var 名 = document.querySelector('[name=名前]').value;
-  var r = await (await fetch('/__pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 名前: 名 }) })).json();
-  if (!r.ok) { m.textContent = r.訳 || '頼めませんでした'; return; }
   m.textContent = '';
-  m.appendChild(document.createTextNode('Macの画面に、このコードの知らせが出ます。同じコードか確かめて、Macで「許可」を押してください（' + r.待つ分 + '分以内）。'));
+  m.appendChild(document.createTextNode('Macの画面に、このコードの知らせが出ます。同じコードか確かめて、Macで「許可」を押してください（5分以内）。'));
   var 大 = document.createElement('div'); 大.textContent = r.code; 大.style.cssText = 'font-size:2.4rem;letter-spacing:.4rem;font-weight:700;margin-top:.4rem';
   m.appendChild(大);
   var t = setInterval(async function () {
-    var s = await (await fetch('/__pair/status?id=' + encodeURIComponent(r.id), { cache: 'no-store' })).json();
-    if (s['状態'] === '許可') { clearInterval(t); location.href = '/'; }
-    else if (s['状態'] !== '待ち') { clearInterval(t); m.textContent = s['状態'] === '断った' ? 'Macで断られました。' : '時間切れです。もう一度押してください。'; }
+    var s;
+    try { s = await (await fetch('/__pair/status?id=' + encodeURIComponent(r.id), { cache: 'no-store' })).json(); } catch (e) { return; }
+    if (s['状態'] === '許可') { clearInterval(t); sessionStorage.removeItem(覚え鍵); location.href = '/'; }
+    else if (s['状態'] !== '待ち') { clearInterval(t); sessionStorage.removeItem(覚え鍵); m.textContent = s['状態'] === '断った' ? 'Macで断られました。' : '時間切れです。もう一度押してください。'; }
   }, 2000);
+}
+function 覚えた待ち() {
+  try { var r = JSON.parse(sessionStorage.getItem(覚え鍵) || 'null'); return r && Date.now() - r.時刻 < 5 * 60000 ? r : null; } catch (e) { return null; }
+}
+var 前 = 覚えた待ち();
+if (前) 待ちを見せる(前);
+document.getElementById('pair').addEventListener('click', async function () {
+  var m = document.getElementById('pairmsg');
+  var 続き = 覚えた待ち();
+  if (続き) { 待ちを見せる(続き); return; }
+  var 名 = document.querySelector('[name=名前]').value;
+  var r = await (await fetch('/__pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 名前: 名 }) })).json();
+  if (!r.ok) { m.textContent = r.訳 || '頼めませんでした'; return; }
+  r.時刻 = Date.now();
+  try { sessionStorage.setItem(覚え鍵, JSON.stringify(r)); } catch (e) {}
+  待ちを見せる(r);
 });
 </script></body></html>`;
 }
