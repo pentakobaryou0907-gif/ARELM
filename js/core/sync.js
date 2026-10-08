@@ -54,6 +54,10 @@ const AReGLM_SYNC = {
         'areglm_local_lock',
         // 公開先の鍵の金庫と、外の置き場の設定（その端末で本人が選んだもの。関所の例外もこれで開く）
         'areglm_local_vault', 'areglm_ext_store', 'areglm_ext_ai',
+        // 公開先の合言葉の間違いの数と、その端末の入場の記録（端末ごとのもの）
+        'areglm_local_lock_wrong', 'areglm_local_entries',
+        // GitHubの様子を見ることを、この端末で本人が選んだ印
+        'areglm_ext_github_view',
     ]),
 
     _送信待ち: {},

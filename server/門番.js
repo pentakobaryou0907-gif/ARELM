@@ -326,15 +326,22 @@ function 締め出されているか(住所) {
     return false;
 }
 
+// 間違い・締め出しを、本人が見られる「入場の記録」へ知らせる先（server/index.js が決める）
+let 間違いの知らせ先 = null;
+function 間違いの知らせ先を決める(fn) { 間違いの知らせ先 = typeof fn === 'function' ? fn : null; }
+
 function 間違えた(住所) {
     const r = 間違い.get(住所) || { 回数: 0 };
     r.回数 += 1;
+    let 締め出した = false;
     if (r.回数 >= 許す間違い) {
         r.解ける = Date.now() + 締め出す分 * 60000;
         r.回数 = 0;
+        締め出した = true;
         console.warn(`[門番] ${住所} を ${締め出す分}分 締め出しました`);
     }
     間違い.set(住所, r);
+    try { if (間違いの知らせ先) 間違いの知らせ先(締め出した ? '合言葉の締め出し' : '合言葉の間違い', 住所); } catch { /* 記録の失敗で門番を止めない */ }
 }
 
 function 合った(住所) {
@@ -626,6 +633,7 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
 }
 
 module.exports = {
+    間違いの知らせ先を決める,
     この端末だけの口,
     門番を置く,
     中継された通信か,
