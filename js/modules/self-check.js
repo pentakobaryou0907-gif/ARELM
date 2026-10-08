@@ -86,18 +86,21 @@ function 入口を調べる() {
 }
 
 /**
- * 古い画面をため込む仕組み（Service Worker）が残っていないか。
- * これが残っていると、直しても画面に反映されない。
+ * アプリ本体の控え（Service Worker）が、この端末で働いているか。
+ * 働いていれば、Macが落ちていても画面が開き、開くたびに自動で最新になる。
  */
 function 古い画面の残りを調べる() {
     if (!('serviceWorker' in navigator)) {
-        return { 状態: 'ok', 詳細: 'この端末には仕組み自体がありません' };
+        return { 状態: 'warn', 詳細: 'この端末のブラウザには、控えの仕組みがありません' };
+    }
+    if (!window.isSecureContext) {
+        return { 状態: 'warn', 詳細: 'この接続（http）では控えを置けません。Macが起きているときだけ開けます。https か localhost で開くと、Mac無しでも開けます' };
     }
     // 調べるのに時間がかかるため、結果はあとから書き換える
     navigator.serviceWorker.getRegistrations().then((rs) => {
         書き換える('古い画面の残り', rs.length
-            ? { 状態: 'ng', 詳細: rs.length + '件 残っています', 直す: 古い画面を消す }
-            : { 状態: 'ok', 詳細: 'ありません' });
+            ? { 状態: 'ok', 詳細: '端末に控えがあります（Macが無くても開けます）' }
+            : { 状態: 'warn', 詳細: 'まだ控えがありません。一度開き直すと置かれます', 直す: () => location.reload() });
     });
     return { 状態: 'warn', 詳細: '調べています…' };
 }

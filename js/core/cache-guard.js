@@ -1,40 +1,31 @@
 /**
- * 古いキャッシュの掃除
+ * アプリ本体の控え（Service Worker）の登録
  *
- * 以前のバージョンが Service Worker を登録しており、
- * それがブラウザに残って index.html と CSS を古いまま返していた。
- * コードから登録処理を消しても、ブラウザ側の登録は残り続ける。
+ * 一度入れれば、入れ直さなくても、開くたびに最新へ自動で入れ替わる。
+ * Mac が寝ている・落ちているときも、端末の中の控えで画面が開く（中身は sw.js）。
  *
- * このツールはこの端末のサーバーが動いていることが前提なので、
- * オフライン用のキャッシュは不要。残っているものを確実に取り除き、
- * 「直したのに画面が変わらない」が起きないようにする。
+ * 以前は「古い控えが画面を固めてしまう」ため、登録を全部外していた。
+ * 今の sw.js は「先にネットワーク、繋がらないときだけ控え」なので、その心配は無い。
+ * 古い版(自分を消すだけの sw.js)が残っている端末も、ブラウザが sw.js を取り直して、
+ * 自動でこの版に入れ替わる。
  *
- * 他のスクリプトより先に走らせる（index.html の先頭で読み込む）。
+ * 安全な接続（https か localhost）でしか、ブラウザは Service Worker を許さない。
+ * http://192.168.x.x のような接続では登録されず、これまで通り、Macが起きているときだけ開ける。
  */
-(function cleanStaleCaches() {
+(function registerShellWorker() {
     if (!('serviceWorker' in navigator)) return;
+    if (!window.isSecureContext) return;
 
-    navigator.serviceWorker
-        .getRegistrations()
-        .then((regs) => {
-            if (!regs.length) return null;
-
-            // 登録されているものをすべて解除する
-            return Promise.all(regs.map((r) => r.unregister())).then(() => {
-                // キャッシュ本体も消す
-                if (!('caches' in window)) return null;
-                return caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
-            }).then(() => {
-                console.log('[ARELM] 古いキャッシュを消しました。最新の画面を読み込みます。');
-                // 消した直後の表示は古いままなので、一度だけ読み直す。
-                // 無限に繰り返さないよう、印を付けてから再読み込みする。
-                if (!sessionStorage.getItem('areglm_cache_cleared')) {
-                    sessionStorage.setItem('areglm_cache_cleared', '1');
-                    location.reload();
-                }
-            });
-        })
-        .catch(() => {
-            /* 掃除に失敗しても本体の動作は妨げない */
-        });
+    window.addEventListener('load', () => {
+        navigator.serviceWorker
+            .register('./sw.js', { scope: './', updateViaCache: 'none' })
+            .then((reg) => {
+                // 開いたまま長く置かれても、ときどき新しい版を探す
+                setInterval(() => { reg.update().catch(() => {}); }, 30 * 60 * 1000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') reg.update().catch(() => {});
+                });
+            })
+            .catch(() => { /* 登録できなくても、本体の動作は妨げない */ });
+    });
 })();

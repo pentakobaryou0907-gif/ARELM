@@ -13,6 +13,24 @@
 
 const 追加案内の鍵 = 'areglm_a2hs_dismissed';   // 端末ごと（同期しない）
 
+// ChromeやEdgeが「アプリとして入れられます」と知らせてきたときの合図を預かる（押されたときに使う）
+let アプリ入れの合図 = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    アプリ入れの合図 = e;
+    document.querySelectorAll('[data-arelm-install]').forEach((b) => { b.hidden = false; b.style.display = ''; });
+});
+window.addEventListener('appinstalled', () => { アプリ入れの合図 = null; });
+
+/** ブラウザの「アプリとして入れる」を出す（本人がボタンを押したときだけ） */
+async function アプリとして入れる() {
+    if (!アプリ入れの合図) return false;
+    アプリ入れの合図.prompt();
+    const 結果 = await アプリ入れの合図.userChoice.catch(() => null);
+    アプリ入れの合図 = null;
+    return !!結果 && 結果.outcome === 'accepted';
+}
+
 function ホーム画面のアプリとして開いているか() {
     return navigator.standalone === true
         || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
@@ -36,7 +54,7 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
             '画面の上（iPad）または下（iPhone）にある「共有」ボタン（四角に上向きの矢印）をタップ',
             '出てきた一覧を下へ送り、「ホーム画面に追加」をタップ',
             '名前（ARELM）をそのままにして、右上の「追加」をタップ',
-            'ホーム画面に「ARELM」のアイコンができます。次からは、これをタップするだけで開きます',
+            'ホーム画面に「ARELM」のアイコンができます。次からは、これをタップするだけで開きます。画面の中身は、開くたびに自動で最新になるので、消して入れ直す必要はありません（アイコンの絵だけは、iPadの仕様で、入れた時のまま変わりません）',
         ];
     }
     if (端末 === 'Android') {
@@ -46,14 +64,14 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
         return ['Safariなら、メニューの「ファイル」→「Dockに追加…」', 'Chromeなら、右上「⋮」→「保存して共有」→「ショートカットを作成…」→「ウィンドウとして開く」にチェック'];
     }
     if (端末 === 'Windows') {
-        // Chromeは版によってメニューの名前が違う。2026年のChrome（154）では「保存と共有」が無く、
-        // 「キャスト、保存、共有」→「ページをアプリとしてインストール」になっていた（古い案内で迷わせた）。
-        // Chromeのメニューは版で名前が変わり、「ページをアプリとしてインストール」が出ないこともあった。
-        // 確実なのは、Windows用キット（アイコンの場所をARELMに知らせ、設定で「どこにあるか」が分かる）。
+        // 本物のアプリ(PWA)として入れる。一度入れれば、入れ直さなくても自動で最新になり、Macが落ちていても開く。
+        // ただし、ブラウザは「https か localhost」でしかアプリとして入れさせない（http://192.168… では出ない）。
         return [
-            '下の「Windows用のアプリ（ZIP）」をダウンロードする',
-            'ダウンロードしたZIPを右クリック →「すべて展開」→ 開いたフォルダの「ARELM-install.bat」をダブルクリック（「保護されました」と出たら「詳細情報」→「実行」）',
-            'デスクトップとスタートメニューに「ARELM」ができます。入れた場所は、ARELMの設定「3台の端末」で見られます',
+            'ChromeかEdgeで、https:// で始まる ARELM のアドレス（設定「どこでも」のアドレス）を開く',
+            window.isSecureContext
+                ? '下の「アプリとして入れる」を押す（出ないときは、右上「⋮」→「キャスト、保存、共有」→「ページをアプリとしてインストール」）'
+                : 'いまは http で開いているため、アプリとして入れられません。https のアドレスで開き直してください（出来ないときだけ、下のZIPで入れられます。ZIPの方は、自動更新されません）',
+            '入れたあとは、デスクトップやスタートメニューの「ARELM」を開くだけ。以後の更新は、自動です',
         ];
     }
     return ['ブラウザのメニューから「ホーム画面に追加」（またはショートカットの作成）を選んでください'];
@@ -95,7 +113,7 @@ function ホーム画面への追加を案内する続き(端末) {
     const 題 = document.createElement('p');
     題.style.cssText = 'margin:0 0 6px;font-weight:600';
     題.textContent = 端末 === 'Windows'
-        ? 'このパソコンには、まだARELMが入っていません。デスクトップにアイコンを置けます'
+        ? 'このパソコンには、まだARELMのアプリが入っていません。一度入れれば、あとは自動で最新になります'
         : `${端末}のホーム画面に、ARELMのアイコンを置けます`;
     const 手順 = document.createElement('ol');
     手順.style.cssText = 'margin:0 0 10px;padding-left:1.3em;font-size:.9rem';
@@ -114,6 +132,17 @@ function ホーム画面への追加を案内する続き(端末) {
     もう.addEventListener('click', () => { try { localStorage.setItem(追加案内の鍵, '1'); } catch { /* 無視 */ } 枠.remove(); });
     並び.append(あとで, もう);
     枠.append(題, 手順);
+    if (端末 === 'Windows' && window.isSecureContext) {
+        const 入れる = document.createElement('button');
+        入れる.type = 'button';
+        入れる.className = 'btn btn-sm btn-primary';
+        入れる.textContent = 'アプリとして入れる';
+        入れる.setAttribute('data-arelm-install', '1');
+        入れる.hidden = !アプリ入れの合図;
+        入れる.style.cssText = 'margin-bottom:10px';
+        入れる.addEventListener('click', async () => { if (await アプリとして入れる()) 枠.remove(); });
+        枠.appendChild(入れる);
+    }
     if (端末 === 'Windows') {
         // 別の方法: ファイルで入れる（ブラウザのメニューが使えないとき）
         const 別 = document.createElement('p');
