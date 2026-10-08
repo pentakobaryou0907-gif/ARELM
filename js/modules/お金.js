@@ -133,6 +133,8 @@ function 明細のCSVを読む(文字) {
     if (日 < 0 || 金額 < 0) return [];
     return 行たち.slice(1).map((l) => {
         const c = CSVの行を分ける(l);
+        // 見出しと列の数が合わない行は、列がずれて金額を読み違えるため、取り込まない
+        if (c.length !== 見出し.length) return null;
         if (対象 >= 0 && c[対象] === '0') return null;   // 計算の対象外にした明細は取り込まない
         const 値 = Number(String(c[金額] || '').replace(/[¥,円\s]/g, ''));
         if (!c[日] || !isFinite(値) || 値 === 0) return null;

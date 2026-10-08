@@ -139,6 +139,7 @@ function switchHubTab(tab) {
     if (tab === 'sheet' && typeof renderSheet === 'function') renderSheet();
     if (tab === 'preorder' && typeof renderPreorders === 'function') renderPreorders();
     if (tab === 'profit' && typeof render利益の表 === 'function') render利益の表();
+    if (tab === 'base' && typeof renderBASEの売上 === 'function') renderBASEの売上();
 }
 
 function getSuzuriProductsOnly() {

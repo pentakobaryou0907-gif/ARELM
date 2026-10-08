@@ -378,6 +378,36 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
     確かめる('利益: トリブン・原価が未設定の商品を知らせる', 行('N1').設定が無い && !行('T1').設定が無い);
 }
 
+{
+    const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'BASEの売上.js'), 'utf8');
+    const f = new Function('window', 'localStorage', src + '\nreturn { BASEの注文CSVを読む, BASEの売上を取り込む, BASEをまとめる };')({}, { getItem: () => null, setItem() {} });
+    const csv = '注文ID,注文日時,氏名(姓),メールアドレス,電話番号,住所,商品名,バリエーション,価格,数量,対応状況\n'
+        + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,"黒Tシャツ, 限定",M,4000,2,未対応\n'
+        + 'B1,2026/10/02 10:00:00,山田,a@example.com,090-1111-2222,東京都,キャップ,,3000,1,未対応\n'
+        + 'B2,2026/10/05 12:30:00,佐藤,b@example.com,080-0000-0000,大阪府,"黒Tシャツ, 限定",L,4000,0,発送済み\n'
+        + 'B3,2026/10/06 09:00:00,鈴木,c@example.com,070-0000-0000,京都府,黒Tシャツ, 限定,L,4000,1,未対応\n';
+    const 行 = f.BASEの注文CSVを読む(csv);
+    確かめる('BASE: 注文のCSVを読む（引用符の中のカンマ・数量0の行は除く）', 行.length === 2 && 行[0].product_name === '黒Tシャツ, 限定（M）' && 行[0].total === 8000 && 行[0].販売先 === 'BASE');
+    確かめる('BASE: 列がずれた行（引用符の無いカンマ）は、読み違えずに取り込まない', !行.some((r) => r.注文ID === 'B3'));
+    確かめる('BASE: お客さまの氏名・メール・電話・住所は取り込まない', !/山田|example\.com|090-|東京都/.test(JSON.stringify(行)));
+    const 足す = f.BASEの売上を取り込む(行, [{ 販売先: 'BASE', 注文ID: 'B1', product_name: 'キャップ' }], [{ sku: 'T9', name: '黒Tシャツ, 限定' }]);
+    確かめる('BASE: 同じ注文の同じ商品は二重に入れず、在庫の商品と同じ名前なら番号を付ける', 足す.length === 1 && 足す[0].product_sku === 'T9');
+    const ま = f.BASEをまとめる(行, { 率: 3.6, 固定: 40 }, {}, '2026-10');
+    確かめる('BASE: 月の売上・注文数・手数料（率＋1件あたり×注文数）・未発送', ま.売上 === 11000 && ま.注文数 === 1 && ま.手数料 === 396 + 40 && ま.未発送 === 1);
+    確かめる('BASE: 必要ない個人情報の列が無いCSVでも読む／商品名の無いCSVは読まない', f.BASEの注文CSVを読む('注文番号,商品名,数量,単価\nX,帽子,1,1000').length === 1 && f.BASEの注文CSVを読む('注文番号,数量\nX,1').length === 0);
+
+    const src2 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '利益の表.js'), 'utf8');
+    const { 利益を計算する } = new Function('window', 'localStorage', src2 + '\nreturn { 利益を計算する };')({}, { getItem: () => null, setItem() {} });
+    const r = 利益を計算する(
+        [{ sku: 'T1', name: '黒T', price: 4000, source: 'suzuri' }],
+        [{ product_sku: 'T1', quantity: 1, total: 4000 }, { product_sku: 'T1', quantity: 2, total: 8000, 販売先: 'BASE', 注文ID: 'B9' }, { product_name: '登録していない帽子', quantity: 1, total: 3000 }],
+        { T1: { トリブン: 1000, 原価: 1500, 送料: 300 } }, { 率: 3.6, 固定: 40 });
+    const t = r.行たち[0];
+    確かめる('利益: 同じ商品でも、SUZURIとBASEで売れた分を、売上ごとに別の決まりで計算する',
+        t.数 === 3 && r.販売先別.SUZURI.利益 === 1000 && r.販売先別.BASE.利益 === 8000 - (288 + 40) - 3000 - 600);
+    確かめる('利益: 在庫に無い商品の売上を、黙って落とさず数える', r.在庫に無い.件数 === 1 && r.在庫に無い.売上 === 3000);
+}
+
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }
