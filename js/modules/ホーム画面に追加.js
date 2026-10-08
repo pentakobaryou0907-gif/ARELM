@@ -12,6 +12,9 @@
  */
 
 const 追加案内の鍵 = 'areglm_a2hs_dismissed';   // 端末ごと（同期しない）
+// Macが止まっていても開ける、ARELMの入り口（GitHub Pages）。どの端末のホーム画面にも、ここを入れる
+const 公開先の住所 = 'https://pentakobaryou0907-gif.github.io/ARELM/';
+let ホーム画面の案内を待った回数 = 0;
 
 // ChromeやEdgeが「アプリとして入れられます」と知らせてきたときの合図を預かる（押されたときに使う）
 let アプリ入れの合図 = null;
@@ -54,7 +57,7 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
             '画面の上（iPad）または下（iPhone）にある「共有」ボタン（四角に上向きの矢印）をタップ',
             '出てきた一覧を下へ送り、「ホーム画面に追加」をタップ',
             '名前（ARELM）をそのままにして、右上の「追加」をタップ',
-            'ホーム画面に「ARELM」のアイコンができます。次からは、これをタップするだけで開きます。画面の中身は、開くたびに自動で最新になるので、消して入れ直す必要はありません（アイコンの絵だけは、iPadの仕様で、入れた時のまま変わりません）',
+            'ホーム画面に「ARELM」ができます。中身は開くたびに自動で最新になります（入れ直しは要りません）',
         ];
     }
     if (端末 === 'Android') {
@@ -67,7 +70,10 @@ function ホーム画面への手順(端末 = ホーム画面用の端末()) {
         // 本物のアプリ(PWA)として入れる。一度入れれば、入れ直さなくても自動で最新になり、Macが落ちていても開く。
         // ただし、ブラウザは「https か localhost」でしかアプリとして入れさせない（http://192.168… では出ない）。
         return [
-            'ChromeかEdgeで、https:// で始まる ARELM のアドレス（設定「どこでも」のアドレス）を開く',
+            // 公開先で開いているのに「どこでものアドレスを開く」と案内していた（公開先はもとから https）
+            (typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か())
+                ? 'いま開いているこのページ（https）のままでよい'
+                : `ChromeかEdgeで、${公開先の住所} を開く（Macが止まっていても開けます）`,
             window.isSecureContext
                 ? '下の「アプリとして入れる」を押す（出ないときは、右上「⋮」→「キャスト、保存、共有」→「ページをアプリとしてインストール」）'
                 : 'いまは http で開いているため、アプリとして入れられません。https のアドレスで開き直してください（出来ないときだけ、下のZIPで入れられます。ZIPの方は、自動更新されません）',
@@ -83,10 +89,10 @@ function ホーム画面への追加を案内する() {
         if (localStorage.getItem(追加案内の鍵) === '1') return;
     } catch { return; }
     const 端末 = ホーム画面用の端末();
-    // Macには、本物のアプリ（AReGLM.app）がある。Androidは、設定画面の手順だけにする。
+    // Macには、本物のアプリ（AReGLM.app）がある。
     // Windowsは、遠くから入れられない（ファイルの実行は、そのパソコンで行う必要がある）うえに、
     // 以前は案内が設定の奥にしか無く、「このパソコンにアプリが無い」と気づけなかった。
-    if (端末 !== 'iPad' && 端末 !== 'iPhone' && 端末 !== 'Windows') return;
+    if (端末 !== 'iPad' && 端末 !== 'iPhone' && 端末 !== 'Windows' && 端末 !== 'Android') return;
     if (ホーム画面のアプリとして開いているか()) return;
     // すでにこの端末に入っている（入れた場所の報告・アイコンから開いた記録がある）なら、勧めない
     if (typeof この端末に入っているか === 'function') {
@@ -98,9 +104,13 @@ function ホーム画面への追加を案内する() {
 
 function ホーム画面への追加を案内する続き(端末) {
     if (document.getElementById('main-app')?.style.display === 'none') return;
-    // ほかの案内（指紋の登録・続きから）と重ならないよう、先に出ていれば待つ
-    if (document.getElementById('passkey-offer') || document.getElementById('resume-offer')) {
-        setTimeout(ホーム画面への追加を案内する, 8000);
+    // ほかの案内（指紋の登録・続きから・朝のあいさつ・エージェントの画面）と重ならないよう、先に出ていれば待つ。
+    // スマホでは、開いた直後に案内が3つ重なり、画面が埋まっていたため
+    const 他の案内 = document.getElementById('passkey-offer') || document.getElementById('resume-offer') || document.getElementById('briefing')
+        || [...document.querySelectorAll('[role="dialog"]')].some((e) => e.id !== 'a2hs-offer' && e.offsetParent !== null);
+    if (他の案内) {
+        ホーム画面の案内を待った回数 = (ホーム画面の案内を待った回数 || 0) + 1;
+        if (ホーム画面の案内を待った回数 <= 5) setTimeout(ホーム画面への追加を案内する, 8000);
         return;
     }
     if (document.getElementById('a2hs-offer')) return;
@@ -132,7 +142,18 @@ function ホーム画面への追加を案内する続き(端末) {
     もう.addEventListener('click', () => { try { localStorage.setItem(追加案内の鍵, '1'); } catch { /* 無視 */ } 枠.remove(); });
     並び.append(あとで, もう);
     枠.append(題, 手順);
-    if (端末 === 'Windows' && window.isSecureContext) {
+    // Macのアドレスで開いたままホーム画面に入れると、Macが止まっている間は開けない。公開先を勧める
+    if (!(typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か())) {
+        const 公開 = document.createElement('p');
+        公開.style.cssText = 'margin:0 0 10px;font-size:.9rem';
+        const a = document.createElement('a');
+        a.href = 公開先の住所;
+        a.textContent = 公開先の住所;
+        a.rel = 'noopener';
+        公開.append('Macが止まっていても開けるのは、こちらのアドレスです。開いてから、同じ手順で入れてください: ', a);
+        枠.appendChild(公開);
+    }
+    if ((端末 === 'Windows' || 端末 === 'Android') && window.isSecureContext) {
         const 入れる = document.createElement('button');
         入れる.type = 'button';
         入れる.className = 'btn btn-sm btn-primary';
@@ -143,7 +164,8 @@ function ホーム画面への追加を案内する続き(端末) {
         入れる.addEventListener('click', async () => { if (await アプリとして入れる()) 枠.remove(); });
         枠.appendChild(入れる);
     }
-    if (端末 === 'Windows') {
+    // 公開先にはZIPが無い（押しても404になっていた）。ZIPは、Macから開いたときだけ
+    if (端末 === 'Windows' && !(typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か())) {
         // 別の方法: ファイルで入れる（ブラウザのメニューが使えないとき）
         const 別 = document.createElement('p');
         別.style.cssText = 'margin:0 0 10px;font-size:.8rem;color:#555';
@@ -170,10 +192,27 @@ async function renderホーム画面に追加() {
         ? `いま: ${端末}のホーム画面のアプリとして開いています。`
         : `いま: ブラウザで開いています（${端末}）。`, ホーム画面のアプリとして開いているか() ? 'guard-off' : 'guard-on'));
 
+    // ChromeやEdgeが入れられると言っているときは、ボタン1つで入れる
+    if (!ホーム画面のアプリとして開いているか()) {
+        const 入れる = 行('button', 'この端末にアプリとして入れる', 'btn btn-primary');
+        入れる.type = 'button';
+        入れる.setAttribute('data-arelm-install', '1');
+        入れる.hidden = !アプリ入れの合図;
+        入れる.addEventListener('click', async () => { if (await アプリとして入れる()) renderホーム画面に追加(); });
+        箱.appendChild(入れる);
+    }
+
     箱.appendChild(行('h4', `${端末}で、ホーム画面に追加する手順`));
     const ol = document.createElement('ol');
     ホーム画面への手順().forEach((t) => ol.appendChild(行('li', t)));
     箱.appendChild(ol);
+
+    // ほかの端末へ: 公開先のアドレスを、打たずに渡す（QRをスマホ・iPadのカメラで読む）
+    箱.appendChild(行('h4', 'ほかの端末（スマホ・iPad・Windows）にも入れる'));
+    箱.appendChild(行('p', 'その端末で、このアドレスを開き、上と同じ手順でホーム画面に追加します。Macが止まっていても開け、一度入れれば、あとは自動で最新になります。', 'hint'));
+    if (typeof 住所を渡せる行にする === 'function') 箱.appendChild(住所を渡せる行にする(公開先の住所));
+    else { const p = 行('p', 公開先の住所); p.style.cssText = 'user-select:all;word-break:break-all;font-weight:600'; 箱.appendChild(p); }
+    箱.appendChild(行('p', '初めて開く端末では、その端末用の合言葉を決めます。データを全部の端末でそろえるには、設定の「☁ Mac無しで使う」で、同じ倉庫と同じ同期の合言葉を入れます。', 'hint'));
 
     // iPad・iPhone で開くときの、このMacのアドレス
     let 住所 = [];
@@ -187,8 +226,8 @@ async function renderホーム画面に追加() {
         住所.forEach((a) => { const p = 行('p', a); p.style.cssText = 'user-select:all;word-break:break-all'; 箱.appendChild(p); });
         箱.appendChild(行('p', '最初に合言葉を聞かれます（Macで決めたもの）。そのあと、ユーザー名とパスワードでログインします。', 'hint'));
     }
-    箱.appendChild(行('p', 'ホーム画面のアプリは、Safariとは別の入れ物で動きます。そのため、追加したあと、初めて開くときに、もう一度、合言葉とログインが要ります（1回だけ）。', 'hint'));
-    箱.appendChild(行('p', '外出先など、別のWi-Fiや回線から開くには、Tailscaleの設定が要ります。', 'hint'));
+    箱.appendChild(行('p', 'iPhone・iPadのホーム画面のアプリは、Safariとは別の入れ物で動きます。そのため、追加したあと、初めて開くときに、もう一度、合言葉が要ります（1回だけ）。', 'hint'));
+    if (住所.length) 箱.appendChild(行('p', 'Macのアドレスを外出先（別のWi-Fiや回線）から開くには、Tailscaleの設定が要ります。公開先のアドレスなら、どこからでも開けます。', 'hint'));
 
     const 戻す = 行('button', '案内を、もう一度出す', 'btn btn-sm btn-secondary');
     戻す.type = 'button';
@@ -199,3 +238,4 @@ async function renderホーム画面に追加() {
 window.ホーム画面への追加を案内する = ホーム画面への追加を案内する;
 window.renderホーム画面に追加 = renderホーム画面に追加;
 window.ホーム画面への手順 = ホーム画面への手順;
+window.公開先の住所 = 公開先の住所;

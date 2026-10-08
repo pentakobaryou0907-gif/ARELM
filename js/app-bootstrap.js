@@ -67,10 +67,14 @@ window.checkGatewayStatus = async function checkGatewayStatus() {
     const ok = await AReGLM_API_CLIENT.health();
     const el = document.getElementById('gateway-status');
     if (el) {
+        // 動いているときは何も出さない（いつも見えていると、ホームが読むものだらけになるため）。
+        // 公開先（github.io）はサーバーが無いのが正しい形なので、出さない（以前は「Gateway未起動」と誤って出ていた）。
+        const 公開先 = typeof サーバーの無い公開先か === 'function' && サーバーの無い公開先か();
+        el.hidden = ok || 公開先;
         el.className = 'status-banner ' + (ok ? 'ok' : 'warn');
         el.innerHTML = ok
-            ? '<strong>API Gateway 稼働中</strong> — AI・SUZURIが利用可能'
-            : '<strong>Gateway未起動</strong> — ターミナルで <code>cd server && npm install && npm start</code>';
+            ? '<strong>Macにつながっています</strong> — AI・SUZURIが使えます'
+            : '<strong>Macのサーバーにつながりません</strong> — Macが起きているか確かめてください（設定の「このツールの説明と点検」でも確かめられます）';
     }
     return ok;
 }

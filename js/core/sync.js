@@ -60,6 +60,8 @@ const AReGLM_SYNC = {
         'areglm_ext_github_view',
         // この端末の呼び名（端末ごと。同期すると、全部の端末が同じ名前になり、頼みの宛先が分からなくなる）
         'areglm_device_name',
+        // どの欄を開いているか（画面の広さが違うので、スマホとパソコンで別々に覚える）
+        'areglm_open_sections',
     ]),
 
     _送信待ち: {},

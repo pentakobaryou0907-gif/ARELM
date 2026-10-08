@@ -819,8 +819,9 @@ app.get('/api/automation-status', async (req, res) => {
         { timeout: 15000 },
         (err, stdout) => {
             if (err) {
-                // gh が入っていない／ログインしていない端末でも、他の機能は困らせない
-                return res.status(502).json({ ok: false, 訳: 'ghコマンドで確認できませんでした: ' + err.message });
+                // gh が入っていない／ログインしていない端末でも、他の機能は困らせない。
+                // 502で返すと、開くたびにブラウザへ赤い記録が残っていた。受け手は ok を見るので 200 で返す
+                return res.json({ ok: false, 訳: 'ghコマンドで確認できませんでした: ' + err.message });
             }
             let 全件 = [];
             try { 全件 = JSON.parse(stdout); } catch { /* 空のまま扱う */ }
