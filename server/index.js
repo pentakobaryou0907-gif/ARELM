@@ -664,6 +664,82 @@ function 同期の中身を読む() {
     try { return JSON.parse(fs.readFileSync(SYNC_PATH, 'utf8')); } catch { return {}; }
 }
 
+function 同期の中身を書く(店) {
+    // 同時の保存でぶつからないよう、毎回ちがう名前に書いてから差し替える
+    const 仮 = `${SYNC_PATH}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(仮, JSON.stringify(店));
+    fs.renameSync(仮, SYNC_PATH);
+}
+
+/*
+ * 外の倉庫（GitHubの非公開倉庫）との橋渡し。Macが起きている間、Macのデータと倉庫を同じにする。
+ * Macが無いときに iPad・Windows（公開先）が書いた分を取り込み、Macで書いた分を倉庫へ送る。
+ */
+const 外の倉庫 = require('./外の倉庫');
+const 外の倉庫の設定の場所 = process.env.ARELM_EXT_STORE_FILE || path.join(DATA_DIR, '外の倉庫.json');
+let 外の倉庫の最後 = null;
+let 外の倉庫が動いている = false;
+let 外の倉庫の待ち = null;
+
+async function 外の倉庫とまぜる() {
+    const 設定 = 外の倉庫.設定を読む(外の倉庫の設定の場所);
+    if (!設定 || 外の倉庫が動いている) return 外の倉庫の最後;
+    外の倉庫が動いている = true;
+    try {
+        const r = await 外の倉庫.一度まわす({
+            設定,
+            読む: 同期の中身を読む,
+            書く: 同期の中身を書く,
+            // 倉庫の値で置き換わる前の値は、永久の記憶へ移す（消さない）
+            変わる: (key, 前, 後) => 永久の記憶.差分を残す(key, 前, 後),
+            取りに行く: safeFetch,
+        });
+        外の倉庫の最後 = Object.assign({ とき: new Date().toISOString() }, r);
+    } catch (e) {
+        外の倉庫の最後 = { とき: new Date().toISOString(), ok: false, 訳: e.message };
+    } finally {
+        外の倉庫が動いている = false;
+    }
+    return 外の倉庫の最後;
+}
+
+/** 画面での書き込みのあと、少しまとめてから倉庫へ送る（書くたびに送ると、倉庫の記録が増えすぎる） */
+function 外の倉庫へそのうち送る() {
+    if (!外の倉庫.設定を読む(外の倉庫の設定の場所)) return;
+    clearTimeout(外の倉庫の待ち);
+    外の倉庫の待ち = setTimeout(() => { 外の倉庫とまぜる(); }, 30 * 1000);
+    外の倉庫の待ち.unref?.();
+}
+
+// Macが起きている間、5分ごとに混ぜる（iPad・Windowsが倉庫に書いた分を取り込むため）
+setInterval(() => { 外の倉庫とまぜる(); }, 5 * 60 * 1000).unref?.();
+setTimeout(() => { 外の倉庫とまぜる(); }, 20 * 1000).unref?.();
+
+app.get('/api/ext-store/status', (req, res) => {
+    res.json(Object.assign({ ok: true }, 外の倉庫.様子(外の倉庫.設定を読む(外の倉庫の設定の場所), 外の倉庫の最後)));
+});
+
+// 鍵を預けるのは、このMac本体の画面からだけ（遠くの端末から、Macの倉庫の鍵を差し替えさせない）
+app.post('/api/ext-store/config', async (req, res) => {
+    if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この設定は、Mac本体の画面からだけできます' });
+    const { 鍵, 倉庫 } = req.body || {};
+    if (!鍵 || typeof 鍵 !== 'string') return res.status(400).json({ ok: false, 訳: '鍵を貼ってください' });
+    try {
+        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: String(倉庫 || 'ARELM-data').trim() }, safeFetch);
+        外の倉庫.設定を書く(外の倉庫の設定の場所, 設定);
+        const 最後 = await 外の倉庫とまぜる();
+        res.json(Object.assign({ ok: true }, 外の倉庫.様子(設定, 最後)));
+    } catch (e) {
+        res.status(400).json({ ok: false, 訳: e.message });
+    }
+});
+
+app.post('/api/ext-store/sync-now', async (req, res) => {
+    if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'Mac本体の画面からだけできます' });
+    const 最後 = await 外の倉庫とまぜる();
+    res.json(Object.assign({ ok: true }, 外の倉庫.様子(外の倉庫.設定を読む(外の倉庫の設定の場所), 最後)));
+});
+
 app.get('/api/sync/all', (req, res) => {
     res.json({ ok: true, データ: 同期の中身を読む() });
 });
@@ -684,10 +760,11 @@ app.post('/api/sync/push', (req, res) => {
         }
         店[key] = { value, updatedAt };
         try {
-            fs.writeFileSync(SYNC_PATH, JSON.stringify(店));
+            同期の中身を書く(店);
         } catch (e) {
             return res.status(500).json({ ok: false, 訳: '保存できませんでした: ' + e.message });
         }
+        外の倉庫へそのうち送る();
     }
     res.json({ ok: true });
 });
@@ -2170,7 +2247,18 @@ const OFFICIAL_API_ALLOWLIST = [
         無料か: true,
         無料の中身: 'iCloudの標準機能（追加課金なし。iCloudストレージ自体の契約は本人の既存契約に従う）',
         確かめた日: '2026-09-05',
-    }
+    },
+    {
+        // 端末同士のデータ共有（Macの無いとき）。本人が 2026-10-08 に選んだ置き場。
+        // 使うのは、本人の非公開の倉庫の中身を読み書きする窓口だけ（server/外の倉庫.js）。
+        host: 'api.github.com',
+        name: 'GitHub REST API',
+        provider: 'GitHub（公式）',
+        terms: 'https://docs.github.com/ja/site-policy/github-terms/github-terms-of-service',
+        無料か: true,
+        無料の中身: '非公開の倉庫・API ともに無料（1時間5000回まで／2026年10月時点）',
+        確かめた日: '2026-10-08',
+    },
 ];
 
 /**
