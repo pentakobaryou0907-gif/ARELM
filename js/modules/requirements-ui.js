@@ -1022,7 +1022,10 @@ function renderRequirements() {
     box.innerHTML = '';
     let 前の分類 = '';
 
-    対象.forEach((r, i) => {
+    対象.forEach((r) => {
+        // 絞り込んだ一覧の番号ではなく、元の一覧での番号を使う
+        // （「まとめて確かめる」は元の番号で結果欄を探すため、絞り込むと別の行に結果が出ていた）
+        const i = 要件一覧.indexOf(r);
         if (r.分類 !== 前の分類) {
             前の分類 = r.分類;
             const h = document.createElement('h4');
