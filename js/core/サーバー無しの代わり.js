@@ -21,6 +21,7 @@
  *   ・外への通信は、関所（外に出さない.js）の「本人が選んだ置き場」だけを通る
  *   ・鍵とキーは、端末の金庫（合言葉で閉じた置き場）からしか出さない
  *   ・カード番号・APIキー・メールアドレスらしきものは、Geminiへ送らない（自作AIの rules.py と同じ決まり）
+ *   ・倉庫には、全端末とMacで共通の「同期の合言葉」で閉じた（暗号化した）形でだけ置く（健康・お金も含めて同期するため）
  *   ・倉庫は消さない。書くたびに、GitHubの履歴に前の中身が残る
  */
 
@@ -58,6 +59,58 @@ function base64を文字に(b64) {
     return new TextDecoder().decode(b);
 }
 
+/* ---------- 倉庫に置く中身の暗号化 ----------
+ * GitHubの非公開倉庫でも、GitHub側からは中身が読める。健康・お金も含めて同期するため、
+ * 全端末とMacで共通の「同期の合言葉」から PBKDF2（60万回・SHA-256）で鍵を作り、AES-GCM で閉じてから置く。
+ * Mac側（server/外の倉庫.js の Node）と、同じ形・同じ計算にしてある。合言葉が違えば開けず、上書きもしない。
+ */
+function 文字をバイトに(b64) {
+    const 二進 = atob(String(b64).replace(/\s/g, ''));
+    const b = new Uint8Array(二進.length);
+    for (let i = 0; i < 二進.length; i++) b[i] = 二進.charCodeAt(i);
+    return b;
+}
+
+function バイトを文字に(b) {
+    let 二進 = '';
+    for (let i = 0; i < b.length; i += 0x8000) 二進 += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    return btoa(二進);
+}
+
+const 倉庫の暗号 = {
+    印: 'ARELMの暗号',
+    回数: 600000,
+    _控え: new Map(),   // 同じ合言葉・塩で、毎回60万回の計算をしないため（このページを開いている間だけ）
+
+    async _鍵(合言葉, 塩) {
+        const 名 = バイトを文字に(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(合言葉 + '\u0000' + 塩))));
+        if (!this._控え.has(名)) {
+            const 材料 = await crypto.subtle.importKey('raw', new TextEncoder().encode(合言葉), 'PBKDF2', false, ['deriveKey']);
+            this._控え.set(名, await crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt: 文字をバイトに(塩), iterations: this.回数, hash: 'SHA-256' },
+                材料, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']));
+        }
+        return this._控え.get(名);
+    },
+
+    async 閉じる(文字, 合言葉, 塩) {
+        const 使う塩 = 塩 || バイトを文字に(crypto.getRandomValues(new Uint8Array(16)));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const 中身 = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this._鍵(合言葉, 使う塩), new TextEncoder().encode(文字)));
+        return { [this.印]: 1, 塩: 使う塩, 回数: this.回数, iv: バイトを文字に(iv), 中身: バイトを文字に(中身) };
+    },
+
+    async 開ける(箱, 合言葉) {
+        if (Number(箱.回数) !== this.回数) throw new Error('暗号の形が違います（回数）');
+        try {
+            const 開いた = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: 文字をバイトに(箱.iv) }, await this._鍵(合言葉, 箱.塩), 文字をバイトに(箱.中身));
+            return new TextDecoder().decode(開いた);
+        } catch {
+            throw new Error('同期の合言葉が違います（倉庫の中身を開けません）');
+        }
+    },
+};
+
 /* ---------- GitHubの非公開倉庫 ---------- */
 const 外の倉庫 = {
     設定の名: 'areglm_ext_store',
@@ -70,7 +123,8 @@ const 外の倉庫 = {
 
     使えるか() {
         const s = this.設定();
-        return !!(s && s.持ち主 && s.倉庫 && window.端末の金庫 && 端末の金庫.開いているか() && 端末の金庫.入っているか('github'));
+        return !!(s && s.持ち主 && s.倉庫 && window.端末の金庫 && 端末の金庫.開いているか()
+            && 端末の金庫.入っているか('github') && 端末の金庫.入っているか('同期の合言葉'));
     },
 
     async _頭(追加) {
@@ -103,18 +157,28 @@ const 外の倉庫 = {
             if (!r2.ok) throw new Error('倉庫を読めませんでした（' + r2.status + '）');
             文字 = await r2.text();
         }
-        let データ = {};
-        try { データ = JSON.parse(文字 || '{}') || {}; } catch { データ = {}; }
-        return { データ, sha: j.sha };
+        let 箱 = {};
+        // 壊れた中身を空として扱うと、次の書き込みで倉庫を空にしてしまう。読めなければ止める
+        try { 箱 = JSON.parse(文字 || '{}') || {}; } catch { throw new Error('倉庫の中身が壊れています（上書きはしません）'); }
+        if (箱[倉庫の暗号.印]) {
+            const 合言葉 = await 端末の金庫.出す('同期の合言葉');
+            if (!合言葉) throw new Error('同期の合言葉が入っていません');
+            return { データ: JSON.parse(await 倉庫の暗号.開ける(箱, 合言葉)), sha: j.sha, 塩: 箱.塩 };
+        }
+        // 暗号化を入れる前の形。読めるが、次に書くときは閉じて置く
+        return { データ: 箱, sha: j.sha, 塩: null };
     },
 
     /** 足す分を、倉庫の最新と混ぜて書く。ぶつかったら（他の端末が先に書いた）、読み直して混ぜ直す */
     async 混ぜて書く(足す) {
         for (let 回 = 0; 回 < 4; 回++) {
-            const { データ, sha } = await this.読む();
+            const { データ, sha, 塩 } = await this.読む();
             const { 中身, 変わった } = 同期の中身をまぜる(データ, 足す);
-            if (!変わった && sha) return true;
-            const 本文 = { message: 'ARELM: 端末からの更新', content: 文字をbase64に(JSON.stringify(中身)) };
+            if (!変わった && sha && 塩) return true;
+            const 合言葉 = await 端末の金庫.出す('同期の合言葉');
+            if (!合言葉) throw new Error('同期の合言葉が入っていません');
+            const 閉じた = await 倉庫の暗号.閉じる(JSON.stringify(中身), 合言葉, 塩);
+            const 本文 = { message: 'ARELM: 端末からの更新', content: 文字をbase64に(JSON.stringify(閉じた)) };
             if (sha) 本文.sha = sha;
             const r = await fetch(this._道(), {
                 method: 'PUT',
@@ -372,3 +436,4 @@ window.外のAI = 外のAI;
 window.サーバーの無い公開先か = サーバーの無い公開先か;
 window.サーバー無しで取り込み直す = サーバー無しで取り込み直す;
 window.同期の中身をまぜる = 同期の中身をまぜる;
+window.倉庫の暗号 = 倉庫の暗号;

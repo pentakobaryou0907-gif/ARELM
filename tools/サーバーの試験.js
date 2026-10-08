@@ -180,8 +180,10 @@ async function 外の倉庫の試験() {
     const m = 倉庫.まぜる({ a: { value: '1', updatedAt: 1 }, b: { value: '2', updatedAt: 5 } }, { a: { value: '新', updatedAt: 2 }, b: { value: '古', updatedAt: 3 }, c: { value: '3', updatedAt: 1 } });
     確かめる('倉庫: 新しい方を残す（古い値で上書きしない）', m.中身.a.value === '新' && m.中身.b.value === '2' && m.中身.c.value === '3' && m.変わった項目.join() === 'a,c');
 
-    const 設定 = { 持ち主: 'tester', 倉庫: 'ARELM-data', 鍵: '試験の鍵' };
-    確かめる('倉庫: 画面に見せる様子に、鍵を入れない', !JSON.stringify(倉庫.様子(設定, null)).includes('試験の鍵'));
+    const 設定 = { 持ち主: 'tester', 倉庫: 'ARELM-data', 鍵: '試験の鍵', 合言葉: '同期の合言葉123' };
+    確かめる('倉庫: 画面に見せる様子に、鍵も合言葉も入れない', !/試験の鍵|同期の合言葉123/.test(JSON.stringify(倉庫.様子(設定, null))));
+    // 倉庫の中身（GitHubに置かれる形）を、合言葉で開いて読む
+    const 開いて読む = (文字) => JSON.parse(倉庫.開ける(JSON.parse(文字), '同期の合言葉123'));
 
     // Macのデータを、空の倉庫へ送る
     let 手元 = { products: { value: '["黒TEE"]', updatedAt: 10 } };
@@ -189,31 +191,52 @@ async function 外の倉庫の試験() {
     const 偽 = 偽のGitHub();
     const 動かす = (g) => 倉庫.一度まわす({ 設定, 読む: () => 手元, 書く: (x) => { 手元 = x; }, 変わる: (k, 前, 後) => 変わった.push([k, 前, 後]), 取りに行く: g.取りに行く });
     let r = await 動かす(偽);
-    確かめる('倉庫: Macのデータを、倉庫へ送る', r.ok && JSON.parse(偽.中.file).products.value === '["黒TEE"]');
+    確かめる('倉庫: Macのデータを、倉庫へ送る', r.ok && 開いて読む(偽.中.file).products.value === '["黒TEE"]');
+    確かめる('倉庫: GitHubに置く中身は暗号化されていて、平文が見えない', !偽.中.file.includes('黒TEE') && JSON.parse(偽.中.file)['ARELMの暗号'] === 1);
 
     // 公開先(iPad)が倉庫に書いた分を、Macへ取り込む。Macの前の値は「変わる」で渡す（永久の記憶へ）
-    偽.中.file = JSON.stringify({ products: { value: '["黒TEE","白TEE"]', updatedAt: 20 }, areglm_tasks: { value: '[1]', updatedAt: 15 } });
+    偽.中.file = JSON.stringify(倉庫.閉じる(JSON.stringify({ products: { value: '["黒TEE","白TEE"]', updatedAt: 20 }, areglm_tasks: { value: '[1]', updatedAt: 15 } }), '同期の合言葉123', JSON.parse(偽.中.file).塩));
     r = await 動かす(偽);
     確かめる('倉庫: iPadが書いた分を、Macへ取り込む', r.ok && 手元.products.value === '["黒TEE","白TEE"]' && 手元.areglm_tasks.value === '[1]');
     確かめる('倉庫: 置き換わるMacの前の値を、永久の記憶へ渡す', 変わった.some(([k, 前]) => k === 'products' && 前 === '["黒TEE"]'));
 
     // 他の端末が先に書いてぶつかっても、読み直して両方残す
     手元.memo = { value: 'Macのメモ', updatedAt: 30 };
-    偽.中.先に書く = Object.assign(JSON.parse(偽.中.file), { ipad: { value: 'iPadのメモ', updatedAt: 31 } });
+    偽.中.先に書く = 倉庫.閉じる(JSON.stringify(Object.assign(開いて読む(偽.中.file), { ipad: { value: 'iPadのメモ', updatedAt: 31 } })), '同期の合言葉123', JSON.parse(偽.中.file).塩);
     r = await 動かす(偽);
-    const 中身 = JSON.parse(偽.中.file);
+    const 中身 = 開いて読む(偽.中.file);
     確かめる('倉庫: ぶつかったら読み直して、両方の書き込みを残す', r.ok && 偽.中.衝突 >= 1 && 中身.memo && 中身.ipad && 手元.ipad);
 
-    // 鍵の確かめ: 公開の倉庫は断る・鍵が違えば断る
+    // 合言葉が違えば、開けず、倉庫を上書きしない
+    const 書いた数 = 偽.中.puts;
+    const 前の中身 = 偽.中.file;
+    let 止まった = '';
+    try { await 倉庫.一度まわす({ 設定: Object.assign({}, 設定, { 合言葉: '違う合言葉999' }), 読む: () => 手元, 書く: () => {}, 取りに行く: 偽.取りに行く }); } catch (e) { 止まった = e.message; }
+    確かめる('倉庫: 同期の合言葉が違えば止まり、倉庫を上書きしない', /合言葉が違います/.test(止まった) && 偽.中.puts === 書いた数 && 偽.中.file === 前の中身);
+
+    // 暗号化の前の形（平文）で置かれていた倉庫は、次に混ぜるときに閉じて置き直す
+    const 古い = 偽のGitHub();
+    古い.中.file = JSON.stringify({ old: { value: '前の平文', updatedAt: 1 } });
+    let 古い手元 = {};
+    await 倉庫.一度まわす({ 設定, 読む: () => 古い手元, 書く: (x) => { 古い手元 = x; }, 取りに行く: 古い.取りに行く });
+    確かめる('倉庫: 平文で置かれていた倉庫も、閉じて置き直す（中身は保つ）', !古い.中.file.includes('前の平文') && 開いて読む(古い.中.file).old.value === '前の平文' && 古い手元.old.value === '前の平文');
+
+    // 鍵の確かめ: 公開の倉庫は断る・鍵が違えば断る・合言葉が無ければ断る・合言葉が違えば断る
     let 断った = '';
-    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data' }, 偽のGitHub({ 公開: true }).取りに行く); } catch (e) { 断った = e.message; }
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data', 合言葉: '同期の合言葉123' }, 偽のGitHub({ 公開: true }).取りに行く); } catch (e) { 断った = e.message; }
     確かめる('倉庫: 公開になっている倉庫には、データを置かない', /公開/.test(断った));
     断った = '';
-    try { await 倉庫.確かめる({ 鍵: '違う鍵', 倉庫: 'ARELM-data' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
+    try { await 倉庫.確かめる({ 鍵: '違う鍵', 倉庫: 'ARELM-data', 合言葉: '同期の合言葉123' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
     確かめる('倉庫: 鍵が違えば、保存しない', /鍵/.test(断った));
     断った = '';
-    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: '../etc' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: '../etc', 合言葉: '同期の合言葉123' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
     確かめる('倉庫: 倉庫の名前に、道を変える文字を入れさせない', /英数字/.test(断った));
+    断った = '';
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data', 合言葉: '短い' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
+    確かめる('倉庫: 同期の合言葉が無い・短いときは、保存しない', /8文字以上/.test(断った));
+    断った = '';
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data', 合言葉: '違う合言葉999' }, 偽.取りに行く); } catch (e) { 断った = e.message; }
+    確かめる('倉庫: 倉庫の合言葉と違うものでは、設定を保存しない', /合言葉が違います/.test(断った));
 
     // 鍵の保存: 権限600
     const 場所 = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'arelm-ext-')), '外の倉庫.json');
@@ -221,6 +244,7 @@ async function 外の倉庫の試験() {
     const 権限 = fs.statSync(場所).mode & 0o777;
     確かめる('倉庫: 鍵のファイルは、本人だけが読める（600）', 権限 === 0o600, 権限.toString(8));
     確かめる('倉庫: 保存した設定を読み戻せる', (倉庫.設定を読む(場所) || {}).持ち主 === 'tester');
+    確かめる('倉庫: 合言葉の無い古い設定は、使わない（暗号化せずに送らないため）', (() => { 倉庫.設定を書く(場所, { 持ち主: 'tester', 倉庫: 'ARELM-data', 鍵: 'k' }); return 倉庫.設定を読む(場所) === null; })());
     fs.rmSync(path.dirname(場所), { recursive: true, force: true });
 }
 
@@ -238,6 +262,8 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 確かめる('代わり: Geminiへは、カード番号・キー・メールらしきものを送らない', /送ってよいか\(文\)/.test(代わりJS) && /メールアドレス/.test(代わりJS));
 確かめる('代わり: Geminiのキーは、URLではなく頭に載せる', /'x-goog-api-key': キー/.test(代わりJS) && !/generateContent\?key=/.test(代わりJS));
 確かめる('代わり: 公開の倉庫にはデータを置かない（画面側）', /中\.private !== true/.test(代わりJS));
+確かめる('代わり: 倉庫へは、同期の合言葉で閉じてから送る（画面側）', /倉庫の暗号\.閉じる\(JSON\.stringify\(中身\)/.test(代わりJS) && /if \(!変わった && sha && 塩\) return true;/.test(代わりJS));
+確かめる('代わり: 壊れた倉庫の中身を、空として扱わない（上書きで消さない）', /倉庫の中身が壊れています（上書きはしません）/.test(代わりJS));
 確かめる('橋渡し: 鍵を預けるのは、Mac本体の画面からだけ', /app\.post\('\/api\/ext-store\/config'[\s\S]{0,120}本体からか\(req\)/.test(本体のサーバー));
 確かめる('橋渡し: GitHubへの通信は、許可リスト(safeFetch)を通す', /取りに行く: safeFetch/.test(本体のサーバー) && /host: 'api\.github\.com'/.test(本体のサーバー));
 

@@ -722,10 +722,10 @@ app.get('/api/ext-store/status', (req, res) => {
 // 鍵を預けるのは、このMac本体の画面からだけ（遠くの端末から、Macの倉庫の鍵を差し替えさせない）
 app.post('/api/ext-store/config', async (req, res) => {
     if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この設定は、Mac本体の画面からだけできます' });
-    const { 鍵, 倉庫 } = req.body || {};
+    const { 鍵, 倉庫, 合言葉 } = req.body || {};
     if (!鍵 || typeof 鍵 !== 'string') return res.status(400).json({ ok: false, 訳: '鍵を貼ってください' });
     try {
-        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: String(倉庫 || 'ARELM-data').trim() }, safeFetch);
+        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: String(倉庫 || 'ARELM-data').trim(), 合言葉: typeof 合言葉 === 'string' ? 合言葉 : '' }, safeFetch);
         外の倉庫.設定を書く(外の倉庫の設定の場所, 設定);
         const 最後 = await 外の倉庫とまぜる();
         res.json(Object.assign({ ok: true }, 外の倉庫.様子(設定, 最後)));
