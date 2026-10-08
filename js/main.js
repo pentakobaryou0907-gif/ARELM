@@ -498,6 +498,39 @@ function 端末の合言葉を読む() {
     } catch { return null; }
 }
 
+/* 公開先の合言葉の、間違いの数と入場の記録（この端末の中だけ。打ち込んだ中身は残さない） */
+const 端末の合言葉の許す間違い = 5;
+const 端末の合言葉の締め出す分 = 5;
+
+function 端末の合言葉の待ち() {
+    try {
+        const x = JSON.parse(localStorage.getItem('areglm_local_lock_wrong') || '{}');
+        return x.解ける ? Math.max(0, x.解ける - Date.now()) : 0;
+    } catch { return 0; }
+}
+
+/** 間違いを1回数える。締め出したら true */
+function 端末の合言葉の間違いを数える() {
+    let x = {};
+    try { x = JSON.parse(localStorage.getItem('areglm_local_lock_wrong') || '{}'); } catch { x = {}; }
+    x.回 = (x.回 || 0) + 1;
+    let 締め出した = false;
+    if (x.回 >= 端末の合言葉の許す間違い) {
+        x = { 回: 0, 解ける: Date.now() + 端末の合言葉の締め出す分 * 60000 };
+        締め出した = true;
+    }
+    localStorage.setItem('areglm_local_lock_wrong', JSON.stringify(x));
+    return 締め出した;
+}
+
+function 端末の入場を残す(何) {
+    try {
+        const 一覧 = JSON.parse(localStorage.getItem('areglm_local_entries') || '[]');
+        一覧.push({ とき: new Date().toISOString(), 何 });
+        localStorage.setItem('areglm_local_entries', JSON.stringify(一覧.slice(-200)));
+    } catch { /* 残せなくても、入るのは止めない */ }
+}
+
 function 端末だけで入る() {
     const 名前 = localStorage.getItem('areglm_login_name') || '本人';
     if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(名前);
@@ -560,8 +593,17 @@ function サーバーの無い置き場の入り口を出す() {
         押す.disabled = true;
         try {
             if (既に) {
+                // 間違いが続いたら、しばらく試せないようにする（端末を手に取った人に、総当たりさせないため）
+                const 待ち = 端末の合言葉の待ち();
+                if (待ち > 0) { showNotification(`間違いが続いたため、あと${Math.ceil(待ち / 60000)}分ほど試せません`, 'error'); return; }
                 const 値 = await 端末の合言葉を崩す(一, 既に.塩, 既に.回数 || 端末の合言葉の回数);
-                if (値 !== 既に.値) { showNotification('合言葉が違います', 'error'); return; }
+                if (値 !== 既に.値) {
+                    端末の入場を残す(端末の合言葉の間違いを数える() ? '合言葉の間違いが続いたので締め出した' : '合言葉の間違い');
+                    showNotification('合言葉が違います', 'error');
+                    return;
+                }
+                localStorage.removeItem('areglm_local_lock_wrong');
+                端末の入場を残す('合言葉で開いた');
             } else {
                 const 二 = document.getElementById('local-lock-2').value;
                 if (一.length < 8) { showNotification('8文字以上にしてください', 'error'); return; }
@@ -569,6 +611,7 @@ function サーバーの無い置き場の入り口を出す() {
                 const 塩 = Array.from(crypto.getRandomValues(new Uint8Array(16)));
                 const 値 = await 端末の合言葉を崩す(一, 塩, 端末の合言葉の回数);
                 localStorage.setItem(端末の合言葉の鍵, JSON.stringify({ 塩, 値, 回数: 端末の合言葉の回数 }));
+                端末の入場を残す('合言葉を決めた');
             }
             // 合言葉から、鍵の金庫（GitHubの鍵・Geminiのキーの置き場）も開ける
             if (window.端末の金庫) await 端末の金庫.開ける(一);

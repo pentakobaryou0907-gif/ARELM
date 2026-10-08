@@ -59,6 +59,7 @@ function 中の行き先か(url) {
  *   ・GitHub: 本人が決めたデータ用の倉庫（/repos/<持ち主>/<倉庫> と その中身）、
  *            鍵の持ち主を確かめる /user、倉庫が無いときに作る /user/repos
  *   ・Gemini: 文章を作る窓口（/v1beta/models/<名前>:generateContent）だけ
+ *   ・GitHub: このツール自身の公開リポジトリの様子（commits・pulls・actions/runs を読むだけ。本人が「見る」を押したとき）
  * 設定（areglm_ext_store / areglm_ext_ai）は、本人が設定画面で保存したときだけ作られる。
  */
 function 選んだ外の置き場か(url) {
@@ -66,6 +67,10 @@ function 選んだ外の置き場か(url) {
         const u = new URL(url, location.href);
         if (u.protocol !== 'https:') return false;
         if (u.hostname === 'api.github.com') {
+            // このツール自身の公開リポジトリの様子（最近の変更・取り込み待ち・自動処理の結果）を、読むだけ。
+            // 設定の「GitHubの様子」で本人が「見る」を押したときだけ通す（鍵は付けない）
+            if (localStorage.getItem('areglm_ext_github_view') === 'true'
+                && /^\/repos\/pentakobaryou0907-gif\/ARELM\/(commits|pulls|actions\/runs)$/.test(u.pathname)) return true;
             const 置き場 = JSON.parse(localStorage.getItem('areglm_ext_store') || 'null');
             if (!置き場 || !置き場.倉庫) return false;
             if (u.pathname === '/user' || u.pathname === '/user/repos') return true;
