@@ -52,6 +52,8 @@ const AReGLM_SYNC = {
         'areglm_offline_ok',
         // 公開先で決めた、その端末だけの合言葉（崩した値）。他の端末へ渡さない
         'areglm_local_lock',
+        // 公開先の鍵の金庫と、外の置き場の設定（その端末で本人が選んだもの。関所の例外もこれで開く）
+        'areglm_local_vault', 'areglm_ext_store', 'areglm_ext_ai',
     ]),
 
     _送信待ち: {},
