@@ -58,6 +58,54 @@ function 端末の枠(題, 状態文, 良いか) {
  */
 let どこでもの見張り = null;
 
+/**
+ * 長いアドレスを、打たずに他の端末へ渡す部品。
+ * 「コピー」（ユニバーサルクリップボード・メモ・メールで送れる）と、
+ * 「QRコード」（その端末のカメラで読むだけ）を付ける。QRはこの端末の中で作り、外へは何も送らない。
+ */
+function 住所を渡せる行にする(住所, 文字の指定) {
+    const 箱 = document.createElement('div');
+    const 字 = document.createElement('p');
+    字.textContent = 住所;
+    字.style.cssText = 文字の指定 || 'user-select:all;word-break:break-all;font-weight:600';
+    const 並び = document.createElement('div');
+    並び.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px';
+    const コピー = document.createElement('button');
+    コピー.type = 'button';
+    コピー.className = 'btn btn-sm btn-secondary';
+    コピー.textContent = 'コピー';
+    コピー.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(住所); コピー.textContent = 'コピーしました'; }
+        catch { コピー.textContent = '長押しで選んでコピー'; }
+        setTimeout(() => { コピー.textContent = 'コピー'; }, 2500);
+    });
+    const QR枠 = document.createElement('div');
+    QR枠.hidden = true;
+    QR枠.style.cssText = 'background:#fff;padding:12px;border-radius:8px;width:fit-content;max-width:100%';
+    const QR = document.createElement('button');
+    QR.type = 'button';
+    QR.className = 'btn btn-sm btn-secondary';
+    QR.textContent = 'QRコードを出す';
+    QR.addEventListener('click', () => {
+        if (QR枠.hidden && !QR枠.firstChild) {
+            try {
+                const q = qrcode(0, 'M');
+                q.addData(住所);
+                q.make();
+                // SVGはこの端末の中で組み立てた文字列だけ（外から来た文字は入らない）
+                QR枠.innerHTML = q.createSvgTag({ cellSize: 5, margin: 0, scalable: true });
+                const svg = QR枠.querySelector('svg');
+                if (svg) svg.style.cssText = 'width:min(260px,70vw);height:auto;display:block';
+            } catch { QR枠.textContent = 'QRコードを作れませんでした'; }
+        }
+        QR枠.hidden = !QR枠.hidden;
+        QR.textContent = QR枠.hidden ? 'QRコードを出す' : 'QRコードを隠す';
+    });
+    並び.append(コピー, QR);
+    箱.append(字, 並び, QR枠);
+    return 箱;
+}
+
 async function どこでもの枠を作る(再描画) {
     if (どこでもの見張り) { clearInterval(どこでもの見張り); どこでもの見張り = null; }
     const 状 = typeof アカウントAPI === 'function' ? await アカウントAPI('/api/anywhere/status') : { ok: false };
@@ -68,11 +116,7 @@ async function どこでもの枠を作る(再描画) {
         行たち.forEach((t) => ol.appendChild(render三端末の行('li', t)));
         return ol;
     };
-    const 住所の行 = (住所) => {
-        const p = render三端末の行('p', 住所);
-        p.style.cssText = 'user-select:all;word-break:break-all;font-weight:600';
-        return p;
-    };
+    const 住所の行 = (住所) => 住所を渡せる行にする(住所);
 
     if (!状.ok) {
         文.textContent = 状.訳 || '様子を読めませんでした（ログインし直してください）';
@@ -287,9 +331,7 @@ async function render三端末() {
     if (d && (d['このMacの住所'] || []).length) {
         const 住 = 端末の枠('🌐 他の端末で開くアドレス（同じWi-Fiのとき）', 'iPadとWindowsは、これを開きます。', true);
         d['このMacの住所'].forEach((ip) => {
-            const p = render三端末の行('p', `http://${ip}:${d['入口'] || 8080}`);
-            p.style.cssText = 'user-select:all;word-break:break-all;font-weight:600';
-            住.appendChild(p);
+            住.appendChild(住所を渡せる行にする(`http://${ip}:${d['入口'] || 8080}`));
         });
         箱.appendChild(住);
     }
