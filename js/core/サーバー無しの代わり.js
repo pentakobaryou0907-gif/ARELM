@@ -400,6 +400,13 @@ const 代わりの窓口 = new Set(['/api/sync/all', '/api/sync/push', '/api/ai-
             if (url.origin === location.origin && 代わりの窓口.has(url.pathname)) {
                 return 代わりに答える(url.pathname, 設定);
             }
+            // 他の /api/ は、Macのサーバーにしか無い。公開先へ問い合わせると、開くたびに404・405が数十件、赤く並んでいた。
+            // 公開先が返すのと同じ番号を、ここで返す（中身もJSONにしない＝今までと同じ失敗の形で、各画面の扱いは変わらない）
+            if (url.origin === location.origin && url.pathname.startsWith('/api/')) {
+                const やり方 = String((設定 && 設定.method) || (入力 && 入力.method) || 'GET').toUpperCase();
+                const 番号 = (やり方 === 'GET' || やり方 === 'HEAD') ? 404 : 405;
+                return Promise.resolve(new Response('この置き場には、Macのサーバーがありません', { status: 番号, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
+            }
         } catch { /* 読めない行き先は、いつも通りに任せる */ }
         return 前のfetch.apply(this, arguments);
     };

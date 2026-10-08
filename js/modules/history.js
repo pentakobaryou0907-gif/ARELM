@@ -146,15 +146,24 @@ function 作業を出す(箱) {
         h.textContent = `${日}（${たち.length}件）`;
         箱.appendChild(h);
 
+        // 同じ記録が続くときは、一行にまとめて「×回数」を付ける。
+        // 「今日の状況を報告」が何行も並び、他の記録が埋もれていたため（記録そのものは消さない）。
+        const まとめ = [];
         たち.forEach((x) => {
+            const 前 = まとめ[まとめ.length - 1];
+            if (前 && 前.message === x.message) { 前.回数++; 前.最初 = x.at; }
+            else まとめ.push({ message: x.message, at: x.at, 最初: x.at, 回数: 1 });
+        });
+        const 時刻 = (t) => new Date(t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        まとめ.forEach((x) => {
             const d = document.createElement('div');
             d.className = 'hist-row';
             const 時 = document.createElement('span');
             時.className = 'hist-time';
-            時.textContent = new Date(x.at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            時.textContent = x.回数 > 1 ? `${時刻(x.最初)}〜${時刻(x.at)}` : 時刻(x.at);
             const 文 = document.createElement('span');
             文.className = 'hist-text';
-            文.textContent = x.message;
+            文.textContent = x.回数 > 1 ? `${x.message}（×${x.回数}）` : x.message;
             d.appendChild(時);
             d.appendChild(文);
             箱.appendChild(d);

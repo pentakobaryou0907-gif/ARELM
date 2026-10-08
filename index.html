@@ -4,7 +4,7 @@
     <meta name="arelm-host" content="static">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https:; base-uri 'self';">
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow">
     <title>ARELM</title>
@@ -82,13 +82,20 @@
         <nav class="bottom-nav" id="bottom-nav" aria-label="メインメニュー">
             <a href="#dashboard" class="bottom-nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span>ホーム</span></a>
             <a href="#chat" class="bottom-nav-item" data-page="chat"><span class="nav-icon">✦</span><span>AIチャット</span></a>
-            <a href="#remote" class="bottom-nav-item" data-page="remote"><span class="nav-icon">🖥</span><span>遠隔操作</span></a>
-            <a href="#brands" class="bottom-nav-item" data-page="brands"><span class="nav-icon">◆</span><span>ブランド</span></a>
+            <a href="#remote" class="bottom-nav-item nav-secondary" data-page="remote"><span class="nav-icon">🖥</span><span>遠隔操作</span></a>
+            <a href="#brands" class="bottom-nav-item nav-secondary" data-page="brands"><span class="nav-icon">◆</span><span>ブランド</span></a>
             <a href="#sns" class="bottom-nav-item" data-page="sns"><span class="nav-icon">◎</span><span>SNS</span></a>
             <a href="#inventory" class="bottom-nav-item" data-page="inventory"><span class="nav-icon">▣</span><span>在庫</span></a>
             <a href="#studio" class="bottom-nav-item" data-page="studio"><span class="nav-icon">✎</span><span>開発</span></a>
-            <a href="#tasks" class="bottom-nav-item" data-page="tasks"><span class="nav-icon">🔄</span><span>作業</span></a>
+            <a href="#tasks" class="bottom-nav-item nav-secondary" data-page="tasks"><span class="nav-icon">🔄</span><span>作業</span></a>
+            <button type="button" class="bottom-nav-item bottom-nav-more" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false"><span class="nav-icon">⋯</span><span>その他</span></button>
         </nav>
+        <div class="nav-more-sheet" id="nav-more-sheet" hidden>
+            <button type="button" data-more-page="brands">◆ ブランド</button>
+            <button type="button" data-more-page="remote">🖥 遠隔操作</button>
+            <button type="button" data-more-page="tasks">🔄 作業</button>
+            <button type="button" data-more-page="settings">⚙ 設定</button>
+        </div>
 
         <!-- ページ内目次: 縦に長いページの中を、見出しから直接ジャンプする -->
         <button type="button" id="page-toc-btn" class="page-toc-btn" title="この画面の目次" aria-label="この画面の目次">📑</button>
@@ -161,7 +168,6 @@
                         <span id="live-clock" class="live-clock" aria-live="off"></span>
                         <span class="auto-badge" data-automation-status>自動で動いています</span>
                     </div>
-                    <p class="page-lead">過去のファッション制作・ブランド・販売情報をまとめ、搭載AIと連携する社内ハブです。</p>
                     <div class="home-tabs" id="home-tabs">
                         <button type="button" class="home-tab active" data-home-tab="today"><span>▦</span>今日</button>
                         <button type="button" class="home-tab" data-home-tab="ai"><span>◈</span>AI</button>
@@ -171,7 +177,7 @@
                         <button type="button" class="home-tab" data-home-tab="money"><span>¥</span>お金</button>
                         <button type="button" class="home-tab" data-home-tab="config"><span>⚙</span>設定</button>
                     </div>
-                    <div id="gateway-status" class="status-banner warn"></div>
+                    <div id="gateway-status" class="status-banner warn" hidden></div>
 
                     <div class="stats-grid stats-compact">
                         <div class="stat-card"><span>ブランド</span><p id="total-brands">0</p></div>
@@ -2477,11 +2483,11 @@
             <div id="settings-page" class="page">
                 <div class="container container-narrow">
                     <h2 class="section-title">設定</h2>
-                    <p class="page-lead">このツールは、すべて自作で動きます。外部のAIやサービスの鍵は要りません。</p>
+                    <p class="page-lead">見出しを押すと開きます。上の「探す」で、目当ての設定にすぐ行けます。</p>
 
                     <section class="panel-card full-width">
                         <h3><span class="sec-icon">🔌</span>API接続状況</h3>
-                        <p class="hint">下の各項目で鍵・トークンを保存すると、ここに反映されます。</p>
+                        <p class="hint">外部のサービスは、使いたいものだけ鍵を入れます（入れなくても、自作の機能で動きます）。鍵を保存すると、ここに反映されます。</p>
                         <div id="settings-api-list" class="api-pills"></div>
                     </section>
 
@@ -2559,8 +2565,8 @@
                     </section>
 
                     <section class="panel-card">
-                        <h3><span class="sec-icon">📲</span>ホーム画面に追加（iPad・iPhone・パソコン）</h3>
-                        <p class="hint">アイコンをホーム画面に置いて、アプリのように、いつでも1タップで開けるようにします。</p>
+                        <h3><span class="sec-icon">📲</span>ホーム画面に追加（スマホ・iPad・パソコン）</h3>
+                        <p class="hint">アイコンをホーム画面に置いて、アプリのように、いつでも1タップで開けるようにします。ほかの端末へは、QRコードで渡せます。</p>
                         <div id="a2hs-panel"></div>
                     </section>
 
@@ -3516,6 +3522,8 @@
     <script src="js/modules/遠隔とタスク.js" defer></script>
     <script src="js/modules/端末の機能.js" defer></script>
     <script src="js/modules/画面を整える.js" defer></script>
+    <script src="js/modules/欄をたたむ.js" defer></script>
+    <script src="js/modules/その他の一覧.js" defer></script>
     <script src="js/modules/遠隔投稿.js" defer></script>
     <script src="js/modules/inventory-hub.js" defer></script>
     <script src="js/modules/BASEの売上.js" defer></script>
