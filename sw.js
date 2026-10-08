@@ -109,8 +109,9 @@ self.addEventListener('fetch', (event) => {
     if (req.method !== 'GET') return;
     const url = new URL(req.url);
     if (url.origin !== self.location.origin) return;           // 他サイトへの通信には関与しない
-    if (url.pathname.startsWith('/api/')) return;               // データ・ログイン・AIは、いつも本物に聞く
-    if (url.pathname === '/sw.js') return;                      // 自分自身は、ブラウザが取り直す
+    // データ・ログイン・AIは、いつも本物に聞く（公開先のサブフォルダでも効くよう、場所は控えの範囲から決める）
+    if (url.pathname.startsWith(new URL('api/', self.registration.scope).pathname)) return;
+    if (url.pathname === new URL('sw.js', self.registration.scope).pathname) return;                      // 自分自身は、ブラウザが取り直す
     if (req.headers.has('range')) return;                       // 動画などの部分取得は任せる
     event.respondWith(ネットワーク優先(req));
 });

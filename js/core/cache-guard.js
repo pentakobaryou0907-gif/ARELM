@@ -18,7 +18,7 @@
 
     window.addEventListener('load', () => {
         navigator.serviceWorker
-            .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+            .register('./sw.js', { scope: './', updateViaCache: 'none' })
             .then((reg) => {
                 // 開いたまま長く置かれても、ときどき新しい版を探す
                 setInterval(() => { reg.update().catch(() => {}); }, 30 * 60 * 1000);

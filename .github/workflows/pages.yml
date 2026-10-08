@@ -1,0 +1,35 @@
+# 画面のファイルだけを GitHub Pages に置き、Macが無くても各端末が最新を取れるようにする。
+# 手動で実行したときだけ動く（勝手には公開されない）。実行前に、リポジトリの
+# Settings → Pages → Source を「GitHub Actions」にしておく。
+# 置くのは画面(index.html・css・js・fonts・images・manifest・sw.js)だけ。
+# server/ ・ server/data/ ・ server/certs/ ・スクリーンショット等は、置かない。
+name: 画面を公開する(手動)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 画面のファイルだけを集める
+        run: |
+          mkdir _site
+          cp index.html manifest.json sw.js _site/
+          cp -r css js fonts images _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

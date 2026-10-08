@@ -126,12 +126,20 @@ try {
    「入れ直さず自動で更新」と「Macが無くても開く」を両立する決まりを、書き換えで壊さないための見張り。 */
 const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 const 登録 = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'cache-guard.js'), 'utf8');
-確かめる('控え: データ・ログイン・AI(/api/)は控えない', /startsWith\('\/api\/'\)\)\s*return/.test(SW));
+確かめる('控え: データ・ログイン・AI(/api/)は控えない', /new URL\('api\/', self\.registration\.scope\)\.pathname\)\)\s*return/.test(SW));
 確かめる('控え: 先にネットワークから取る（古い画面を固めない）', /ネットワーク優先/.test(SW) && /fetch\(req, \{ cache: 'no-store' \}\)/.test(SW));
 確かめる('控え: 別の場所へ飛ばされた応答(門番の画面)は控えない', /!res\.redirected/.test(SW));
 確かめる('控え: 他サイトへの通信に関与しない', /url\.origin !== self\.location\.origin/.test(SW));
 確かめる('控え: 新しい版に自動で入れ替わる', /skipWaiting/.test(SW) && /clients\.claim/.test(SW));
-確かめる('控え: 登録する（以前のように全部外さない）', /serviceWorker\s*\.register\('\/sw\.js'/.test(登録) && !/unregister/.test(登録));
+確かめる('控え: 登録する（以前のように全部外さない）', /serviceWorker\s*\.register\('\.\/sw\.js'/.test(登録) && !/unregister/.test(登録));
+
+/* ---------- オフラインで開く入り口（Macが無いとき） ---------- */
+const 本体JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
+const 同期JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'sync.js'), 'utf8');
+確かめる('オフライン入場: 端末ごと（同期しない）', /除外キー[\s\S]*'areglm_offline_ok'/.test(同期JS));
+確かめる('オフライン入場: ログアウトで入り口を閉じる', /function handleLogout[\s\S]*removeItem\('areglm_offline_ok'\)/.test(本体JS));
+確かめる('オフライン入場: 期限は30日', /オフライン入場の日数 = 30/.test(本体JS));
+確かめる('オフライン入場: サーバーに繋がらなかったときだけ案内する', /catch \{[\s\S]{0,260}オフラインで開く案内を出す\(\)/.test(本体JS));
 
 /* ---------- まとめ ---------- */
 const 失敗 = 結果.filter((x) => !x.ok);

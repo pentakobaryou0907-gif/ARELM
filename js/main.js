@@ -402,7 +402,8 @@ async function ログイン画面を整える() {
     const 注意 = document.getElementById('login-note');
     if (!ログイン || !初期設定) return;
     try {
-        const r = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json());
+        // Macが寝ていると、返事を待ち続けてしまうので、4秒で見切る
+        const r = await fetch('/api/account/status', { cache: 'no-store', signal: AbortSignal.timeout(4000) }).then((y) => y.json());
         if (!r.初期設定済み) {
             if (r.本体から) {
                 ログイン.hidden = true;
@@ -416,8 +417,53 @@ async function ログイン画面を整える() {
             ログイン画面のパスキーを整える(ログインできた);
         }
     } catch {
-        // サーバーに繋がらないときは、そのままログイン欄を出しておく（押せば理由が出る）
+        // サーバーに繋がらないときは、そのままログイン欄を出しておく（押せば理由が出る）。
+        // 前にこの端末でログインできていれば、繋がるまでの間だけ、端末の中のデータで開ける。
+        オフラインで開く案内を出す();
     }
+}
+
+/**
+ * Macが落ちている・寝ているときの入り口。
+ * 前にこの端末でログインに成功していて、30日以内で、いま実際にサーバーへ繋がらないときだけ出す。
+ * パスワードの代わりにはならない（サーバーが答えるときは、これまで通りパスワードが要る）。
+ * 開けるのは、この端末の中にあるデータだけ。AI・同期・外部サービスは、繋がるまで使えない。
+ * 鍵（APIキー）は戻らない。期限切れで消した後は、繋がってからログインし直して入れる。
+ */
+const オフライン入場の鍵 = 'areglm_offline_ok';   // 端末ごと（同期しない）
+const オフライン入場の日数 = 30;
+
+function オフライン入場を覚える(名前) {
+    try {
+        localStorage.setItem(オフライン入場の鍵, JSON.stringify({ 名前, 期限: Date.now() + オフライン入場の日数 * 24 * 60 * 60 * 1000 }));
+    } catch { /* 覚えられなくても、ログインは済んでいる */ }
+}
+
+function オフライン入場を読む() {
+    try {
+        const x = JSON.parse(localStorage.getItem(オフライン入場の鍵) || 'null');
+        return x && x.名前 && typeof x.期限 === 'number' && Date.now() < x.期限 ? x : null;
+    } catch { return null; }
+}
+
+function オフラインで開く案内を出す() {
+    const 入場 = オフライン入場を読む();
+    if (!入場 || document.getElementById('offline-enter-btn')) return;
+    const 場所 = document.getElementById('login-form');
+    if (!場所) return;
+    const 押す = document.createElement('button');
+    押す.type = 'button';
+    押す.id = 'offline-enter-btn';
+    押す.className = 'btn btn-secondary';
+    押す.textContent = 'Macに繋がりません — この端末のデータで開く';
+    押す.addEventListener('click', () => {
+        if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(入場.名前);
+        else createSession(入場.名前);
+        updateUsernameDisplay(入場.名前);
+        showMainApp();
+        showNotification('オフラインで開きました。AI・同期は、Macに繋がるまで使えません', 'info');
+    });
+    場所.insertAdjacentElement('afterend', 押す);
 }
 
 function 入場券を覚える(r) {
@@ -428,6 +474,7 @@ function 入場券を覚える(r) {
 
 function ログインできた(r, 静か) {
     入場券を覚える(r);
+    オフライン入場を覚える(r.名前);
     if (window.AReGLM_SECURITY) AReGLM_SECURITY.createSession(r.名前);
     else createSession(r.名前);
     updateUsernameDisplay(r.名前);
@@ -553,6 +600,8 @@ function handleLogout() {
         sessionStorage.removeItem('areglm_account_ticket');
         sessionStorage.removeItem('areglm_account_role');
     }
+    // 自分でログアウトしたときは、オフラインの入り口も閉じる（次は必ず本物のログイン）
+    try { localStorage.removeItem('areglm_offline_ok'); } catch { /* 無視 */ }
     clearSession(true);
     hideMainApp();
     showNotification('ログアウトしました。', 'success');
