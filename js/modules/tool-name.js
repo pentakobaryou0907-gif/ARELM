@@ -134,9 +134,8 @@ function 名前を画面に反映() {
         el.textContent = n.名;
     });
 
-    // 表題は「ブランド名（呼び名）」の形にする。
-    // 呼び名だけにすると、どのブランドのツールか分からなくなる。
-    document.title = `ARELM（${n.名}）`;
+    // 表記名は「ARELM」だけ（全端末で統一）。呼び名（アレラム等）は、声で呼ぶための名前で、表記には出さない
+    document.title = 'ARELM';
 
     // 呼びかけの欄にも入れる
     const 呼び名 = document.getElementById('wake-name');
