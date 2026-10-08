@@ -148,8 +148,105 @@ const 同期JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'sync.
 確かめる('公開先: 固定の初期合言葉を作らない（本人が決める）', !/端末の合言葉の鍵,\s*JSON\.stringify\(\{[^}]*値: '/.test(本体JS) && /一\.length < 8/.test(本体JS));
 確かめる('公開先: 圏外でも、合言葉を決めた端末は合言葉の欄を出す', /if \(端末の合言葉を読む\(\)\) サーバーの無い置き場の入り口を出す\(\)/.test(本体JS));
 
+/* ---------- 外の倉庫（Macの sync_store ⇄ GitHubの非公開倉庫） ---------- */
+const 倉庫 = require('../server/外の倉庫');
+
+/** 偽のGitHub（contents API）。本物には何も送らない */
+function 偽のGitHub({ 公開 = false, 先に書く = null } = {}) {
+    const 中 = { file: null, sha: 0, puts: 0, 衝突: 0, 先に書く };
+    const 返す = (status, body) => ({ status, ok: status >= 200 && status < 300, json: async () => body, text: async () => JSON.stringify(body) });
+    const 取りに行く = async (url, opt = {}) => {
+        const u = new URL(url);
+        if ((opt.headers || {}).Authorization !== 'Bearer 試験の鍵') return 返す(401, {});
+        if (u.pathname === '/user') return 返す(200, { login: 'tester' });
+        if (u.pathname === '/repos/tester/ARELM-data') return 返す(200, { private: !公開 });
+        if (u.pathname === '/repos/tester/ARELM-data/contents/sync_store.json') {
+            if ((opt.method || 'GET') === 'GET') {
+                return 中.file ? 返す(200, { sha: 'v' + 中.sha, encoding: 'base64', content: Buffer.from(中.file).toString('base64') }) : 返す(404, {});
+            }
+            const b = JSON.parse(opt.body);
+            // 他の端末が先に書いた、を一度だけ起こす
+            if (中.先に書く) { 中.file = JSON.stringify(中.先に書く); 中.sha++; 中.先に書く = null; }
+            if (b.sha !== (中.file ? 'v' + 中.sha : undefined)) { 中.衝突++; return 返す(409, {}); }
+            中.file = Buffer.from(b.content, 'base64').toString('utf8'); 中.sha++; 中.puts++;
+            return 返す(200, {});
+        }
+        return 返す(418, {});
+    };
+    return { 中, 取りに行く };
+}
+
+async function 外の倉庫の試験() {
+    const m = 倉庫.まぜる({ a: { value: '1', updatedAt: 1 }, b: { value: '2', updatedAt: 5 } }, { a: { value: '新', updatedAt: 2 }, b: { value: '古', updatedAt: 3 }, c: { value: '3', updatedAt: 1 } });
+    確かめる('倉庫: 新しい方を残す（古い値で上書きしない）', m.中身.a.value === '新' && m.中身.b.value === '2' && m.中身.c.value === '3' && m.変わった項目.join() === 'a,c');
+
+    const 設定 = { 持ち主: 'tester', 倉庫: 'ARELM-data', 鍵: '試験の鍵' };
+    確かめる('倉庫: 画面に見せる様子に、鍵を入れない', !JSON.stringify(倉庫.様子(設定, null)).includes('試験の鍵'));
+
+    // Macのデータを、空の倉庫へ送る
+    let 手元 = { products: { value: '["黒TEE"]', updatedAt: 10 } };
+    const 変わった = [];
+    const 偽 = 偽のGitHub();
+    const 動かす = (g) => 倉庫.一度まわす({ 設定, 読む: () => 手元, 書く: (x) => { 手元 = x; }, 変わる: (k, 前, 後) => 変わった.push([k, 前, 後]), 取りに行く: g.取りに行く });
+    let r = await 動かす(偽);
+    確かめる('倉庫: Macのデータを、倉庫へ送る', r.ok && JSON.parse(偽.中.file).products.value === '["黒TEE"]');
+
+    // 公開先(iPad)が倉庫に書いた分を、Macへ取り込む。Macの前の値は「変わる」で渡す（永久の記憶へ）
+    偽.中.file = JSON.stringify({ products: { value: '["黒TEE","白TEE"]', updatedAt: 20 }, areglm_tasks: { value: '[1]', updatedAt: 15 } });
+    r = await 動かす(偽);
+    確かめる('倉庫: iPadが書いた分を、Macへ取り込む', r.ok && 手元.products.value === '["黒TEE","白TEE"]' && 手元.areglm_tasks.value === '[1]');
+    確かめる('倉庫: 置き換わるMacの前の値を、永久の記憶へ渡す', 変わった.some(([k, 前]) => k === 'products' && 前 === '["黒TEE"]'));
+
+    // 他の端末が先に書いてぶつかっても、読み直して両方残す
+    手元.memo = { value: 'Macのメモ', updatedAt: 30 };
+    偽.中.先に書く = Object.assign(JSON.parse(偽.中.file), { ipad: { value: 'iPadのメモ', updatedAt: 31 } });
+    r = await 動かす(偽);
+    const 中身 = JSON.parse(偽.中.file);
+    確かめる('倉庫: ぶつかったら読み直して、両方の書き込みを残す', r.ok && 偽.中.衝突 >= 1 && 中身.memo && 中身.ipad && 手元.ipad);
+
+    // 鍵の確かめ: 公開の倉庫は断る・鍵が違えば断る
+    let 断った = '';
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data' }, 偽のGitHub({ 公開: true }).取りに行く); } catch (e) { 断った = e.message; }
+    確かめる('倉庫: 公開になっている倉庫には、データを置かない', /公開/.test(断った));
+    断った = '';
+    try { await 倉庫.確かめる({ 鍵: '違う鍵', 倉庫: 'ARELM-data' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
+    確かめる('倉庫: 鍵が違えば、保存しない', /鍵/.test(断った));
+    断った = '';
+    try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: '../etc' }, 偽のGitHub().取りに行く); } catch (e) { 断った = e.message; }
+    確かめる('倉庫: 倉庫の名前に、道を変える文字を入れさせない', /英数字/.test(断った));
+
+    // 鍵の保存: 権限600
+    const 場所 = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'arelm-ext-')), '外の倉庫.json');
+    倉庫.設定を書く(場所, 設定);
+    const 権限 = fs.statSync(場所).mode & 0o777;
+    確かめる('倉庫: 鍵のファイルは、本人だけが読める（600）', 権限 === 0o600, 権限.toString(8));
+    確かめる('倉庫: 保存した設定を読み戻せる', (倉庫.設定を読む(場所) || {}).持ち主 === 'tester');
+    fs.rmSync(path.dirname(場所), { recursive: true, force: true });
+}
+
+/* ---------- 公開先の代わり（画面側）の見張り ---------- */
+const 関所JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', '外に出さない.js'), 'utf8');
+const 代わりJS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'サーバー無しの代わり.js'), 'utf8');
+const 公開の設定 = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'pages.yml'), 'utf8');
+const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server', 'index.js'), 'utf8');
+確かめる('代わり: 関所の例外は、GitHubは決めた倉庫の道だけ', /startsWith\(道 \+ '\/contents\/'\)/.test(関所JS) && /\/repos\/\$\{置き場\.持ち主\}\/\$\{置き場\.倉庫\}/.test(関所JS));
+確かめる('代わり: 関所の例外は、Geminiは文章を作る窓口だけ', /generateContent\$\//.test(関所JS));
+確かめる('代わり: 関所の3か所(fetch/XHR/WebSocket/beacon)すべてで例外を同じに見る', (関所JS.match(/!選んだ外の置き場か\(/g) || []).length === 4);
+確かめる('代わり: 鍵の金庫と外の置き場の設定は、同期しない', ['areglm_local_vault', 'areglm_ext_store', 'areglm_ext_ai'].every((k) => 同期JS.includes(`'${k}'`)));
+確かめる('代わり: 公開先の目印があるときだけ働く（Macでは働かない）', /if \(!サーバーの無い公開先か\(\)\) return;/.test(代わりJS));
+確かめる('代わり: 公開の処理が、公開先の目印を入れて確かめる', /arelm-host" content="static"/.test(公開の設定) && /grep -q/.test(公開の設定));
+確かめる('代わり: Geminiへは、カード番号・キー・メールらしきものを送らない', /送ってよいか\(文\)/.test(代わりJS) && /メールアドレス/.test(代わりJS));
+確かめる('代わり: Geminiのキーは、URLではなく頭に載せる', /'x-goog-api-key': キー/.test(代わりJS) && !/generateContent\?key=/.test(代わりJS));
+確かめる('代わり: 公開の倉庫にはデータを置かない（画面側）', /中\.private !== true/.test(代わりJS));
+確かめる('橋渡し: 鍵を預けるのは、Mac本体の画面からだけ', /app\.post\('\/api\/ext-store\/config'[\s\S]{0,120}本体からか\(req\)/.test(本体のサーバー));
+確かめる('橋渡し: GitHubへの通信は、許可リスト(safeFetch)を通す', /取りに行く: safeFetch/.test(本体のサーバー) && /host: 'api\.github\.com'/.test(本体のサーバー));
+
 /* ---------- まとめ ---------- */
-const 失敗 = 結果.filter((x) => !x.ok);
-console.log(`サーバーの試験: ${結果.length - 失敗.length}/${結果.length} 件が成功`);
-失敗.forEach((x) => console.log(`  ✗ ${x.名}${x.詳細 ? ' — ' + x.詳細 : ''}`));
-process.exit(失敗.length ? 1 : 0);
+(async () => {
+    try { await 外の倉庫の試験(); }
+    catch (e) { 確かめる('倉庫: 試験そのものが落ちた', false, e.message); }
+    const 失敗 = 結果.filter((x) => !x.ok);
+    console.log(`サーバーの試験: ${結果.length - 失敗.length}/${結果.length} 件が成功`);
+    失敗.forEach((x) => console.log(`  ✗ ${x.名}${x.詳細 ? ' — ' + x.詳細 : ''}`));
+    process.exit(失敗.length ? 1 : 0);
+})();
