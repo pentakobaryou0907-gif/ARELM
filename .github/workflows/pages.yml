@@ -29,6 +29,9 @@ jobs:
           cp index.html manifest.json sw.js _site/
           cp -r css js fonts images _site/
           touch _site/.nojekyll
+          # 公開先の目印。これがあるときだけ、画面はサーバー無しの代わり（GitHubの倉庫・Gemini）を使う
+          sed -i 's#<head>#<head>\n    <meta name="arelm-host" content="static">#' _site/index.html
+          grep -q 'name="arelm-host" content="static"' _site/index.html
       - name: gh-pages の枝へ送る
         run: |
           git config user.name "github-actions[bot]"

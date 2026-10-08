@@ -50,6 +50,39 @@ function 中の行き先か(url) {
     }
 }
 
+/**
+ * 本人がこの端末の設定で選んだ、外の置き場だけは通す。
+ *
+ * Macの無い公開先（GitHub Pages）では、データの共有とAIを、外の公式・無料のサービスで行う
+ * （本人が 2026-10-08 に選んだ。データ: GitHubの非公開倉庫／AI: Geminiの無料API）。
+ * 「外を全部許す」にはせず、行き先を道（パス）まで絞って、この2つだけを通す:
+ *   ・GitHub: 本人が決めたデータ用の倉庫（/repos/<持ち主>/<倉庫> と その中身）、
+ *            鍵の持ち主を確かめる /user、倉庫が無いときに作る /user/repos
+ *   ・Gemini: 文章を作る窓口（/v1beta/models/<名前>:generateContent）だけ
+ * 設定（areglm_ext_store / areglm_ext_ai）は、本人が設定画面で保存したときだけ作られる。
+ */
+function 選んだ外の置き場か(url) {
+    try {
+        const u = new URL(url, location.href);
+        if (u.protocol !== 'https:') return false;
+        if (u.hostname === 'api.github.com') {
+            const 置き場 = JSON.parse(localStorage.getItem('areglm_ext_store') || 'null');
+            if (!置き場 || !置き場.倉庫) return false;
+            if (u.pathname === '/user' || u.pathname === '/user/repos') return true;
+            if (!置き場.持ち主) return false;
+            const 道 = `/repos/${置き場.持ち主}/${置き場.倉庫}`;
+            return u.pathname === 道 || u.pathname.startsWith(道 + '/contents/');
+        }
+        if (u.hostname === 'generativelanguage.googleapis.com') {
+            return localStorage.getItem('areglm_ext_ai') === 'gemini'
+                && /^\/v1beta\/models\/[\w.-]+:generateContent$/.test(u.pathname);
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
+
 function 外を許しているか() {
     return localStorage.getItem(外に出す許可の鍵) === 'true';
 }
@@ -82,7 +115,7 @@ function 関所を置く() {
     const 元のfetch = window.fetch;
     window.fetch = function (入力, 設定) {
         const 行き先 = (入力 && 入力.url) ? 入力.url : 入力;
-        if (!中の行き先か(行き先) && !外を許しているか()) {
+        if (!中の行き先か(行き先) && !選んだ外の置き場か(行き先) && !外を許しているか()) {
             止めたことを残す(行き先, 'fetch');
             return Promise.reject(new Error(
                 'このツールは外へ通信しません。外部を使う場合は、設定で明示的に許可してください。'));
@@ -93,7 +126,7 @@ function 関所を置く() {
     // --- XMLHttpRequest ---
     const 元のopen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (方法, url, ...残り) {
-        if (!中の行き先か(url) && !外を許しているか()) {
+        if (!中の行き先か(url) && !選んだ外の置き場か(url) && !外を許しているか()) {
             止めたことを残す(url, 'XMLHttpRequest');
             throw new Error('このツールは外へ通信しません。');
         }
@@ -104,7 +137,7 @@ function 関所を置く() {
     const 元のWS = window.WebSocket;
     if (元のWS) {
         window.WebSocket = function (url, ...残り) {
-            if (!中の行き先か(url) && !外を許しているか()) {
+            if (!中の行き先か(url) && !選んだ外の置き場か(url) && !外を許しているか()) {
                 止めたことを残す(url, 'WebSocket');
                 throw new Error('このツールは外へ通信しません。');
             }
@@ -120,7 +153,7 @@ function 関所を置く() {
     if (navigator.sendBeacon) {
         const 元のbeacon = navigator.sendBeacon.bind(navigator);
         navigator.sendBeacon = function (url, ...残り) {
-            if (!中の行き先か(url) && !外を許しているか()) {
+            if (!中の行き先か(url) && !選んだ外の置き場か(url) && !外を許しているか()) {
                 止めたことを残す(url, 'sendBeacon');
                 return false;
             }
@@ -139,4 +172,5 @@ function 止めた記録を読む() {
 
 window.中の行き先か = 中の行き先か;
 window.外を許しているか = 外を許しているか;
+window.選んだ外の置き場か = 選んだ外の置き場か;
 window.止めた記録を読む = 止めた記録を読む;

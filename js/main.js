@@ -504,7 +504,14 @@ function 端末だけで入る() {
     else createSession(名前);
     updateUsernameDisplay(名前);
     showMainApp();
-    showNotification('この端末だけで開きました。データはこの端末の中に残ります（AI・Macとの同期は使えません）', 'info');
+    const 共有中 = window.外の倉庫 && 外の倉庫.使えるか();
+    showNotification(共有中
+        ? 'Mac無しで開きました。他の端末の変更を取り込んでいます…'
+        : 'この端末だけで開きました。設定の「☁ Mac無しで使う」で、データの共有とAIを使えるようにできます', 'info');
+    // 倉庫の最新を取り込み、変わっていれば開き直す（各画面は、開いたときの中身で表示を作るため）
+    if (共有中 && typeof サーバー無しで取り込み直す === 'function') {
+        サーバー無しで取り込み直す().then((変わった) => { if (変わった) location.reload(); }).catch(() => {});
+    }
 }
 
 function サーバーの無い置き場の入り口を出す() {
@@ -563,6 +570,8 @@ function サーバーの無い置き場の入り口を出す() {
                 const 値 = await 端末の合言葉を崩す(一, 塩, 端末の合言葉の回数);
                 localStorage.setItem(端末の合言葉の鍵, JSON.stringify({ 塩, 値, 回数: 端末の合言葉の回数 }));
             }
+            // 合言葉から、鍵の金庫（GitHubの鍵・Geminiのキーの置き場）も開ける
+            if (window.端末の金庫) await 端末の金庫.開ける(一);
             形.querySelectorAll('input').forEach((i) => { i.value = ''; });
             端末だけで入る();
         } catch {
