@@ -10199,7 +10199,8 @@ html[data-theme] .chat-bubble.user {
 
 /* hidden 属性が display に負けて、隠したはずの帯が出たままだった（商品が2つあるのに「まだ商品が登録されていません」が出ていた） */
 .empty-cta[hidden],
-#gateway-status[hidden] { display: none !important; }
+#gateway-status[hidden],
+[data-arelm-install][hidden] { display: none !important; }
 
 /* スマホの下の並びは5つ＋「その他」にする（8つでは文字が折れて押しにくかった）。パソコンの左の並びはそのまま */
 .bottom-nav-more { display: none; }
