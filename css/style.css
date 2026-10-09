@@ -10233,3 +10233,5 @@ html[data-theme] .chat-bubble.user {
 #chrome-hand-approve button { margin-top: 6px; }
 /* ログイン欄の説明は、パスワードで入るときだけ（パスワードなしにしたため。hidden が .hint に負けないように） */
 #login-hint[hidden] { display: none !important; }
+/* ほかの端末から受け取る欄（QRを読む・貼る）。始めるボタンと見分けやすいよう、区切る */
+.receive-box { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(127, 127, 127, .25); }

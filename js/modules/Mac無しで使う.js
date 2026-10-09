@@ -112,7 +112,8 @@ function renderMac無しで使う() {
             const 持ち主 = await 外の倉庫.準備する(名);
             document.getElementById('mac-free-gh-token').value = '';
             const 変わった = await サーバー無しで取り込み直す();
-            結果.textContent = `つながりました（${持ち主}/${名}）。この端末のデータを倉庫へ送っています。`;
+            結果.textContent = `つながりました（${持ち主}/${名}）。この端末のデータを倉庫へ送っています。`
+                + (自動で作った ? '同期の鍵は、この端末の中にしかありません。下の「ほかの端末へ渡す」で、2台目の端末かMacへ渡しておいてください（控えになります）。' : '');
             showNotification('データの共有を始めました', 'success');
             if (変わった) setTimeout(() => location.reload(), 1500);
             else renderMac無しで使う();
@@ -121,7 +122,7 @@ function renderMac無しで使う() {
             localStorage.removeItem(外の倉庫.設定の名);
             if (自動で作った) 端末の金庫.取り下げる('同期の合言葉');
             結果.textContent = /合言葉が違います/.test(err.message)
-                ? 'この倉庫は、ほかの端末（またはMac）ですでに使っています。その端末の「ほかの端末へ渡す」のQRを、この端末のカメラで読んでください。'
+                ? 'この倉庫は、ほかの端末（またはMac）ですでに使っています。その端末の「ほかの端末へ渡す」のQRを、下の「ほかの端末から受け取る」の「QRを読む」で読んでください。'
                 : err.message;
         } finally {
             保存.disabled = false;
@@ -144,6 +145,13 @@ function renderMac無しで使う() {
         'データは、自動で作った同期の鍵で暗号化してから、あなたのGitHubの非公開の倉庫に置きます（GitHubからも中身は読めません）。'
         + '健康・お金も含めて、全部の端末で同じになります。書くたびに前の中身が履歴に残るので、消えません。'
         + '同期の鍵は、下の「ほかの端末へ渡す」のQRで、ほかの端末とMacへ渡します（打つことはありません）。', 'hint'));
+    // ほかの端末から受け取る（ホーム画面のアプリでも、この画面の中でQRを読む・貼る）
+    if (端末の金庫.開いているか() && typeof 受け取る欄を描く === 'function') {
+        const 受け = Mac無しの部品('div', null, 'login-form');
+        受け.appendChild(Mac無しの部品('h4', 'ほかの端末から受け取る'));
+        受け取る欄を描く(受け);
+        箱.appendChild(受け);
+    }
     if (外の倉庫.使えるか() && typeof 渡す欄を描く === 'function') {
         渡す欄を描く(箱, async () => ({
             github: await 端末の金庫.出す('github'),
@@ -229,12 +237,12 @@ async function Macのデータも共有する欄(枠, 箱) {
         });
     }
     箱.appendChild(Mac無しの部品('p',
-        '公開先の端末ですでに共有しているときは、その端末の「ほかの端末へ渡す」→「リンクをコピー」で写したリンクを、下に貼るだけです（iPhone・iPadでコピーすると、このMacでそのまま貼れます）。'
+        '公開先の端末ですでに共有しているときは、その端末の「ほかの端末へ渡す」→「Macへ渡す（文字をコピーする）」で写した文字を、下に貼るだけです（iPhone・iPadでコピーすると、このMacでそのまま貼れます）。'
         + 'このMacから始めるときは、GitHubの鍵だけ貼ります（同期の鍵は自動で作ります）。', 'hint'));
     const 形 = document.createElement('form');
     形.className = 'login-form';
     形.append(
-        Mac無しの入力欄('mac-share-link', '受け取ったリンク（https://…#arelm-receive=…）', 'password'),
+        Mac無しの入力欄('mac-share-link', '受け取った文字（arelm-receive:…）', 'password'),
         Mac無しの入力欄('mac-share-token', 'または、GitHubの鍵（github_pat_…。このMacから始めるとき）', 'password'),
         Mac無しの入力欄('mac-share-repo', '倉庫の名前', 'text', 様.倉庫 || 'ARELM-data'),
     );
@@ -253,12 +261,15 @@ async function Macのデータも共有する欄(枠, 箱) {
             let 中身;
             if (リンク) {
                 const x = typeof 受け取りの中身を読む === 'function' ? 受け取りの中身を読む(リンク) : null;
-                if (!x) { 結果.textContent = 'リンクの形が違います。もう一度コピーして貼ってください'; return; }
-                if (x.期限切れ) { 結果.textContent = 'リンクの期限が切れています。渡す端末で、もう一度QRを出してください'; return; }
+                if (!x) { 結果.textContent = '文字の形が違います。もう一度コピーして貼ってください'; return; }
+                if (x.期限切れ) { 結果.textContent = '受け取りの期限が切れています。渡す端末で、もう一度出してください'; return; }
                 中身 = { 鍵: x.github, 倉庫: x.倉庫, 合言葉: x.同期 };
             } else {
-                // このMacから始める: 同期の合言葉は、打たずに自動で作る
-                中身 = { 鍵: document.getElementById('mac-share-token').value, 倉庫: document.getElementById('mac-share-repo').value, 合言葉: 同期の合言葉を作る() };
+                // このMacから始める: 同期の合言葉は、打たずに自動で作る。
+                // すでに共有しているMacで鍵だけ替えるときは、空で送り、Macにある合言葉を使い続ける
+                // （前は毎回新しく作ったため、合言葉が違うと断られ、切れた鍵を替えられなかった）。
+                const 倉庫名 = document.getElementById('mac-share-repo').value.trim() || 'ARELM-data';
+                中身 = { 鍵: document.getElementById('mac-share-token').value, 倉庫: 倉庫名, 合言葉: (様.設定済み && 様.倉庫 === 倉庫名) ? '' : 同期の合言葉を作る() };
             }
             const r = await fetch('/api/ext-store/config', {
                 method: 'POST',
@@ -269,7 +280,7 @@ async function Macのデータも共有する欄(枠, 箱) {
             document.getElementById('mac-share-link').value = '';
             if (!r.ok) {
                 結果.textContent = /合言葉が違います/.test(r.訳 || '')
-                    ? 'この倉庫は、ほかの端末ですでに使っています。その端末の「ほかの端末へ渡す」→「リンクをコピー」で写したリンクを、上に貼ってください。'
+                    ? 'この倉庫は、ほかの端末ですでに使っています。その端末の「ほかの端末へ渡す」→「Macへ渡す（文字をコピーする）」で写した文字を、上に貼ってください。'
                     : (r.訳 || '保存できませんでした');
                 return;
             }
