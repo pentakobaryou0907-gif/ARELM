@@ -62,6 +62,10 @@ const AReGLM_SYNC = {
         'areglm_device_name',
         // どの欄を開いているか（画面の広さが違うので、スマホとパソコンで別々に覚える）
         'areglm_open_sections',
+        // 公開先の、この端末の指紋・顔（パスキー）の名札。端末ごとに別物（同期すると、開けない端末が出る）
+        'areglm_local_passkey',
+        // Googleのアカウントのメールアドレス。本人の要望（2026-10-09）「メールアドレスはなしに」で、ほかの端末と倉庫へ送らない
+        'areglm_google_account_email',
     ]),
 
     _送信待ち: {},

@@ -339,6 +339,8 @@ function checkExistingSession() {
             showMainApp();
             const u = localStorage.getItem('username');
             if (u) updateUsernameDisplay(u);
+            // 公開先で、新しいタブを開いたときは、金庫が閉じている（共有・AIが黙って止まっていた）。指紋・顔で開く帯を出す
+            if (typeof 金庫を開ける帯を出す === 'function') 金庫を開ける帯を出す();
             return;
         }
         
@@ -412,12 +414,23 @@ async function ログイン画面を整える() {
         const r = await 応答.json();
         if (!r.初期設定済み) {
             if (r.本体から) {
+                // 本人の要望（2026-10-09）「パスワードはなしに」。このMacで、押すだけで始める（パスワードを決める欄は出さない）
                 ログイン.hidden = true;
-                初期設定.hidden = false;
+                ログイン.style.display = 'none';
+                パスワードなしの入り口を出す('このMacで始める', '/api/account/setup-nopass',
+                    'このMacを、ARELMの持ち主の端末にします。合言葉もパスワードも要りません。ほかの端末は、このMacで「許可」を押した端末だけが開けます。');
             } else if (注意) {
                 注意.hidden = false;
                 注意.textContent = 'まだ最初の設定がされていません。このMac本体で開いて、最初の設定をしてください。';
             }
+        } else if (r.本体から) {
+            // パスワードを決めて使っていたMacでも、押すだけで、このMacではパスワードなしにできる
+            パスワードなしの入り口を出す('このMacでは、パスワードなしで開く', '/api/account/nologin/here',
+                'このMacの前にいる人を本人とします。次からは、開くだけで入れます。');
+        } else if (注意) {
+            // Macで許した端末なのに、ログインが要る形で許されていた
+            注意.hidden = false;
+            注意.textContent = 'この端末は、前の決め方（ログインが要る形）で許されています。Macの設定「他の端末から使う」の一覧で、この端末の「ログインなしで入れる」を押すと、パスワードなしで開けます。';
         }
         if (r.初期設定済み && typeof ログイン画面のパスキーを整える === 'function') {
             ログイン画面のパスキーを整える(ログインできた);
@@ -427,10 +440,58 @@ async function ログイン画面を整える() {
         // 前にこの端末でログインできていれば、繋がるまでの間だけ、端末の中のデータで開ける。
         // 公開先で合言葉を決めた端末は、通信が切れていても合言葉で開ける
         // （以前は 404 でしか合言葉の欄を出さず、圏外ではログイン欄だけになって入れなかった）。
-        if (端末の合言葉を読む()) サーバーの無い置き場の入り口を出す();
+        if (端末の合言葉を読む() || (window.端末の金庫 && 端末の金庫.指紋で開けるか())) サーバーの無い置き場の入り口を出す();
         else オフラインで開く案内を出す();
         Macにつながらない案内を出す();
     }
+}
+
+/**
+ * このMac本体の画面で、押すだけで入る（パスワードを打たない）。本人の要望（2026-10-09）。
+ * 最初の設定（パスワードなしで始める）と、前にパスワードを決めていたMacの「パスワードなしで開く」の両方に使う。
+ * パスワードの欄は消さず、「パスワードで入る」を押したときだけ出す（前の決め方で入りたいとき）。
+ */
+function パスワードなしの入り口を出す(文字, 道, 説明) {
+    if (document.getElementById('nopass-entry')) return;
+    const ログイン = document.getElementById('login-form');
+    if (!ログイン) return;
+    const 枠 = document.createElement('div');
+    枠.id = 'nopass-entry';
+    枠.className = 'login-form';
+    const 文 = document.createElement('p');
+    文.className = 'hint';
+    文.textContent = 説明;
+    const 押す = document.createElement('button');
+    押す.type = 'button';
+    押す.className = 'btn btn-primary';
+    押す.textContent = 文字;
+    押す.addEventListener('click', async () => {
+        押す.disabled = true;
+        try {
+            const r = await fetch(道, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((y) => y.json());
+            if (!r.ok) { showNotification(r.訳 || '入れませんでした', 'error'); return; }
+            ログインできた(r, true);
+            showNotification(r.訳 || 'ようこそ', 'success');
+        } catch {
+            showNotification('Macのサーバーに繋がりませんでした', 'error');
+        } finally {
+            押す.disabled = false;
+        }
+    });
+    枠.append(文, 押す);
+    if (!ログイン.hidden) {
+        // 前の決め方（パスワード）は、押したときだけ出す
+        ログイン.hidden = true;
+        ログイン.style.display = 'none';
+        const 前 = document.createElement('button');
+        前.type = 'button';
+        前.className = 'btn btn-sm btn-secondary';
+        前.textContent = 'パスワードで入る';
+        // パスワードの欄の下の説明（前の決め方の案内）も、パスワードで入るときだけ出す
+        前.addEventListener('click', () => { ログイン.hidden = false; ログイン.style.display = ''; document.getElementById('login-hint')?.removeAttribute('hidden'); 前.remove(); });
+        枠.append(前);
+    }
+    ログイン.insertAdjacentElement('beforebegin', 枠);
 }
 
 /**
@@ -570,6 +631,8 @@ function 端末だけで入る() {
     else createSession(名前);
     updateUsernameDisplay(名前);
     showMainApp();
+    // ほかの端末のQRから来たときは、受け取った中身で共有を始める（打たずに、同じデータにする）
+    if (typeof 受け取り待ちがあるか === 'function' && 受け取り待ちがあるか()) { 受け取りを仕上げる(); return; }
     const 共有中 = window.外の倉庫 && 外の倉庫.使えるか();
     showNotification(共有中
         ? 'Mac無しで開きました。他の端末の変更を取り込んでいます…'
@@ -589,43 +652,64 @@ function サーバーの無い置き場の入り口を出す() {
     ログイン.style.display = 'none';
     document.getElementById('passkey-login-btn')?.setAttribute('hidden', '');
 
+    // 本人の要望（2026-10-09）「合言葉やパスワードはなしに」。公開先は、この端末の指紋・顔（パスキー）で開く。
+    // 前に合言葉を決めた端末だけ、一度だけ合言葉で開いて、指紋・顔に切り替える（合言葉の記録は消さずに残す）。
+    const 金庫 = window.端末の金庫;
+    const 指紋で開ける = !!(金庫 && 金庫.指紋で開けるか());
     const 既に = 端末の合言葉を読む();
+    const 使える = !!(金庫 && 金庫.パスキーが使えるか());
+
     const 形 = document.createElement('form');
     形.id = 'local-lock-form';
     形.className = 'login-form';
     const 説明 = document.createElement('p');
     説明.className = 'hint';
-    説明.textContent = 既に
-        ? 'この端末で決めた合言葉を入れてください。'
-        : 'ここは、Macが無くても開ける公開先です。この端末だけで使う合言葉を、ご自身で決めてください（8文字以上。Macのパスワードとは別で構いません）。';
-    const 欄 = (id, 名, 補完) => {
-        const 枠 = document.createElement('div');
-        枠.className = 'form-group';
-        const l = document.createElement('label');
-        l.htmlFor = id;
-        l.textContent = 名;
-        const i = document.createElement('input');
-        i.type = 'password';
-        i.id = id;
-        i.required = true;
-        i.autocomplete = 補完;
-        枠.append(l, i);
-        return 枠;
-    };
-    形.append(説明, 欄('local-lock-1', '合言葉', 既に ? 'current-password' : 'new-password'));
-    if (!既に) 形.append(欄('local-lock-2', 'もう一度', 'new-password'));
     const 押す = document.createElement('button');
     押す.type = 'submit';
     押す.className = 'btn btn-primary';
-    押す.textContent = 既に ? '開く' : '決めて始める';
-    形.append(押す);
+    const 取り消し = (err) => (err && err.name === 'NotAllowedError'
+        ? '本人確認が取り消されたか、時間切れになりました。もう一度押してください'
+        : (err && err.message) || '開けませんでした');
+    const 受け取り = typeof 受け取り待ちがあるか === 'function' && 受け取り待ちがあるか();
 
-    形.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const 一 = document.getElementById('local-lock-1').value;
-        押す.disabled = true;
-        try {
-            if (既に) {
+    if (指紋で開ける) {
+        説明.textContent = 'この端末の指紋・顔（Face ID・Touch ID・Windows Hello）で開きます。';
+        押す.textContent = '指紋・顔で開く';
+        形.append(説明, 押す);
+        形.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            押す.disabled = true;
+            try {
+                await 金庫.指紋で開ける();
+                端末の入場を残す('指紋・顔で開いた');
+                端末だけで入る();
+            } catch (err) {
+                端末の入場を残す('指紋・顔で開けなかった');
+                showNotification(取り消し(err), 'error');
+            } finally {
+                押す.disabled = false;
+            }
+        });
+    } else if (既に) {
+        説明.textContent = '前に決めた合言葉で、一度だけ開いてください。開いたら、次からは指紋・顔で開けるようにします（合言葉は、それきり使いません）。';
+        const 枠 = document.createElement('div');
+        枠.className = 'form-group';
+        const l = document.createElement('label');
+        l.htmlFor = 'local-lock-1';
+        l.textContent = '前の合言葉';
+        const i = document.createElement('input');
+        i.type = 'password';
+        i.id = 'local-lock-1';
+        i.required = true;
+        i.autocomplete = 'current-password';
+        枠.append(l, i);
+        押す.textContent = '開く';
+        形.append(説明, 枠, 押す);
+        形.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const 一 = i.value;
+            押す.disabled = true;
+            try {
                 // 間違いが続いたら、しばらく試せないようにする（端末を手に取った人に、総当たりさせないため）
                 const 待ち = 端末の合言葉の待ち();
                 if (待ち > 0) { showNotification(`間違いが続いたため、あと${Math.ceil(待ち / 60000)}分ほど試せません`, 'error'); return; }
@@ -637,25 +721,69 @@ function サーバーの無い置き場の入り口を出す() {
                 }
                 localStorage.removeItem('areglm_local_lock_wrong');
                 端末の入場を残す('合言葉で開いた');
-            } else {
-                const 二 = document.getElementById('local-lock-2').value;
-                if (一.length < 8) { showNotification('8文字以上にしてください', 'error'); return; }
-                if (一 !== 二) { showNotification('2つの欄が違います', 'error'); return; }
-                const 塩 = Array.from(crypto.getRandomValues(new Uint8Array(16)));
-                const 値 = await 端末の合言葉を崩す(一, 塩, 端末の合言葉の回数);
-                localStorage.setItem(端末の合言葉の鍵, JSON.stringify({ 塩, 値, 回数: 端末の合言葉の回数 }));
-                端末の入場を残す('合言葉を決めた');
+                if (金庫) await 金庫.開ける(一);
+                i.value = '';
+                if (!使える) { 端末だけで入る(); return; }
+                // 押したばかりの操作として、続けて指紋・顔を登録してもらう（ブラウザは、押した直後にしか許さない）
+                形.textContent = '';
+                const 次 = document.createElement('p');
+                次.className = 'hint';
+                次.textContent = '開きました。次からは、合言葉の代わりに指紋・顔で開けるようにします。';
+                const 切り替える = document.createElement('button');
+                切り替える.type = 'button';
+                切り替える.className = 'btn btn-primary';
+                切り替える.textContent = '指紋・顔で開けるようにする';
+                切り替える.addEventListener('click', async () => {
+                    切り替える.disabled = true;
+                    try {
+                        await 金庫.指紋で開けるようにする();
+                        端末の入場を残す('指紋・顔に切り替えた');
+                        showNotification('次からは、指紋・顔で開けます', 'success');
+                        端末だけで入る();
+                    } catch (err) {
+                        showNotification(取り消し(err), 'error');
+                    } finally {
+                        切り替える.disabled = false;
+                    }
+                });
+                const あとで = document.createElement('button');
+                あとで.type = 'button';
+                あとで.className = 'btn btn-sm btn-secondary';
+                あとで.textContent = 'あとで';
+                あとで.addEventListener('click', () => 端末だけで入る());
+                形.append(次, 切り替える, ' ', あとで);
+            } catch {
+                showNotification('この接続では合言葉を確かめられません（https で開いてください）', 'error');
+            } finally {
+                押す.disabled = false;
             }
-            // 合言葉から、鍵の金庫（GitHubの鍵・Geminiのキーの置き場）も開ける
-            if (window.端末の金庫) await 端末の金庫.開ける(一);
-            形.querySelectorAll('input').forEach((i) => { i.value = ''; });
-            端末だけで入る();
-        } catch {
-            showNotification('この接続では合言葉を確かめられません（https で開いてください）', 'error');
-        } finally {
-            押す.disabled = false;
-        }
-    });
+        });
+    } else {
+        説明.textContent = 使える
+            ? 'ここは、Macが無くても開ける入り口です。この端末の指紋・顔（Face ID・Touch ID・Windows Hello・画面ロックの番号）で開けるようにして始めます。合言葉もパスワードもメールアドレスも要りません。'
+            : 'このブラウザでは、指紋・顔が使えません。Safari・Chrome・Edge で開き直してください。';
+        押す.textContent = 'この端末で始める';
+        押す.disabled = !使える;
+        const 足し = document.createElement('p');
+        足し.className = 'hint';
+        足し.textContent = 受け取り
+            ? 'ほかの端末から受け取った設定があります。始めると、そのままデータの共有が始まります。'
+            : 'ほかの端末ですでに使っているときは、始めたあと、その端末の設定「☁ Mac無しで使う」→「ほかの端末へ渡す」のQRを、この端末のカメラで読むと、同じデータになります。';
+        形.append(説明, 押す, 足し);
+        形.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            押す.disabled = true;
+            try {
+                await 金庫.指紋で開けるようにする();
+                端末の入場を残す('指紋・顔で始めた');
+                端末だけで入る();
+            } catch (err) {
+                showNotification(取り消し(err), 'error');
+            } finally {
+                押す.disabled = !使える;
+            }
+        });
+    }
     ログイン.insertAdjacentElement('afterend', 形);
 }
 
