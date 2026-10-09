@@ -230,7 +230,7 @@ function 部品を調べる(番, 確かめる言葉の元) {
     };
 }
 
-function ページの中で動かす(番, 何を, 値) {
+function ページの中で動かす(番, 何を, 値, 足す) {
     const e = 番 == null ? document.activeElement : document.querySelector(`[data-arelm-hand="${番}"]`);
     if (!e && 何を !== 'スクロール') return { ok: false, 訳: '相手が見つかりません' };
     if (何を === '押す') { e.click(); return { ok: true }; }
@@ -243,8 +243,10 @@ function ページの中で動かす(番, 何を, 値) {
     if (何を === '打つ') {
         e.focus();
         if (e.isContentEditable) { document.execCommand('insertText', false, 値); return { ok: true }; }
+        // 足すときは、いまの文字の後ろへ（本物の入力が使えない代わりの道でも、上書きしない）
+        const 新 = 足す ? String(e.value || '') + 値 : 値;
         const 元 = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e), 'value');
-        if (元 && 元.set) 元.set.call(e, 値); else e.value = 値;
+        if (元 && 元.set) 元.set.call(e, 新); else e.value = 新;
         e.dispatchEvent(new Event('input', { bubbles: true }));
         e.dispatchEvent(new Event('change', { bubbles: true }));
         return { ok: true };
@@ -477,7 +479,7 @@ const 操作たち = {
         if (様.秘密 || 様.形に合言葉) return { ok: false, 訳: '合言葉・パスワード・カード番号などの欄には打ちません。ご自身で入れてください' };
         await ページで(t.id, ページの中で動かす, [Number(番), '的を合わせる', !!足す]);
         const 本物 = await デバッガーで(t.id, [['Input.insertText', { text: 中身 }]]);
-        if (!本物) await ページで(t.id, ページの中で動かす, [Number(番), '打つ', 中身]);
+        if (!本物) await ページで(t.id, ページの中で動かす, [Number(番), '打つ', 中身, !!足す]);
         return { ok: true, 訳: `「${様.名 || '入力欄'}」に${中身.length}文字を打ちました` };
     },
 
