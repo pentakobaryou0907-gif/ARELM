@@ -71,9 +71,18 @@ function スクロールを調べる() {
  */
 function 入口を調べる() {
     const port = location.port;
+    const この端末 = typeof この端末からか === 'function' && この端末からか();
     if (port === '8090') return { 状態: 'ok', 詳細: 'アプリ用（8090）' };
-    if (port === '8443') return { 状態: 'ok', 詳細: '安全な接続（8443）' };
+    if (port === '8443' || location.protocol === 'https:') {
+        return { 状態: 'ok', 詳細: '安全な接続' + (port ? `（${port}）` : '') };
+    }
     if (port === '8080') {
+        // 他の端末の 8080 は、同じWi-Fiの正規の入口。
+        // 以前は「直す」で 127.0.0.1:8090 へ飛ばしており、
+        // スマホ側ではその端末の中を見に行って終わっていた。
+        if (!この端末) {
+            return { 状態: 'ok', 詳細: '同じWi-Fiの入口（8080）' };
+        }
         return {
             状態: 'warn',
             詳細: '通常（8080）— 古い画面が残っている場合があります',
@@ -82,7 +91,7 @@ function 入口を調べる() {
             },
         };
     }
-    return { 状態: 'ok', 詳細: port || '不明' };
+    return { 状態: 'ok', 詳細: port || location.host || '不明' };
 }
 
 /**
@@ -124,12 +133,19 @@ async function 古い画面を消す() {
  */
 function マイクを調べる() {
     if (window.isSecureContext) return { 状態: 'ok', 詳細: '使えます' };
+    const この端末 = typeof この端末からか === 'function' && この端末からか();
+    const 手 = typeof マイクの開き方 === 'function'
+        ? マイクの開き方()
+        : (この端末
+            ? 'このMacでは http://127.0.0.1:8090 で開いてください。'
+            : '他の端末では、設定の「どこでも」の https から開いてください。');
     return {
         状態: 'warn',
-        詳細: 'この接続では使えません（127.0.0.1 か https:// が必要です）',
-        直す: () => {
-            location.href = 'http://127.0.0.1:8090' + location.pathname;
-        },
+        詳細: 'この接続では使えません。' + 手,
+        // 他の端末を 127.0.0.1 へ飛ばすと、その端末の中で終わる
+        直す: この端末
+            ? () => { location.href = 'http://127.0.0.1:8090' + location.pathname; }
+            : undefined,
     };
 }
 

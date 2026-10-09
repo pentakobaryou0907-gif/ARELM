@@ -1178,10 +1178,14 @@ function ブラウザ音声で切り替える(target) {
     // URLで開いていると、無言で使えないままになってしまう。
     // 何が起きているか分かるように、はっきり伝える。
     if (!window.isSecureContext) {
+        // 以前は 8080 を案内していた。8080 は他のアプリが先に持つことがあり、
+        // 他の端末を 127.0.0.1 へ送ると、その端末の中を見に行って終わる。
+        const 手 = typeof マイクの開き方 === 'function'
+            ? マイクの開き方()
+            : 'このMacでは http://127.0.0.1:8090、他の端末では設定の「どこでも」の https で開いてください。';
         const msg = `今のURL（${location.host}）ではマイクを使えません。`
-            + '\nブラウザの決まりで、マイクは 127.0.0.1 か localhost でしか許可されません。'
-            + '\n\nこのMacで使う場合は http://127.0.0.1:8080 で開いてください。'
-            + '\n（デスクトップの AReGLM.app から開くと、このURLになります）';
+            + '\nブラウザの決まりで、マイクは 127.0.0.1 / localhost か https でしか許可されません。'
+            + '\n\n' + 手;
         showNotification('このURLではマイクを使えません', 'error');
         appendConsoleLine('assistant', msg, target);
         return;
