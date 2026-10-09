@@ -52,6 +52,8 @@ const AReGLM_SYNC = {
         'areglm_offline_ok',
         // 公開先で決めた、その端末だけの合言葉（崩した値）。他の端末へ渡さない
         'areglm_local_lock',
+        // 指紋・顔に切り替えて使わなくなった、前の合言葉の印（端末ごと）
+        'areglm_local_lock_retired',
         // 公開先の鍵の金庫と、外の置き場の設定（その端末で本人が選んだもの。関所の例外もこれで開く）
         'areglm_local_vault', 'areglm_ext_store', 'areglm_ext_ai',
         // 公開先の合言葉の間違いの数と、その端末の入場の記録（端末ごとのもの）
@@ -62,6 +64,10 @@ const AReGLM_SYNC = {
         'areglm_device_name',
         // どの欄を開いているか（画面の広さが違うので、スマホとパソコンで別々に覚える）
         'areglm_open_sections',
+        // 公開先の、この端末の指紋・顔（パスキー）の名札。端末ごとに別物（同期すると、開けない端末が出る）
+        'areglm_local_passkey',
+        // Googleのアカウントのメールアドレス。本人の要望（2026-10-09）「メールアドレスはなしに」で、ほかの端末と倉庫へ送らない
+        'areglm_google_account_email',
     ]),
 
     _送信待ち: {},

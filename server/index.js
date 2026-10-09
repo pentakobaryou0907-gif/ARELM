@@ -9,6 +9,8 @@ const fs = require('fs');
 const os = require('os');
 
 const app = express();
+// 道の大文字・小文字を区別する。区別しないと、門番が守る /api/computer を /API/computer で呼べてしまう。
+app.set('case sensitive routing', true);
 const PORT = process.env.PORT || 8080;
 
 // HTTPS が使えるかどうか（マイクを使える接続へ回すために先に判定しておく）
@@ -37,6 +39,29 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // 50mbに広げて、その代わり本文はJSONのみ（実行ファイル等は乗らない）。
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false }));   // 合言葉の入力を受け取るため
+
+/**
+ * 別のサイトからの「書き換え」の頼みを断る（CSRF）。
+ *
+ * 本人の要望（2026-10-09）で合言葉・パスワードを無くしたため、このMac本体のブラウザと、Macで許した端末が「本人」の印になる。
+ * そのブラウザで開いた別のサイトが、こっそりこのツールへ書き換え（巻き戻し・設定の変更など）を送れないようにする。
+ * 読むだけ（GET・HEAD・OPTIONS）は対象外。ブラウザ以外（Windowsのインストーラー・curl）は Origin を付けないので、これまで通り通る。
+ */
+function 別のサイトからか(req) {
+    if (String(req.headers['sec-fetch-site'] || '') === 'cross-site') return true;
+    const 元 = req.headers['origin'];
+    if (!元) return false;
+    let u;
+    try { u = new URL(元); } catch { return true; }   // 'null' など、出どころの分からない頼みは断る
+    const 宛先 = [req.headers['host'], req.headers['x-forwarded-host']].filter(Boolean).map((h) => String(h).toLowerCase());
+    return !宛先.includes(u.host.toLowerCase());
+}
+app.use((req, res, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    if (!別のサイトからか(req)) return next();
+    console.warn(`[守り] 別のサイトからの書き換えを断りました: ${req.headers['origin'] || req.headers['sec-fetch-site']} → ${req.path}`);
+    res.status(403).type('text/plain; charset=utf-8').end('別のサイトからの頼みは受け付けません。');
+});
 
 /**
  * 門番 — 他の端末から使うときの本人確認
@@ -132,7 +157,7 @@ function 本体のブラウザからか(req) {
 app.get('/api/account/me', (req, res) => {
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
     if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
-    res.json({ ok: true, 名前: アカウント.ユーザー名() });
+    res.json({ ok: true, 名前: アカウント.ユーザー名(), パスワードあり: アカウント.パスワードがあるか(アカウント.本人()) });
 });
 
 /**
@@ -193,6 +218,8 @@ app.post('/api/pair/decide', (req, res) => {
     if (!人) return res.status(401).json({ ok: false, 訳: 'ログインし直してください' });
     const b = req.body || {};
     const r = 門番.ペアを決める(String(b.id || ''), b.許す === true, b.ログインも省く === true);
+    // 許した・断ったも、入場の記録に残す（以前は、合言葉とログインの成否だけだった）
+    if (r.ok) 入場の記録.残す(入場の記録の場所, b.許す === true ? '端末を許した' : '端末を断った', req.socket.remoteAddress);
     res.status(r.ok ? 200 : 400).json(r);
 });
 
@@ -206,7 +233,23 @@ app.post('/api/account/nologin/set', (req, res) => {
     if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体のブラウザからだけ変えられます' });
     const 人 = アカウント.入場券から人を知る(入場券を取り出す(req));
     const b = req.body || {};
-    const r = アカウント.ログインなしを切り替える(人, b.有効 === true, b.パスワード);
+    const r = アカウント.ログインなしを切り替える(人, b.有効 === true);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
+/**
+ * パスワードを打たずに始める・開く（このMac本体のブラウザからだけ）。本人の要望（2026-10-09）。
+ * このMacの前にいる人を本人とする。JSONで送られた頼みだけ受ける
+ * （別のサイトのフォームからは、JSONを送れない。別のサイトからの頼みは、上の守りでも断っている）。
+ */
+app.post('/api/account/setup-nopass', (req, res) => {
+    if (!本体のブラウザからか(req) || !req.is('application/json')) return res.status(403).json({ ok: false, 訳: '最初の設定は、このMac本体の画面でだけできます' });
+    const r = アカウント.パスワードなしで始める();
+    res.status(r.ok ? 200 : 400).json(r);
+});
+app.post('/api/account/nologin/here', (req, res) => {
+    if (!本体のブラウザからか(req) || !req.is('application/json')) return res.status(403).json({ ok: false, 訳: 'このMac本体の画面からだけできます' });
+    const r = アカウント.このMacではログインなしにする();
     res.status(r.ok ? 200 : 400).json(r);
 });
 
@@ -526,17 +569,19 @@ app.get('/api/other-devices', (req, res) => {
         使う: 設定.使う === true,
         Tailscale使う: 設定.Tailscale使う === true,
         合言葉を決めてあるか: !!門.合言葉,
-        許した端末: (門.端末 || []).map((d) => ({
-            名前: d.名前, 許した日: d.許した日, 期限: d.期限,
-        })),
+        合言葉で入れる: 門番.合言葉で入れるか(),
+        許した端末: 門番.許した端末の一覧(),
         このMacの住所: lanAddresses(),
         Tailscaleの住所: tailscaleアドレス(),
         入口: PORT,
         アプリ入口: APP_PORT,
+        Mac本体から: 本体のブラウザからか(req),
     });
 });
 
 app.post('/api/other-devices', (req, res) => {
+    // 入口を開け閉めするのは、Mac本体の画面からだけ（以前は、許した端末からも変えられた。門番の強い口に入っていなかった）
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'この設定は、Mac本体の画面からだけ変えられます' });
     // 送られてきた項目だけを、いまの設定に上書きする。
     // まるごと書き換えると、片方の設定（LAN/Tailscale）を
     // 変えたときに、もう片方が黙って消えてしまう。
@@ -547,21 +592,9 @@ app.post('/api/other-devices', (req, res) => {
     const Tailscale指定あり = Object.prototype.hasOwnProperty.call(req.body || {}, 'Tailscale使う');
     const 使う = 使う指定あり ? req.body['使う'] === true : 今の設定.使う === true;
     const Tailscale使う = Tailscale指定あり ? req.body['Tailscale使う'] === true : 今の設定.Tailscale使う === true;
-    const 言葉 = req.body && req.body['合言葉'];
 
-    if (使う || Tailscale使う) {
-        // 合言葉が無いまま開けることは、絶対にしない。
-        // 開いた瞬間、その経路にいる誰でも入れてしまう。
-        if (言葉) {
-            const r = 門番.合言葉を決める(言葉);
-            if (!r.ok) return res.status(400).json(r);
-        } else if (!門番.設定を読む().合言葉) {
-            return res.status(400).json({
-                ok: false,
-                訳: '先に合言葉を決めてください。合言葉なしで他の端末に開くことはできません。',
-            });
-        }
-    }
+    // 合言葉は要らない（本人の要望 2026-10-09）。開いても、入れるのは、Macの前で本人が「許可」を押した端末だけ
+    // （門番が、許可の無い端末には画面のファイルも渡さない）。合言葉で入る道は、既定で閉じている。
 
     fs.writeFileSync(他の端末設定, JSON.stringify({ 使う, Tailscale使う }, null, 2));
 
@@ -608,10 +641,7 @@ app.post('/api/anywhere/start', async (req, res) => {
 app.post('/api/anywhere/enable', async (req, res) => {
     if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'このMac本体の画面からだけできます' });
     if (!本人だけ(req, res)) return;
-    // 他の経路と同じ決まり: 合言葉が無いまま開けることは、絶対にしない。
-    if (!門番.設定を読む().合言葉) {
-        return res.status(400).json({ ok: false, 訳: '先に合言葉を決めてください（「他の端末」の設定）。合言葉なしで開くことはできません。' });
-    }
+    // 合言葉は要らない（本人の要望 2026-10-09）。Tailscaleの中でも、入れるのは、Macの前で「許可」を押した端末だけ
     const r = await Tailscale.公開する(APP_PORT);
     if (r.ok) Tailscale使うを書く(true);
     res.status(r.ok ? 200 : 400).json(r);
@@ -765,14 +795,32 @@ app.post('/api/ext-store/config', async (req, res) => {
     if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この設定は、Mac本体の画面からだけできます' });
     const { 鍵, 倉庫, 合言葉 } = req.body || {};
     if (!鍵 || typeof 鍵 !== 'string') return res.status(400).json({ ok: false, 訳: '鍵を貼ってください' });
+    const 倉庫名 = String(倉庫 || 'ARELM-data').trim();
+    // 鍵だけ替えるとき（合言葉が空）は、同じ倉庫なら、Macにある同期の合言葉を使い続ける
+    const 前 = 外の倉庫.設定を読む(外の倉庫の設定の場所);
+    const 使う合言葉 = (typeof 合言葉 === 'string' && 合言葉) ? 合言葉 : (前 && 前.倉庫 === 倉庫名 ? 前.合言葉 : '');
     try {
-        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: String(倉庫 || 'ARELM-data').trim(), 合言葉: typeof 合言葉 === 'string' ? 合言葉 : '' }, safeFetch);
+        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: 倉庫名, 合言葉: 使う合言葉 }, safeFetch);
         外の倉庫.設定を書く(外の倉庫の設定の場所, 設定);
         const 最後 = await 外の倉庫とまぜる();
         res.json(Object.assign({ ok: true }, 外の倉庫.様子(設定, 最後)));
     } catch (e) {
         res.status(400).json({ ok: false, 訳: e.message });
     }
+});
+
+/**
+ * ほかの端末へ渡す（QR）ための中身。Mac本体の画面で、入場券を持つ本人にだけ返す。
+ * 本人の要望（2026-10-09）「合言葉やパスワードはなしに」で、新しい端末は、打たずにQRで受け取る。
+ * 鍵と同期の合言葉は、この画面の中でQRにするだけで、どこへも送らない（読むだけ・別のサイトからは読めない）。
+ */
+app.get('/api/ext-store/handoff', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'Mac本体の画面からだけです' });
+    if (!本人だけ(req, res)) return;
+    const 設定 = 外の倉庫.設定を読む(外の倉庫の設定の場所);
+    if (!設定) return res.status(404).json({ ok: false, 訳: 'まだ、データの共有が始まっていません' });
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, 鍵: 設定.鍵, 持ち主: 設定.持ち主, 倉庫: 設定.倉庫, 合言葉: 設定.合言葉 });
 });
 
 app.post('/api/ext-store/sync-now', async (req, res) => {
@@ -1901,6 +1949,8 @@ app.get('/api/voice-listener', (req, res) => {
 });
 
 app.post('/api/voice-listener', (req, res) => {
+    // Macのマイクを常に聞く仕組みを入れ・切りするので、Mac本体の画面からだけ（以前は、許した端末からも切り替えられた）
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体の画面からだけできます' });
     const 実行file = 待ち受けを用意する()
         || path.join(__dirname, 'voice', '常駐の待ち受け');
     const 入れる = req.body && req.body['使う'] === true;
@@ -2027,10 +2077,29 @@ function 書き込む常駐の設定(実行file, 声の道, 呼び名, アプリ
 }
 
 app.post('/api/other-devices/forget', (req, res) => {
-    const 門 = 門番.設定を読む();
-    門.端末 = [];
-    門番.設定を書く(門);
-    res.json({ ok: true, 訳: '許した端末をすべて忘れました。次はまた合言葉を聞きます。' });
+    // 全部の端末を締め出す操作なので、Mac本体の画面からだけ（以前は、許した端末からも押せた）
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体の画面からだけできます' });
+    // 消さずに「外した端末」へ移す（いつ・どれを外したかが残る）
+    const 一覧 = 門番.許した端末の一覧();
+    一覧.forEach((d) => 門番.端末を外す(d.id));
+    入場の記録.残す(入場の記録の場所, '端末をすべて外した', req.socket.remoteAddress);
+    res.json({ ok: true, 訳: `許した端末（${一覧.length}台）を外しました。次は、もう一度Macで許可します。` });
+});
+
+/** 1台だけ外す（なくした端末など）。Mac本体の画面からだけ */
+app.post('/api/other-devices/remove', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体の画面からだけできます' });
+    const r = 門番.端末を外す(String((req.body && req.body.id) || ''));
+    if (r.ok) 入場の記録.残す(入場の記録の場所, '端末を外した', req.socket.remoteAddress);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
+/** 許した端末の「ログインも省く」を切り替える。Mac本体の画面からだけ */
+app.post('/api/other-devices/skip-login', (req, res) => {
+    if (!本体のブラウザからか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体の画面からだけできます' });
+    const b = req.body || {};
+    const r = 門番.ログイン省略を変える(String(b.id || ''), b.入 === true);
+    res.status(r.ok ? 200 : 400).json(r);
 });
 
 
@@ -3117,12 +3186,19 @@ app.post('/api/notion-proxy', async (req, res) => {
  * の対象にはしない。ただし送信先は必ず127.0.0.1固定・ポート番号は
  * 数字のみに絞り、他のホストへは向けさせない。
  */
+// Obsidian（Local REST API）が使う番号だけ。前は1〜65535のどれでも中継したため、
+// 許可した端末がこの口を通してMac自身（8090など）へ頼むと「Mac本体から」に見え、Mac専用の操作が素通しだった。
+const Obsidianの番号 = new Set([27123, 27124]);
 app.post('/api/obsidian-proxy', async (req, res) => {
+    if (!本人だけ(req, res)) return;
     const key = req.headers['x-obsidian-key'];
     if (!key) return res.status(401).json({ error: 'ObsidianのAPIキーが必要です' });
     const { method, path, body, port } = req.body || {};
     const ポート = parseInt(port, 10) || 27123;
-    if (!method || !path || !/^\/[\w./%-]*$/.test(path) || ポート < 1 || ポート > 65535) {
+    if (!Obsidianの番号.has(ポート)) {
+        return res.status(400).json({ error: 'Obsidianの番号（27123 か 27124）だけ使えます' });
+    }
+    if (!method || !path || !/^\/[\w./%-]*$/.test(path) || !['GET', 'PUT', 'POST', 'PATCH', 'DELETE'].includes(String(method).toUpperCase())) {
         return res.status(400).json({ error: 'method・path・port の形が不正です' });
     }
     try {
@@ -3731,6 +3807,8 @@ app.get('/api/self-heal/status', (req, res) => {
 });
 
 app.post('/api/self-heal/checkpoint', (req, res) => {
+    // 道具そのものの記録を作るので、Mac本体からだけ（以前は、許した端末からも呼べた）
+    if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体からだけできます' });
     try {
         const message = (req.body?.message || '変更を記録').slice(0, 200);
         const 強制 = !!req.body?.強制的に記録する;
@@ -3782,6 +3860,8 @@ app.get('/api/self-heal/history', (req, res) => {
 });
 
 app.post('/api/self-heal/rollback', (req, res) => {
+    // 作業中の変更を巻き戻す（取り返しがつかない）ので、Mac本体からだけ（以前は、許した端末からも呼べた）
+    if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この操作は、Mac本体からだけできます' });
     // 取り返しがつかない操作なので、hashの形をきびしく確かめる
     // （任意のGitオプション文字列を渡されないようにする）。
     const hash = String(req.body?.hash || '');

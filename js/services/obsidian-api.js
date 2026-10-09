@@ -22,7 +22,9 @@ const AReGLM_OBSIDIAN = {
         }
         const res = await fetch('/api/obsidian-proxy', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Obsidian-Key': key },
+            headers: Object.assign({ 'Content-Type': 'application/json', 'X-Obsidian-Key': key },
+                sessionStorage.getItem('areglm_account_ticket')
+                    ? { Authorization: 'Bearer ' + sessionStorage.getItem('areglm_account_ticket') } : {}),
             body: JSON.stringify({ method, path, body, port: this.getPort() }),
         });
         const data = await res.json();

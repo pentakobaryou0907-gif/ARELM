@@ -20,10 +20,12 @@
  *   ・読んだ中身を、拡張機能から外へ送らない（返す先は、頼んだARELMの画面だけ）
  */
 
+// 本人の要望（2026-10-09）「私のデバイスでしか開けないように」。以前は localhost のどの番号でも ARELM とみなしていたため、
+// 同じMacの別のサーバー（開発中の画面など）からも、この手に頼めた。ARELM の番号（8080・8090）だけにする
 const 既定の入り口 = [
-    { 出どころ: 'http://localhost', 道: '' },
-    { 出どころ: 'http://127.0.0.1', 道: '' },
-    { 出どころ: 'https://pentakobaryou0907-gif.github.io', 道: '/ARELM/' },
+    { 出どころ: 'http://localhost', 番号: ['8080', '8090'], 道: '' },
+    { 出どころ: 'http://127.0.0.1', 番号: ['8080', '8090'], 道: '' },
+    { 出どころ: 'https://pentakobaryou0907-gif.github.io', 番号: [''], 道: '/ARELM/' },
 ];
 
 const 触ってはいけない先 = [
@@ -66,16 +68,15 @@ async function 足した入り口() { return 置き場.読む('入り口', []); 
 async function ARELMの画面か(url) {
     let u;
     try { u = new URL(url); } catch { return false; }
-    // 既定の入り口は、番号（ポート）を問わない（Macの ARELM は 8080・8090 の両方で開く）
     const 番号なし = `${u.protocol}//${u.hostname}`;
-    if (既定の入り口.some((x) => 番号なし === x.出どころ && u.pathname.startsWith(x.道 || '/'))) return true;
+    if (既定の入り口.some((x) => 番号なし === x.出どころ && x.番号.includes(u.port) && u.pathname.startsWith(x.道 || '/'))) return true;
     return (await 足した入り口()).includes(u.origin);
 }
 
 function 入り口の型(出どころ) {
     const u = new URL(出どころ);
-    // 型には番号（ポート）を書かない。書かないと、どの番号でも当たる
-    return `${u.protocol}//${u.hostname}/*`;
+    // 型にも番号（ポート）を書く（書かないと、同じ名前のどの番号でも当たってしまう）
+    return `${u.protocol}//${u.host}/*`;
 }
 
 async function 入り口を足す(住所) {
@@ -515,7 +516,7 @@ const 操作たち = {
         return { ok: true, 訳: `${名}を押しました` };
     },
 
-    async 入り口() { return { ok: true, 既定: 既定の入り口.map((x) => x.出どころ + (x.道 || '')), 足した: await 足した入り口() }; },
+    async 入り口() { return { ok: true, 既定: 既定の入り口.flatMap((x) => x.番号.map((n) => x.出どころ + (n ? ':' + n : '') + (x.道 || ''))), 足した: await 足した入り口() }; },
 };
 
 // 本人が許したかどうかは、頼む側が付ける印。AIが選んだ材料からは、ARELMの画面が外してから送る

@@ -36,6 +36,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const 設定ファイル = process.env.ARELM_GATE_FILE || path.join(__dirname, 'data', '門番.json');
 
@@ -72,7 +73,9 @@ function 設定を読む() {
 function 設定を書く(中身) {
     const 場所 = path.dirname(設定ファイル);
     if (!fs.existsSync(場所)) fs.mkdirSync(場所, { recursive: true });
-    fs.writeFileSync(設定ファイル, JSON.stringify(中身, null, 2));
+    // 許した端末の印が入るので、本人だけが読める形で書く（以前は誰でも読める権限で書いていた）
+    fs.writeFileSync(設定ファイル, JSON.stringify(中身, null, 2), { mode: 0o600 });
+    try { fs.chmodSync(設定ファイル, 0o600); } catch { /* 権限を変えられない置き場でも、書けていればよい */ }
 }
 
 /**
@@ -201,6 +204,37 @@ function 中継された通信か(req) {
 }
 
 /**
+ * 遠くの端末が、どんな名前でこのMacを開いたか（Host）が、よそのサイトの名前ではないか。
+ *
+ * DNSの付け替え（あるサイトの名前を、途中でこのMacの住所に向け直す手口）を使うと、
+ * 同じWi-Fiの端末で開いた「よそのページ」から、このMacへ頼みを送れる。
+ * 合言葉が無くなり、入るにはMacで「許可」を押すだけになったので、その頼みが本人の端末の頼みと
+ * 見分けられないと、一度押しただけで、よそのページが中に入れてしまう。
+ * よそのサイトは、普通のインターネットの名前（evil.example など）でしか来られない。
+ * だから、住所そのもの（192.168… / 100.… / [fe80::…]）・点の無い名前・家の中だけの名前
+ * （.local・.lan・.home.arpa など）・Tailscaleの名前（.ts.net）・このMacの名前だけを通す。
+ */
+function 家の中の名前か(名前) {
+    const n = String(名前 || '').toLowerCase().trim();
+    if (!n) return false;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(n)) return true;          // IPv4 の住所
+    if (n.includes(':')) return true;                              // IPv6 の住所（[ ] は外してある）
+    if (!n.includes('.')) return true;                             // 点の無い名前（Tailscaleの短い名前など）
+    if (n === String(os.hostname() || '').toLowerCase()) return true;
+    return /\.(local|lan|home|internal|localhost|home\.arpa|ts\.net)$/.test(n);
+}
+function 宛先の名前を取り出す(値) {
+    let h = String(値 || '').split(',')[0].trim();
+    if (h.startsWith('[')) return h.slice(1, h.indexOf(']') > 0 ? h.indexOf(']') : undefined);
+    return h.replace(/:\d+$/, '');
+}
+function 宛先の名前がよいか(req) {
+    const h = (req && req.headers) || {};
+    const 名前たち = [h['host'], h['x-forwarded-host']].filter(Boolean).map(宛先の名前を取り出す);
+    return 名前たち.length > 0 && 名前たち.every(家の中の名前か);
+}
+
+/**
  * この相手は、Tailscale（本人だけの端末をつなぐVPN）の中か。
  *
  * Tailscaleは 100.64.0.0/10（100.64.0.0〜100.127.255.255）という
@@ -257,17 +291,21 @@ function 待ちを掃除() {
     for (const [id, x] of 待ち) if (今 - x.時刻 > 待つ分 * 60000) 待ち.delete(id);
 }
 
-function ペアを頼む(住所, 名前) {
+function ペアを頼む(住所, 名前, 経路) {
     待ちを掃除();
     const 今 = Date.now();
     const 記録 = (頼みの記録.get(住所) || []).filter((t) => 今 - t < 10 * 60000);
     if (記録.length >= 10) return { ok: false, 訳: '続けて頼みすぎです。しばらく待ってください' };
-    if (待ち.size >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
+    // 数えるのは、まだ決めていない頼みだけ。前は決め済みの頼みも5分間数えていたので、
+    // 同じWi-Fiの誰かが頼みを続けると、本人が断っても、誰も頼めないままになった（合言葉の道も閉じたので、入る道が無くなる）。
+    const まだの頼み = [...待ち.values()].filter((x) => x.状態 === '待ち');
+    if (まだの頼み.filter((x) => x.住所 === 住所).length >= 2) return { ok: false, 訳: 'この端末からの頼みが、まだMacで決まっていません。Macの画面を見てください' };
+    if (まだの頼み.length >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
     記録.push(今);
     頼みの記録.set(住所, 記録);
     const id = crypto.randomBytes(16).toString('hex');
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
-    待ち.set(id, { id, code, 名前: String(名前 || '名前のない端末').slice(0, 40), 住所, 時刻: 今, 状態: '待ち', 省く: false });
+    待ち.set(id, { id, code, 名前: String(名前 || '名前のない端末').slice(0, 40), 住所, 経路: String(経路 || ''), 時刻: 今, 状態: '待ち', 省く: false });
     return { ok: true, id, code, 待つ分 };
 }
 
@@ -287,7 +325,7 @@ function ペアの様子(id) {
 function ペアの待ち一覧() {
     待ちを掃除();
     return [...待ち.values()].filter((x) => x.状態 === '待ち')
-        .map((x) => ({ id: x.id, code: x.code, 名前: x.名前, 住所: x.住所, 経過秒: Math.round((Date.now() - x.時刻) / 1000) }));
+        .map((x) => ({ id: x.id, code: x.code, 名前: x.名前, 住所: x.住所, 経路: x.経路, 経過秒: Math.round((Date.now() - x.時刻) / 1000) }));
 }
 
 function ペアを決める(id, 許す, ログインも省く) {
@@ -296,6 +334,66 @@ function ペアを決める(id, 許す, ログインも省く) {
     x.状態 = 許す ? '許可' : '断った';
     x.省く = !!ログインも省く;
     return { ok: true, 訳: 許す ? `「${x.名前}」を許しました` : `「${x.名前}」を断りました` };
+}
+
+/** 端末を指す、秘密でない名札（印そのものは画面に出さない） */
+function 端末の名札(印) {
+    return crypto.createHash('sha256').update(String(印)).digest('hex').slice(0, 12);
+}
+
+/**
+ * 使っている端末の印を延ばす（最後に来た日も残す）。
+ * 本人の要望「合言葉なしで、私の端末だけ」。許可はMacの前で押すだけになったが、
+ * 30日で切れるたびにMacの前へ行く必要があった。使っている間は切れないようにする（使わなくなった端末は30日で切れる）。
+ * 書き込みは1日に1回まで。延ばしたときだけ、新しい期限を返す。
+ */
+function 印を延ばす(印) {
+    if (!印) return null;
+    const 設定 = 設定を読む();
+    const d = (設定.端末 || []).find((x) => x.印 === 印);
+    if (!d || new Date(d.期限) <= new Date()) return null;
+    const 今 = Date.now();
+    if (d.最後 && 今 - new Date(d.最後).getTime() < 86400000) return null;
+    d.最後 = new Date(今).toISOString();
+    d.期限 = new Date(今 + 印の日数 * 86400000).toISOString();
+    設定を書く(設定);
+    return d.期限;
+}
+
+/** 許した端末の一覧（印は出さない） */
+function 許した端末の一覧() {
+    return (設定を読む().端末 || [])
+        .filter((d) => new Date(d.期限) > new Date())
+        .map((d) => ({ id: 端末の名札(d.印), 名前: d.名前, 許した日: d.許した日, 期限: d.期限, 最後: d.最後 || null, ログイン省略: d.ログイン省略 === true }));
+}
+
+/**
+ * 1台だけ外す（なくした端末など）。消さずに「外した端末」へ移す（いつ・どの端末を外したかが残る）。
+ * 外した端末の印は、もう通らない。
+ */
+function 端末を外す(id) {
+    const 設定 = 設定を読む();
+    const i = (設定.端末 || []).findIndex((d) => 端末の名札(d.印) === String(id || ''));
+    if (i < 0) return { ok: false, 訳: 'その端末は、もう一覧にありません' };
+    const [d] = 設定.端末.splice(i, 1);
+    設定.外した端末 = (設定.外した端末 || []).concat([{ 名前: d.名前, 許した日: d.許した日, 外した日: new Date().toISOString(), 名札: 端末の名札(d.印) }]).slice(-100);
+    設定を書く(設定);
+    return { ok: true, 訳: `「${d.名前}」を外しました（もう一度使うには、Macで許可し直します）` };
+}
+
+/** 許した端末の「ログインも省く」を切り替える（前に「ログインは必要」で許した端末を、押すだけで入れるようにする） */
+function ログイン省略を変える(id, 入) {
+    const 設定 = 設定を読む();
+    const d = (設定.端末 || []).find((x) => 端末の名札(x.印) === String(id || ''));
+    if (!d) return { ok: false, 訳: 'その端末は、もう一覧にありません' };
+    d.ログイン省略 = 入 === true;
+    設定を書く(設定);
+    return { ok: true, 訳: 入 ? `「${d.名前}」は、ログインなしで入れます` : `「${d.名前}」は、入るたびにログインが要ります` };
+}
+
+/** 合言葉で入る道を、まだ使うか（既定は使わない。本人の要望「合言葉はなしに」。許可はMacの前で押すだけ） */
+function 合言葉で入れるか() {
+    return 設定を読む().合言葉で入れる === true && !!設定を読む().合言葉;
 }
 
 /** cookie の印から、許した端末の記録を引く（無ければ null） */
@@ -363,6 +461,10 @@ function 端末名を推す(ua) {
 }
 
 function 合言葉を聞く画面(訳, 初期の名前 = '') {
+    // 本人の要望（2026-10-09）「合言葉やパスワードはなしにして、私のデバイスでしか開けないように」。
+    // 入るには、Macの前で本人が「許可」を押すだけにする。合言葉の欄は、本人が合言葉で入る道を残したときだけ出す。
+    const 合言葉も = 合言葉で入れるか();
+    const 名前 = String(初期の名前).replace(/[&<>"']/g, '');
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ARELM</title>
@@ -377,23 +479,22 @@ function 合言葉を聞く画面(訳, 初期の名前 = '') {
   p { font-size:.82rem; line-height:1.7; margin:0; opacity:.8; }
   input { padding:.7rem; font-size:1rem; border-radius:10px;
           border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; }
-  button { padding:.7rem; font-size:1rem; border:0; border-radius:10px;
+  button { padding:.8rem; font-size:1rem; border:0; border-radius:10px;
            background:#2e7d4f; color:#fff; cursor:pointer; }
   .err { color:#dc2626; font-size:.82rem; }
+  details summary { font-size:.82rem; opacity:.7; cursor:pointer; }
 </style></head><body>
 <form class="box" method="POST" action="/__gate">
   <h1>ARELM</h1>
-  <p>この端末は、まだ許可されていません。<br>合言葉を入れてください。</p>
+  <p>この端末は、まだ許可されていません。<br>下のボタンを押して、Macの画面で「許可」を押すと入れます（合言葉もパスワードも要りません）。</p>
   ${訳 ? `<p class="err">${訳}</p>` : ''}
-  <input type="password" name="合言葉" autocomplete="current-password" autofocus required>
-  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off" value="${String(初期の名前).replace(/[&<>"']/g, '')}">
-  <button type="submit">入る</button>
-  <p>合っていれば、この端末を${印の日数}日間おぼえます。<br>
-     このツールは外部へ一切送信しません。</p>
-  <hr style="width:100%;border:0;border-top:1px solid rgba(128,128,128,.3)">
-  <p>合言葉を覚えていないときは、Macの前で許可してもらえます。</p>
-  <button type="button" id="pair" style="background:#555">Macで許可してもらう</button>
+  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off" value="${名前}" aria-label="端末の名前">
+  <button type="button" id="pair">Macに許可を頼む</button>
   <p id="pairmsg"></p>
+  <p>許可した端末だけが、このツールを開けます。使っている間は、許可が切れません。<br>このツールは外部へ一切送信しません。</p>
+  ${合言葉も ? `<details><summary>合言葉で入る（前の決め方）</summary>
+  <input type="password" name="合言葉" autocomplete="current-password" aria-label="合言葉">
+  <button type="submit" style="background:#555;margin-top:.5rem">合言葉で入る</button></details>` : ''}
 </form>
 <script>
 // iPadは、別のアプリへ切り替えて戻るとページを読み込み直すことがあり、そのたびに新しい頼み（新しいコード）を
@@ -417,6 +518,10 @@ function 覚えた待ち() {
 }
 var 前 = 覚えた待ち();
 if (前) 待ちを見せる(前);
+// 名前の欄でEnterを押したときも、合言葉ではなく、許可を頼む（合言葉の道を残していないときは、送らない）
+document.querySelector('form').addEventListener('submit', function (e) {
+  if (!document.querySelector('[name=合言葉]') || !document.querySelector('[name=合言葉]').value) { e.preventDefault(); document.getElementById('pair').click(); }
+});
 document.getElementById('pair').addEventListener('click', async function () {
   var m = document.getElementById('pairmsg');
   var 続き = 覚えた待ち();
@@ -521,6 +626,13 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         const Tailscale経由 = 中継 || Tailscaleの中か(住所);
         const 普通のLAN経由 = !Tailscale経由 && 同じLANか(住所);
 
+        // よそのサイトの名前で来た頼み（DNSの付け替え）は、何も見せずに断る
+        if (!宛先の名前がよいか(req)) {
+            console.warn(`[門番] よそのサイトの名前で来ました: ${住所} → ${String(req.headers['host'] || '').slice(0, 80)}`);
+            res.status(403).type('text/plain; charset=utf-8');
+            return res.end('この名前では開けません。Macの住所（例: http://192.168.…）か、Tailscaleの名前で開いてください。');
+        }
+
         // 強い口は、原則として外からは通さない。
         //
         // 合言葉は、いつか漏れるものとして考える。
@@ -530,7 +642,10 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // 繋がらない閉じたネットワークなので、同じWi-Fi（他人が
         // 混ざりうる）とは切り分ける。ここを通っても、この先の
         // 合言葉の認証は普通に必要（次の if 群 → __gate → 印）。
-        if (この端末だけの口.some((道) => req.path.startsWith(道))) {
+        // 大文字・小文字を揃えて比べる。Expressの道は大小を区別しないので、/API/computer が
+        // ここの比べ（区別する）をすり抜けて、同じWi-Fiの端末からMacを操る口に届いていた。
+        const 小文字の道 = String(req.path || '').toLowerCase();
+        if (この端末だけの口.some((道) => 小文字の道.startsWith(道))) {
             const Tailscaleから強い口を許すか = Tailscale経由
                 && Tailscaleを許しているか && Tailscaleを許しているか();
             if (!Tailscaleから強い口を許すか) {
@@ -580,7 +695,10 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // 許可の頼み（合言葉の代わりに、Macの前で許してもらう）。
         // ここに来られるのは、上の経路の確認を通った相手だけ（同じLAN／Tailscale）。
         if (req.method === 'POST' && req.path === '/__pair/request') {
-            const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']));
+            const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']),
+                Tailscale経由 ? 'Tailscale' : '同じWi-Fi');
+            // 頼んだことを、入場の記録に残す（見慣れない住所からの頼みに、本人が気づけるように）
+            if (r.ok && 間違いの知らせ先) { try { 間違いの知らせ先('許可の頼み', 住所); } catch { /* 記録できなくても、頼みは止めない */ } }
             return res.status(r.ok ? 200 : 429).json(r);
         }
         // Windows用キットのインストーラーからの報告。ブラウザの印（cookie）は持たないので、ここでは通し、
@@ -604,6 +722,11 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         if (req.method === 'POST' && req.path === '/__gate') {
             const 言葉 = (req.body && req.body['合言葉']) || '';
             const 名前 = (req.body && req.body['名前']) || '';
+            // 合言葉の道は、既定では閉じている（許可はMacの前で押すだけ）。前の合言葉を知っている人でも入れない
+            if (!合言葉で入れるか()) {
+                res.status(403).type('text/html; charset=utf-8');
+                return res.end(合言葉を聞く画面('合言葉では入れません。「Macに許可を頼む」を押してください。', 端末名を推す(req.headers['user-agent'])));
+            }
 
             if (!合言葉が合うか(言葉)) {
                 間違えた(住所);
@@ -623,7 +746,13 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         const 印 = (req.headers.cookie || '')
             .split(';').map((s) => s.trim())
             .find((s) => s.startsWith('areglm_pass='));
-        if (印 && 印が通るか(印.slice('areglm_pass='.length))) return next();
+        if (印 && 印が通るか(印.slice('areglm_pass='.length))) {
+            const 新しい期限 = 印を延ばす(印.slice('areglm_pass='.length));
+            if (新しい期限) {
+                res.append('Set-Cookie', `${印}; Path=/; Max-Age=${印の日数 * 86400}; HttpOnly; SameSite=Lax`);
+            }
+            return next();
+        }
 
         // まだなら、合言葉を聞く。
         // ここで next() してしまうと、画面のファイルが誰でも取れてしまう。
@@ -646,4 +775,12 @@ module.exports = {
     ペアの待ち一覧,
     ペアを決める,
     印からの端末,
+    許した端末の一覧,
+    端末を外す,
+    ログイン省略を変える,
+    合言葉で入れるか,
+    印を延ばす,
+    家の中の名前か,
+    宛先の名前がよいか,
+    ペアを頼む,
 };

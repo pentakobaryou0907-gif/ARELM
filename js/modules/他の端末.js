@@ -7,17 +7,16 @@
  *   これは避けられない。
  *   そうすると、同じWi-Fiにいる人には「入口があること」は見える。
  *
- *   だから守りは「見えなくする」ではなく「合言葉で入れない」になる。
+ *   だから守りは「見えなくする」ではなく「Macで許可した端末しか入れない」になる。
  *   その違いを、画面にもはっきり書く。ごまかさない。
  *
  * 守りの中身（サーバー側の門番が行う）:
  *   ・この端末（127.0.0.1）は、いつでもそのまま使える
  *   ・外からは、まず同じLANの中かを見る。違えば断る
- *   ・LANの中でも、合言葉が合うまで画面もJSもAPIも一切渡さない
- *   ・合ったら印を渡し、30日は聞かない
- *   ・5回間違えたら15分締め出す
+ *   ・LANの中でも、Macの前で本人が「許可」を押すまで、画面もJSもAPIも一切渡さない
+ *   ・許した端末には印を渡す。使っている間は切れない（使わなければ30日で切れる）。1台ずつ外せる
  *
- * 合言葉なしで開くことはできない作りにしてあります。
+ * 本人の要望（2026-10-09）「合言葉やパスワードはなしにして、私のデバイスでしか開けないように」で、合言葉をやめた。
  */
 
 async function 他の端末の状態を読む() {
@@ -57,7 +56,7 @@ async function render他の端末() {
         入口.className = 'hint';
         入口.innerHTML = 'スマホや別のPCのChromeで、次を開いてください:<br>'
             + d.このMacの住所.map((ip) => `<b>http://${ip}:${d.入口}</b>`).join('<br>')
-            + '<br>最初の一度だけ合言葉を聞きます。';
+            + '<br>最初の一度だけ、その端末で「Macに許可を頼む」を押し、このMacで「許可」を押します。';
         箱.appendChild(入口);
     }
 
@@ -67,22 +66,25 @@ async function render他の端末() {
     断り.innerHTML = '<b>正直にお伝えします。</b>'
         + '他の端末から使うには、このMacがネットワーク上で応答する必要があります。'
         + 'そうすると、<b>同じWi-Fiにいる人には「入口があること」自体は見えます。</b>'
-        + '見えたうえで、合言葉が無いと中へ入れない、という形です。<br>'
-        + '画面もJSもデータも、合言葉が通るまで一切渡しません。'
-        + '<b>合言葉が弱ければ、その分だけ弱くなります。</b>'
-        + '他で使い回している言葉は使わないでください。';
+        + '見えたうえで、<b>このMacで「許可」を押した端末しか中へ入れない</b>、という形です。<br>'
+        + '画面もJSもデータも、許可するまで一切渡しません。合言葉もパスワードも使いません。'
+        + '知らない端末から頼みが来たら、「断る」を押してください。';
     箱.appendChild(断り);
+
+    // 変えられるのは、Mac本体の画面だけ（サーバーも断る）。ほかの端末では、押しても断られるだけなので出さない
+    if (d.Mac本体から === false) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.textContent = 'この設定と、許した端末の一覧を変えられるのは、Mac本体の画面だけです。';
+        箱.appendChild(注);
+        return;
+    }
 
     // --- 切り替え ---
     const 行 = document.createElement('div');
     行.className = 'guard-row';
 
     if (!d.使う) {
-        const 入力 = document.createElement('input');
-        入力.type = 'password';
-        入力.placeholder = d.合言葉を決めてあるか ? '合言葉（変えるときだけ）' : '合言葉（8文字以上）';
-        入力.autocomplete = 'new-password';
-
         const 開く = document.createElement('button');
         開く.type = 'button';
         開く.className = 'btn btn-sm btn-primary';
@@ -91,7 +93,6 @@ async function render他の端末() {
             開く.disabled = true;
             開く.textContent = '設定しています…';
             const 中身 = { 使う: true };
-            if (入力.value.trim()) 中身.合言葉 = 入力.value.trim();
             const r = await fetch('/api/other-devices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -99,11 +100,9 @@ async function render他の端末() {
             });
             const 返 = await r.json();
             showNotification(返.訳, 返.ok ? 'success' : 'error');
-            入力.value = '';
             render他の端末();
         });
 
-        行.appendChild(入力);
         行.appendChild(開く);
     } else {
         const 閉じる = document.createElement('button');
@@ -117,7 +116,7 @@ async function render他の端末() {
                 body: JSON.stringify({ 使う: false }),
             });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         行.appendChild(閉じる);
@@ -125,12 +124,12 @@ async function render他の端末() {
         const 忘れる = document.createElement('button');
         忘れる.type = 'button';
         忘れる.className = 'btn btn-sm btn-secondary';
-        忘れる.textContent = '許した端末を全部忘れる';
+        忘れる.textContent = '許した端末を全部外す';
         忘れる.addEventListener('click', async () => {
-            if (!confirm('許した端末をすべて忘れます。次はまた合言葉を聞きます。')) return;
+            if (!confirm('許した端末をすべて外します。次に使うときは、もう一度このMacで許可します。')) return;
             const r = await fetch('/api/other-devices/forget', { method: 'POST' });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         行.appendChild(忘れる);
@@ -175,11 +174,6 @@ async function render他の端末() {
     TS行.className = 'guard-row';
 
     if (!d.Tailscale使う) {
-        const TS入力 = document.createElement('input');
-        TS入力.type = 'password';
-        TS入力.placeholder = d.合言葉を決めてあるか ? '合言葉（未設定なら決めてください）' : '合言葉（8文字以上）';
-        TS入力.autocomplete = 'new-password';
-
         const TS開く = document.createElement('button');
         TS開く.type = 'button';
         TS開く.className = 'btn btn-sm btn-primary';
@@ -188,7 +182,6 @@ async function render他の端末() {
             TS開く.disabled = true;
             TS開く.textContent = '設定しています…';
             const 中身 = { 'Tailscale使う': true };
-            if (TS入力.value.trim()) 中身.合言葉 = TS入力.value.trim();
             const r = await fetch('/api/other-devices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -196,11 +189,9 @@ async function render他の端末() {
             });
             const 返 = await r.json();
             showNotification(返.訳, 返.ok ? 'success' : 'error');
-            TS入力.value = '';
             render他の端末();
         });
 
-        TS行.appendChild(TS入力);
         TS行.appendChild(TS開く);
     } else {
         const TS閉じる = document.createElement('button');
@@ -214,7 +205,7 @@ async function render他の端末() {
                 body: JSON.stringify({ 'Tailscale使う': false }),
             });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         TS行.appendChild(TS閉じる);
@@ -223,11 +214,41 @@ async function render他の端末() {
 
     // --- 許した端末 ---
     if (d.許した端末?.length) {
+        const 見出し = document.createElement('h4');
+        見出し.textContent = '許した端末';
+        箱.appendChild(見出し);
         const 一覧 = document.createElement('ul');
         一覧.className = 'guard-devices';
+        const 送る = async (動き, 中身) => {
+            const r = await fetch('/api/other-devices/' + 動き, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(中身) });
+            const 返 = await r.json().catch(() => ({ ok: false, 訳: '返事を読めませんでした' }));
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
+            render他の端末();
+        };
         d.許した端末.forEach((x) => {
             const li = document.createElement('li');
-            li.textContent = `${x.名前}（${(x.許した日 || '').slice(0, 10)} 許可 / ${(x.期限 || '').slice(0, 10)} まで）`;
+            const 文 = document.createElement('span');
+            文.textContent = `${x.名前}（${(x.許した日 || '').slice(0, 10)} 許可・最後 ${(x.最後 || x.許した日 || '').slice(0, 10)}）`;
+            li.appendChild(文);
+            // 前に「ログインは必要」で許した端末は、押すだけで入れるようにできる（パスワードをやめたため）
+            if (!x.ログイン省略) {
+                const 省く = document.createElement('button');
+                省く.type = 'button';
+                省く.className = 'btn btn-sm btn-secondary';
+                省く.textContent = 'ログインなしで入れる';
+                省く.addEventListener('click', () => 送る('skip-login', { id: x.id, 入: true }));
+                li.append(' ', 省く);
+            }
+            const 外す = document.createElement('button');
+            外す.type = 'button';
+            外す.className = 'btn btn-sm btn-secondary';
+            外す.textContent = '外す';
+            外す.setAttribute('aria-label', `${x.名前}を外す`);
+            外す.addEventListener('click', () => {
+                if (!confirm(`「${x.名前}」を外します。もう一度使うときは、このMacで許可し直します。`)) return;
+                送る('remove', { id: x.id });
+            });
+            li.append(' ', 外す);
             一覧.appendChild(li);
         });
         箱.appendChild(一覧);
