@@ -447,6 +447,7 @@ def test_skill_routing():
         ('前に話した黒いパンツのこと', 'recall_history'),
         ('昔の会話を探して', 'recall_history'),
         ('永久の記憶の状況を教えて', 'show_memory'),
+        ('司令の仕事を見せて', 'show_hq'),
         ('今日の状況', 'show_schedule'),
         ('点検して', 'self_check'),
         ('千鳥格子の柄を作って', 'make_pattern'),
@@ -776,6 +777,89 @@ def test_team():
             係.置き場 = 元
 
 
+def test_hq():
+    """
+    司令塔（席を外しても係が裏で進める）。
+    チーム（画面が開いているあいだ）とは別。消す・公開する・送る、はよいでも行わない。
+    """
+    import os, tempfile, datetime
+    from chat_engine import ChatEngine
+
+    場所 = tempfile.mkdtemp()
+    os.environ['ARELM_HQ_FILE'] = os.path.join(場所, '仕事.json')
+    os.environ['ARELM_HQ_RULES'] = os.path.join(場所, '決まり.json')
+    os.environ['ARELM_HQ_MEMORY'] = os.path.join(場所, '記憶.json')
+    os.environ['ARELM_MEMORY_DIR'] = os.path.join(場所, '永久')
+    import 司令塔 as H
+    import チーム as T
+
+    check('司令: 「席を外して」「裏で」「司令に任せて」で名指し',
+          H.司令を頼まれたか('席を外して在庫を見て') and H.司令を頼まれたか('裏でバックアップを取って')
+          and H.司令を頼まれたか('司令に任せて今日の状況を見て'))
+    check('司令: 「チームで」は、司令の合図にしない（系統を混ぜない）', not H.司令を頼まれたか('チームで在庫を見て'))
+    check('司令: 名指しの言葉は、頼みから取り除く',
+          H.司令言葉を除く('席を外して在庫を見て、やることに入れて') == '在庫を見て、やることに入れて')
+
+    check('門: 公開は、よいでも行えない（本人がSUZURIで押す）',
+          (H.承認が要るか('', 'SUZURIで公開して') or {}).get('行える') is False
+          and (H.承認が要るか('', 'SUZURIで公開して') or {}).get('本人が押す') is True)
+    check('門: 外へ送るは、行えない', (H.承認が要るか('', '在庫を外部に送信して') or {}).get('行える') is False)
+    check('門: 消すは、行えない（移す案内だけ）', (H.承認が要るか('', '商品を全部消して') or {}).get('種類') == '削除')
+    check('門: 忘れるは、よいのあと行える', (H.承認が要るか('forget', '') or {}).get('行える') is True)
+    check('門: 在庫を見るだけは、門を立てない', H.承認が要るか('show_inventory', '在庫を見て') is None)
+
+    r = H.仕事を受ける('席を外して在庫を確認して、少ないものをやることに入れて')
+    check('司令: 複数の頼みを、列に積む', r.get('分かった') and r['仕事']['状態'] == '進行中')
+    手 = r['仕事']['steps']
+    check('司令: 在庫係と段取り係に振る', [h.get('agent_name') for h in 手] == ['在庫係', '段取り係'], str([h.get('agent_name') for h in 手]))
+    check('司令: 読む手はサーバー、書く手はNodeへ', 手[0]['行き先'] == '読む' and 手[1]['行き先'] == '書く')
+
+    同期 = {'products': {'value': '[{"name":"Tシャツ","quantity":1,"reorderLevel":5}]'}}
+    進 = H.進める(同期)
+    仕事 = H.仕事を見る(r['仕事']['id'])
+    check('司令: 読む手は、同期の控えからその場で済ませる',
+          仕事['steps'][0]['状態'] == '完了' and '少ない' in (仕事['steps'][0]['結果'] or {}).get('文', ''))
+    check('司令: 書く手は、Nodeに渡す（ここでは書かない）',
+          進['書く手'] and 進['書く手'][0]['action'] == 'add_task')
+
+    H.結果を入れる(r['仕事']['id'], 1, {'ok': True, '文': 'やることに追加しました:「在庫が少ないものの補充」'})
+    仕事 = H.仕事を見る(r['仕事']['id'])
+    check('司令: 書いた結果を入れて、報告をまとめる', 仕事['状態'] == '完了' and '在庫係' in 仕事['報告'] and '段取り係' in 仕事['報告'])
+    check('司令: 係の記憶が残る', len(H.記憶を出す('在庫係')) >= 1)
+
+    g = H.仕事を受ける('裏でSUZURIで公開して')
+    check('司令: 公開だけの頼みは、門を立てて作業は作らない', g.get('分かった') and g['仕事'].get('門', {}).get('種類') == '公開')
+    a = H.門に答える(g['仕事']['id'], True)
+    check('司令: 公開は、よいでも押さない', '押しません' in (a.get('訳') or '') or '押します' in (g['仕事']['門']['訳']))
+    後 = H.仕事を見る(g['仕事']['id'])
+    check('司令: 公開の門によいと答えても、公開の手は無い', not any(h.get('action') == 'publish' for h in 後.get('steps') or []))
+
+    d = H.仕事を受ける('裏で商品を全部消して')
+    check('司令: 消す頼みは、門（削除）になる', d.get('分かった') and (d['仕事'].get('門') or {}).get('種類') == '削除')
+    H.門に答える(d['仕事']['id'], True)
+    後 = H.仕事を見る(d['仕事']['id'])
+    check('司令: 消すは、よいでも消さない', '消し' in ((後.get('門') or {}).get('訳') or '') or '消すことはしません' in ((後.get('門') or {}).get('訳') or ''))
+
+    いま = datetime.datetime(2026, 10, 9, 8, 10)  # 金曜
+    決まり = [{'id': 't1', '使う': True, 'きっかけ': 'daily', '時刻': '08:00', '頼み': '在庫を見て'}]
+    check('定時: 時刻を過ぎていれば来る', bool(H.定時を見る(決まり, いま)))
+    決まり[0]['最後に動いた日'] = '2026-10-09'
+    check('定時: 同じ日に一度積んだら、もう来ない', not H.定時を見る(決まり, いま))
+    週 = [{'id': 'w1', '使う': True, 'きっかけ': 'weekly', '曜日': '月', '時刻': '09:00', '頼み': 'バックアップを取って'}]
+    check('定時: 違う曜日の週次は来ない', not H.定時を見る(週, いま))
+
+    check('行き先: 新しい技能 show_hq は点検係', T.担当を決める('show_hq') == '点検係')
+    中身 = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '司令塔.py'), encoding='utf-8').read()
+    check('保存: 司令塔は、固定名の一時ファイルを使わない', "+ '.tmp'" not in 中身 and '安全に書く.書く' in 中身)
+
+    基本 = {'today': '2026-10-09', 'products': [], 'tasks': [], 'events': [], 'session_id': 'hq1'}
+    e = ChatEngine(knowledge=KnowledgeBase())
+    cr = e.respond('席を外して在庫を確認して、少ないものをやることに入れて', dict(基本, 自動で進める=True))
+    check('会話: 席を外しては、画面では動かさず列へ積む', bool(cr.get('hq')) and not cr.get('run') and '席を外しても' in cr['answer'])
+    cr2 = e.respond('在庫を確認して、少ないものをやることに入れて', dict(基本, session_id='hq2', 自動で進める=True))
+    check('会話: 名指しが無ければ、これまでどおり画面で進める', cr2.get('run') is True and not cr2.get('hq'))
+
+
 def test_safe_write():
     """
     保存の競合。意味モデルは、「忘れて」の処理と、30秒ごとの裏の保存が、同じ一時ファイルに書いていて、
@@ -880,7 +964,7 @@ def main():
 
     for fn in (test_tokenizer, test_learner, test_forget, test_semantics,
                test_similarity, test_fuzzy, test_rules, test_knowledge,
-               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team, test_safe_write, test_remote_step):
+               test_analyzer, test_chat_engine, test_generator, test_skill_routing, test_boundaries, test_permanent_memory, test_auto_plan, test_compound_requests, test_team, test_hq, test_safe_write, test_remote_step):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

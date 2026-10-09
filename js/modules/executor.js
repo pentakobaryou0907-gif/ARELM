@@ -217,6 +217,23 @@ const 作業の中身 = {
         return { ok: true, 文: `ひらめき箱: 未整理 ${未.length}件\n${行.join('\n')}${未.length > 5 ? '\n…ほか' + (未.length - 5) + '件' : ''}` };
     },
 
+    /** 司令の仕事（席を外しても進む列）を答える */
+    async show_hq() {
+        if (typeof 司令の様子を読む !== 'function') {
+            return { ok: false, 文: '司令塔の画面が読み込まれていません' };
+        }
+        const r = await 司令の様子を読む();
+        if (!r || r.ok === false) return { ok: false, 文: (r && r.訳) || '司令の仕事を読めませんでした' };
+        const 一覧 = r.一覧 || [];
+        const 動き = 一覧.filter((x) => x.状態 === '進行中' || x.状態 === '承認待ち' || x.状態 === '画面待ち');
+        if (!動き.length) return { ok: true, 文: 'いま動いている司令の仕事はありません。「席を外して在庫を見て」のように頼むと、画面を閉じても進みます。' };
+        const 行 = [`動いている仕事 ${動き.length}件:`];
+        動き.slice(0, 8).forEach((x) => 行.push(`・${x.名前 || x.頼み}（${x.状態}）`));
+        const 待ち = 動き.filter((x) => x.状態 === '承認待ち').length;
+        if (待ち) 行.push(`確認待ちが${待ち}件あります。「作業」でよい／見送りを選んでください。`);
+        return { ok: true, 文: 行.join('\n') };
+    },
+
     /** 夜の当番の報告（寝ている間の点検の結果）を答える */
     async show_night() {
         if (typeof アカウントAPI !== 'function') return { ok: false, 文: '夜の当番の仕組みが読み込まれていません' };

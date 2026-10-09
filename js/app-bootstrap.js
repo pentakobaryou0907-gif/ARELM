@@ -6,6 +6,7 @@ window.loadPageData = function (pageName) {
     switch (pageName) {
         case 'dashboard':
             if (typeof loadDashboardData === 'function') loadDashboardData();
+            if (typeof render司令のホーム === 'function') render司令のホーム();
             break;
         case 'mainai':
             if (typeof refreshMainAiPage === 'function') refreshMainAiPage();
@@ -13,6 +14,7 @@ window.loadPageData = function (pageName) {
             // このページを実際に開いたときだけ行う（引き継ぎ.js 参照）。
             if (typeof render引き継ぎ === 'function') render引き継ぎ();
             if (typeof renderチーム画面 === 'function') renderチーム画面();
+            if (typeof render司令塔 === 'function') render司令塔();
             break;
         case 'chat':
             populateAiSelects();
@@ -40,6 +42,7 @@ window.loadPageData = function (pageName) {
             break;
         case 'tasks':
             if (typeof タスク管理画面を描く === 'function') タスク管理画面を描く();
+            if (typeof render司令塔 === 'function') render司令塔();
             break;
         case 'settings':
             AReGLM_API_SELECTOR?.renderStatusList('settings-api-list');
@@ -146,6 +149,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (typeof init背景作業 === 'function') init背景作業();
     if (typeof init監視ダッシュボード === 'function') init監視ダッシュボード();
     if (typeof init夜の当番 === 'function') init夜の当番();
+    if (typeof init司令塔 === 'function') init司令塔();
     if (typeof init外部ノート連携設定 === 'function') init外部ノート連携設定();
     if (typeof initVoiceUI === 'function') initVoiceUI();
     if (typeof init常駐の待ち受け === 'function') init常駐の待ち受け();

@@ -8287,6 +8287,30 @@ html[data-theme] .chat-bubble.user {
 }
 @keyframes チームの動き { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
 
+/* 司令塔（席を外しても進める列） */
+.hq-job {
+    margin: 0.5rem 0;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--tone-line, var(--areglm-border));
+    border-radius: 10px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    display: grid;
+    gap: 0.25rem;
+}
+.hq-job-head { font-weight: 600; }
+.hq-job-承認待ち { border-color: var(--areglm-warn); background: rgba(245,158,11,0.07); }
+.hq-job-完了 { border-color: #2e7d4f; background: rgba(46,125,79,0.08); }
+.hq-job-失敗 { border-color: #dc2626; background: rgba(220,38,38,0.07); }
+.hq-gate { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.hq-step { margin: 0.1rem 0; }
+.hq-step-完了 { color: #2e7d4f; }
+.hq-step-失敗 { color: #dc2626; }
+.hq-report { white-space: pre-wrap; font-size: 0.78rem; margin: 0.3rem 0 0; }
+.hq-home-alert { color: #dc2626; font-weight: 600; }
+.hq-rules { margin-top: 0.9rem; }
+.hq-rules h4 { font-size: 0.88rem; margin: 0 0 0.35rem; }
+
 /* 夜の当番（朝の報告） */
 .night-alerts { margin: 0.4rem 0; padding-left: 1.2rem; font-size: 0.84rem; line-height: 1.7; color: #dc2626; }
 .night-detail { margin: 0.5rem 0; font-size: 0.82rem; }

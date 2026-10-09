@@ -58,7 +58,7 @@ import 係たち
     # 以下の二つは、はじめの名簿に無かった係（記録と点検は、段取り係に押し込められていた）
     '記録係': ['add_memo', 'add_inbox', 'show_inbox', 'recall_history', 'show_memory',
              'search_knowledge', 'backup_now', 'show_backup', 'forget'],
-    '点検係': ['self_check', 'check_message', 'show_night', 'run_night'],
+    '点検係': ['self_check', 'check_message', 'show_night', 'run_night', 'show_hq'],
 }
 
 # 名簿に無い係の、はじめの中身（係たち.py の形）
@@ -75,7 +75,7 @@ _足りない係たち = [
         '名前': '点検係',
         '得意': '安全の確認・ツールの点検・結果の確かめ',
         '呼ばれる言葉': ['点検', '確認', '安全', '詐欺', '怪しい', '確かめ', '大丈夫'],
-        '受け持つ作業': ['self_check', 'check_message', 'show_activity'],
+        '受け持つ作業': ['self_check', 'check_message', 'show_activity', 'show_hq'],
         '見方': '「やりました」を信じる前に、実際にそうなっているかを見ます。'
               '分からないことは、確かめられなかったと言います。',
     },

@@ -318,6 +318,14 @@ SKILLS = [
         'dashboard',
         example='「次は何をすればいい」',
     ),
+    Skill(
+        'show_hq', '司令の仕事を見る',
+        '席を外しても進める係の仕事（進み具合・確認待ち）を出します。',
+        ['司令の仕事', '司令塔', '係の進み', '裏の作業の様子', '席を外したあいだ'],
+        'tasks',
+        example='「司令の仕事を見せて」',
+        答えになる=True,
+    ),
 ]
 
 SKILL_BY_NAME = {s.name: s for s in SKILLS}

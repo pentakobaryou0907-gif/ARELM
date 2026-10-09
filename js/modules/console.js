@@ -528,23 +528,37 @@ async function runConsoleCommand(text, target) {
         会話の続き待ち = false;
     }
 
-    // マルチエージェント化 第2段: 「バックグラウンドで／裏で」と言われたら、
-    // その場では答えず、キューに積んで裏で進める（並行実行）。
-    // 聞き返しの継続応答を横取りしないよう、上のチェックより後に置く。
+    // 「裏で／席を外して／司令に任せて」: 動かせる作業なら司令の列へ。
+    // 長い文章づくりだけなら、これまでの裏の文章係へ回す。混ぜない。
     if (typeof 背景実行の指示を拾う === 'function') {
         const 背景内容 = 背景実行の指示を拾う(text);
-        if (背景内容 && typeof 作業を頼む === 'function') {
-            const agentId = typeof 現在のページからエージェントを推定 === 'function'
-                ? 現在のページからエージェントを推定() : null;
-            const task = await 作業を頼む(背景内容, agentId);
-            const 返事 = task
-                ? '承知しました。裏で進めます。進み具合は🔄マークから確認できます。'
-                : '裏での作業を受け付けられませんでした。もう一度お試しください。';
-            appendConsoleLine('assistant', 返事, target);
-            会話の記憶に足す(target, 'assistant', 返事);
-            if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
-            声で聞かれた = false;
-            return;
+        if (背景内容) {
+            if (typeof 司令に頼む === 'function') {
+                const hq = await 司令に頼む(背景内容);
+                if (hq && hq.分かった) {
+                    const 返事 = hq.訳 || '席を外しても進めます。進み具合は「作業」から見られます。';
+                    appendConsoleLine('assistant', 返事, target);
+                    会話の記憶に足す(target, 'assistant', 返事);
+                    if (typeof render司令塔 === 'function') render司令塔();
+                    if (typeof render司令のホーム === 'function') render司令のホーム();
+                    if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
+                    声で聞かれた = false;
+                    return;
+                }
+            }
+            if (typeof 作業を頼む === 'function') {
+                const agentId = typeof 現在のページからエージェントを推定 === 'function'
+                    ? 現在のページからエージェントを推定() : null;
+                const task = await 作業を頼む(背景内容, agentId);
+                const 返事 = task
+                    ? '承知しました。裏で文章を進めます。進み具合は🔄マークから確認できます。'
+                    : '裏での作業を受け付けられませんでした。もう一度お試しください。';
+                appendConsoleLine('assistant', 返事, target);
+                会話の記憶に足す(target, 'assistant', 返事);
+                if (声で聞かれた && typeof speakBack === 'function') speakBack(返事);
+                声で聞かれた = false;
+                return;
+            }
         }
     }
 
