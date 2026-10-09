@@ -79,6 +79,14 @@ wake.includes('isIOS')
     ? ok('音声が使えない端末に案内を出す')
     : ng('iOSで音声が使えないとき、何も言わずに止まります');
 
+/* 8. 公開先（github.io/ARELM/）でもホーム画面から開けるよう、開始位置は相対 */
+manifest.start_url === './'
+    ? ok('ホーム画面からの開始位置が相対（公開先でも壊れない）')
+    : ng(`start_url が「${manifest.start_url}」です。公開先では「./」にしてください`);
+(manifest.shortcuts || []).every((s) => !String(s.url || '').startsWith('/#'))
+    ? ok('ショートカットも相対')
+    : ng('ショートカットが /# で始まると、公開先ではルートへ行きます');
+
 console.log(
     problems === 0
         ? '\n  iOSで想定される問題は見つかりませんでした'

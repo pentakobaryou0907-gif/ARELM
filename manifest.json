@@ -1,7 +1,7 @@
 {
   "name": "ARELM",
   "short_name": "ARELM",
-  "description": "社内専用ファッション制作・運営ハブ",
+  "description": "社内専用ファッション制作・運営ハブ（アレラム）",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -41,5 +41,30 @@
     "lifestyle"
   ],
   "lang": "ja",
-  "dir": "ltr"
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "AIチャット",
+      "short_name": "チャット",
+      "description": "AIとチャットする",
+      "url": "./#chat",
+      "icons": [{ "src": "images/icon-any-192x192.png?v=17", "sizes": "192x192" }]
+    },
+    {
+      "name": "在庫管理",
+      "short_name": "在庫",
+      "description": "在庫を管理する",
+      "url": "./#inventory",
+      "icons": [{ "src": "images/icon-any-192x192.png?v=17", "sizes": "192x192" }]
+    },
+    {
+      "name": "商品開発",
+      "short_name": "開発",
+      "description": "商品を開発する",
+      "url": "./#studio",
+      "icons": [{ "src": "images/icon-any-192x192.png?v=17", "sizes": "192x192" }]
+    }
+  ]
 }

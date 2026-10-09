@@ -477,6 +477,43 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     確かめる('手: 「本人が許した」を付けて頼み直すのは、本人が「よい」を押したときだけ', /const よい = await 手の本人に確かめる\([\s\S]{0,200}if \(!よい\) return[\s\S]{0,120}本人が許した: true/.test(手の画面));
 }
 
+/* ---------- 他の端末: 入口を決め打ちしない ---------- */
+{
+    const 設定 = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'api-config.js'), 'utf8');
+    const 点検 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'self-check.js'), 'utf8');
+    const 案内 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'console.js'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const 札 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
+    const 説明 = fs.readFileSync(path.join(__dirname, '..', 'TAILSCALE_SETUP.md'), 'utf8');
+    確かめる('入口: api-config.js を画面が読む', /js\/core\/api-config\.js/.test(html));
+    確かめる('入口: 8090 を 8080 に付け替えない（他のアプリに当たる）', !/8090['"]\s*\?\s*['"]8080['"]/.test(設定) && !/apiPort\s*=\s*port\s*===\s*['"]8090['"]/.test(設定));
+    確かめる('入口: 同じページの origin を使う', /location\.origin/.test(設定));
+    確かめる('入口: 自己点検は、他の端末を 127.0.0.1 へ無条件で飛ばさない', /この端末からか/.test(点検) && !/if \(port === '8080'\)[\s\S]{0,180}location\.href = 'http:\/\/127\.0\.0\.1:8090'/.test(点検));
+    確かめる('入口: マイクの案内は 8090 か https であり、8080 を本体として案内しない', /127\.0\.0\.1:8090/.test(案内) && !/127\.0\.0\.1:8080 で開いてください/.test(案内));
+    確かめる('入口: PWA の開始位置は相対（公開先の下でも壊さない）', 札.start_url === './' && 札.scope === './');
+    確かめる('入口: Tailscale の案内は Funnel を使わない', /Funnel/.test(説明) && /使いません/.test(説明));
+
+    const vm = require('vm');
+    const 動かす = (hostname, protocol, port, 安全) => {
+        const window = {
+            location: {
+                hostname, protocol, port,
+                origin: protocol + '//' + hostname + (port ? ':' + port : ''),
+            },
+            isSecureContext: 安全,
+        };
+        vm.runInNewContext(設定, { window });
+        return window.API_CONFIG;
+    };
+    const mac = 動かす('127.0.0.1', 'http:', '8090', true);
+    const lan = 動かす('192.168.1.5', 'http:', '8080', false);
+    const 外 = 動かす('arelm-mac.tail1234.ts.net', 'https:', '', true);
+    確かめる('入口: Mac では同じ 8090 を指す', mac.入口のベース() === 'http://127.0.0.1:8090' && mac.この端末からか());
+    確かめる('入口: 同じWi-Fiでは 8080 のまま（8090 に付け替えない）', lan.入口のベース() === 'http://192.168.1.5:8080' && !lan.この端末からか());
+    確かめる('入口: 他の端末のマイク案内は 127.0.0.1 へ送らない', !lan.マイクの開き方().includes('127.0.0.1') && lan.マイクの開き方().includes('https'));
+    確かめる('入口: Tailscale の https はそのまま使う', 外.入口のベース() === 'https://arelm-mac.tail1234.ts.net' && 外.APIのURL('/api/health') === 'https://arelm-mac.tail1234.ts.net/api/health');
+}
+
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }
