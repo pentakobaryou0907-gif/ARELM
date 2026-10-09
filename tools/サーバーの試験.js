@@ -13,6 +13,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// 門番とアカウントの記録は、一時フォルダにだけ書く（本物の server/data に触れない。読み込む前に決める）
+const 試験の置き場 = fs.mkdtempSync(path.join(os.tmpdir(), 'arelm-試験-'));
+process.env.ARELM_GATE_FILE = path.join(試験の置き場, '門番.json');
+process.env.ARELM_ACCOUNTS_FILE = path.join(試験の置き場, 'accounts.json');
+process.env.ARELM_NOLOGIN_FILE = path.join(試験の置き場, 'ログインなし.json');
+process.env.ARELM_LOGIN_HINT_FILE = path.join(試験の置き場, 'ログイン表示.json');
+
 const 門番 = require('../server/門番');
 const 夜 = require('../server/夜の当番');
 
@@ -53,14 +60,14 @@ const 状態なし = {};
 
 /* ---------- 夜の当番: 点検の中身 ---------- */
 const 同期 = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { value: JSON.stringify(v), updatedAt: 1 }]));
-const 基本 = { 今日: '2026-10-08', バックアップの状態: { ok: true, 最新: { 作成: new Date().toISOString() }, 古すぎる: false }, 永久の記憶の状況: { ok: true }, AIは動いているか: true, 空きGB: 100, 合言葉が要るのに無い: false, 近く切れる端末: [], どこでも: { 許している: false }, 同期を読めるか: true };
+const 基本 = { 今日: '2026-10-08', バックアップの状態: { ok: true, 最新: { 作成: new Date().toISOString() }, 古すぎる: false }, 永久の記憶の状況: { ok: true }, AIは動いているか: true, 空きGB: 100, 合言葉で入れる: false, 近く切れる端末: [], どこでも: { 許している: false }, 同期を読めるか: true };
 
 const 良い = 夜.点検する({ ...基本, 同期: 同期({ products: [{ name: '黒T', price: 4800, quantity: 20, reorderLevel: 5 }], areglm_tasks: [{ title: 'a', due: '2099-01-01', done: false }] }) });
 確かめる('点検: 問題が無ければ、要確認は0件', 良い.要確認.length === 0);
 確かめる('点検: 五つの係が、それぞれ報告する', 良い.係ごと.map((k) => k.係).join() === '在庫係,段取り係,作り方係,記録係,点検係');
 
 const 悪い = 夜.点検する({
-    ...基本, AIは動いているか: false, 空きGB: 2, 合言葉が要るのに無い: true, どこでも: { 許している: true, 公開中: '' },
+    ...基本, AIは動いているか: false, 空きGB: 2, 合言葉で入れる: true, どこでも: { 許している: true, 公開中: '' },
     同期: 同期({
         products: [{ name: '白T', price: 0, quantity: 1 }, { name: '白T', price: 3000, quantity: 50 }],
         areglm_tasks: [{ title: '発注', due: '2026-10-01', done: false }, { title: '済み', due: '2026-10-01', done: true }],
@@ -73,7 +80,7 @@ const 文たち = 悪い.係ごと.flatMap((k) => k.件.map((x) => `${k.係}:${x
 確かめる('点検: 公開待ちは、あなたの操作待ちと書く（公開は押さない）', /公開」操作を待っている/.test(文たち) && /あなたが押します/.test(文たち));
 確かめる('点検: AIエンジンが止まっていたら要確認', /点検係:要確認:自作AIエンジン/.test(文たち));
 確かめる('点検: 空き容量が少なければ要確認', /ディスクの空きが少なく/.test(文たち));
-確かめる('点検: 合言葉の無い公開は要確認', /合言葉が決まっていません/.test(文たち));
+確かめる('点検: 前の合言葉の道が開いたままなら要確認（合言葉はやめた）', /前の合言葉でも入れる設定が残っています/.test(文たち));
 確かめる('点検: 「どこでも」が止まっていたら要確認', /いま外から開けない/.test(文たち));
 確かめる('点検: 要約の件数と、要確認の中身が一致する', 悪い.要確認.length >= 6 && 悪い.要約.includes(`要確認 ${悪い.要確認.length}件`));
 
@@ -145,8 +152,8 @@ const 同期JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'sync.
 確かめる('公開先: その端末だけの合言葉は同期しない', /除外キー[\s\S]*'areglm_local_lock'/.test(同期JS));
 確かめる('公開先: サーバーが無い(404)ときは、端末の合言葉で入る', /status === 404\) \{ サーバーの無い置き場の入り口を出す\(\)/.test(本体JS));
 確かめる('公開先: 合言葉そのものは残さず、崩した値だけ置く(PBKDF2・60万回)', /deriveBits\(\{ name: 'PBKDF2'/.test(本体JS) && /端末の合言葉の回数 = 600000/.test(本体JS));
-確かめる('公開先: 固定の初期合言葉を作らない（本人が決める）', !/端末の合言葉の鍵,\s*JSON\.stringify\(\{[^}]*値: '/.test(本体JS) && /一\.length < 8/.test(本体JS));
-確かめる('公開先: 圏外でも、合言葉を決めた端末は合言葉の欄を出す', /if \(端末の合言葉を読む\(\)\) サーバーの無い置き場の入り口を出す\(\)/.test(本体JS));
+確かめる('公開先: 合言葉を新しく作らせない（固定の初期値も無い。本人の要望 2026-10-09 で、指紋・顔にした）', !/localStorage\.setItem\(端末の合言葉の鍵/.test(本体JS));
+確かめる('公開先: 圏外でも、合言葉か指紋・顔で開ける端末は、入り口を出す', /if \(端末の合言葉を読む\(\) \|\| \(window\.端末の金庫 && 端末の金庫\.指紋で開けるか\(\)\)\) サーバーの無い置き場の入り口を出す\(\)/.test(本体JS));
 
 /* ---------- 外の倉庫（Macの sync_store ⇄ GitHubの非公開倉庫） ---------- */
 const 倉庫 = require('../server/外の倉庫');
@@ -446,7 +453,9 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     const 手の本体 = fs.readFileSync(path.join(__dirname, '..', 'arelm-hand', 'background.js'), 'utf8');
     const 手の札 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'arelm-hand', 'manifest.json'), 'utf8'));
     確かめる('手: 橋（bridge.js）は、ARELMの入り口にだけ入る（どのサイトにも入る形にしない）',
-        手の札.content_scripts.every((c) => c.matches.every((m) => /^http:\/\/(localhost|127\.0\.0\.1)\/\*$|^https:\/\/pentakobaryou0907-gif\.github\.io\/ARELM\/\*$/.test(m))));
+        手の札.content_scripts.every((c) => c.matches.every((m) => /^http:\/\/(localhost|127\.0\.0\.1):(8080|8090)\/\*$|^https:\/\/pentakobaryou0907-gif\.github\.io\/ARELM\/\*$/.test(m))));
+    確かめる('手: localhost は ARELM の番号（8080・8090）だけを入り口にする（同じMacの別のサーバーから頼ませない）',
+        /出どころ: 'http:\/\/localhost', 番号: \['8080', '8090'\]/.test(手の本体) && /x\.番号\.includes\(u\.port\)/.test(手の本体));
     確かめる('手: 外のページから直接頼める道（externally_connectable）を作らない', !手の札.externally_connectable);
     確かめる('手: 頼みは、ARELMの画面からだけ受ける', /async function 頼みを受ける[\s\S]{0,200}ARELMの画面か\(送り手\.url/.test(手の本体));
     確かめる('手: SUZURIの「公開」は押さない（本人が押す）', /suzuri\\\.jp\$\/i\.test\(location\.hostname\) && \/公開\//.test(手の本体) && /if \(様\.本人が押す\) return/.test(手の本体));
@@ -475,6 +484,110 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     const 手の画面 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'Chromeの手.js'), 'utf8');
     確かめる('手: AIが選んだ材料から「本人が許した」を外してから頼む', /delete 送る\.本人が許した/.test(手の画面) && /delete 材料\.本人が許した/.test(手の画面));
     確かめる('手: 「本人が許した」を付けて頼み直すのは、本人が「よい」を押したときだけ', /const よい = await 手の本人に確かめる\([\s\S]{0,200}if \(!よい\) return[\s\S]{0,120}本人が許した: true/.test(手の画面));
+}
+
+/* ---------- 合言葉・パスワードなし（本人の要望 2026-10-09）: 入れるのは、Macで許可した端末だけ ---------- */
+{
+    const 門番JS = fs.readFileSync(path.join(__dirname, '..', 'server', '門番.js'), 'utf8');
+    const 本体 = fs.readFileSync(path.join(__dirname, '..', 'server', 'index.js'), 'utf8');
+    // 門番の記録を一時フォルダに作り、許可の流れを本当に動かす
+    門番.設定を書く({ 使う: true, 合言葉: null, 端末: [] });
+    確かめる('入口: 門番の記録は、本人だけが読める権限で書く', (fs.statSync(process.env.ARELM_GATE_FILE).mode & 0o777) === 0o600);
+    確かめる('入口: 合言葉で入る道は、既定で閉じている', 門番.合言葉で入れるか() === false);
+    確かめる('入口: 前の合言葉が残っていても、本人が道を残していなければ閉じたまま',
+        (() => { 門番.設定を書く({ 使う: true, 合言葉: { 混ぜたもの: 'x' }, 端末: [] }); return 門番.合言葉で入れるか() === false; })());
+    確かめる('入口: 入口の画面に、合言葉の欄を出さない（許可を頼むボタンだけ）',
+        /合言葉も \? `<details>/.test(門番JS) && /<button type="button" id="pair">Macに許可を頼む<\/button>/.test(門番JS));
+    確かめる('入口: 合言葉を送られても、道を残していなければ入れない',
+        /if \(!合言葉で入れるか\(\)\) \{\s*res\.status\(403\)/.test(門番JS));
+    // 許可 → 一覧 → 延ばす → 外す
+    const 設定 = 門番.設定を読む();
+    設定.端末 = [{ 印: 'a'.repeat(64), 名前: '試験のiPad', 許した日: '2026-09-01T00:00:00.000Z', 期限: new Date(Date.now() + 3 * 86400000).toISOString(), ログイン省略: false }];
+    門番.設定を書く(設定);
+    const 一覧 = 門番.許した端末の一覧();
+    確かめる('入口: 許した端末の一覧に、印そのものは出さない', 一覧.length === 1 && !JSON.stringify(一覧).includes('a'.repeat(20)) && /^[0-9a-f]{12}$/.test(一覧[0].id));
+    const 延びた = 門番.印を延ばす('a'.repeat(64));
+    確かめる('入口: 使った端末の許可は、30日先まで延びる', 延びた && new Date(延びた).getTime() > Date.now() + 29 * 86400000);
+    確かめる('入口: 延ばすのは1日に1回まで（毎回書かない）', 門番.印を延ばす('a'.repeat(64)) === null);
+    確かめる('入口: 前に「ログインは必要」で許した端末を、押すだけで入れるようにできる', 門番.ログイン省略を変える(一覧[0].id, true).ok && 門番.許した端末の一覧()[0].ログイン省略 === true);
+    const 外した = 門番.端末を外す(一覧[0].id);
+    確かめる('入口: 1台だけ外せる。消さずに「外した端末」へ移す', 外した.ok && 門番.許した端末の一覧().length === 0 && (門番.設定を読む().外した端末 || []).some((d) => d.名前 === '試験のiPad'));
+    確かめる('入口: 外した端末の印は、もう通らない', 門番.印からの端末('areglm_pass=' + 'a'.repeat(64)) === null);
+
+    確かめる('入口: 他の端末・Tailscaleを開くのに、合言葉を求めない', !/先に合言葉を決めてください/.test(本体));
+    確かめる('入口: 入口の開け閉め・全部外す・1台外す・ログインを省く、はMac本体の画面からだけ',
+        ["app.post('/api/other-devices', (req, res) => {", "app.post('/api/other-devices/forget'", "app.post('/api/other-devices/remove'", "app.post('/api/other-devices/skip-login'"]
+            .every((頭) => new RegExp(頭.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '[\\s\\S]{0,260}本体のブラウザからか\\(req\\)').test(本体)));
+    確かめる('守り: 巻き戻し・記録の作成・マイクの入れ切りは、Mac本体からだけ',
+        /app\.post\('\/api\/self-heal\/rollback'[\s\S]{0,200}本体からか\(req\)/.test(本体)
+        && /app\.post\('\/api\/self-heal\/checkpoint'[\s\S]{0,200}本体からか\(req\)/.test(本体)
+        && /app\.post\('\/api\/voice-listener'[\s\S]{0,200}本体のブラウザからか\(req\)/.test(本体));
+    確かめる('守り: 別のサイトからの書き換えの頼み（CSRF）を断る（読むだけは通す）',
+        /function 別のサイトからか\(req\)/.test(本体) && /\['GET', 'HEAD', 'OPTIONS'\]\.includes\(req\.method\)/.test(本体) && /sec-fetch-site/.test(本体));
+    確かめる('入口: 許した・断った・外した・頼んだを、入場の記録に残す',
+        /'端末を許した' : '端末を断った'/.test(本体) && /間違いの知らせ先\('許可の頼み', 住所\)/.test(門番JS));
+    const 入場 = require('../server/入場の記録');
+    const まとめ = 入場.まとめる([
+        { とき: new Date().toISOString(), 何: '端末を許した', どこから: 'このMac' },
+        { とき: new Date().toISOString(), 何: '端末を外した', どこから: 'このMac' },
+        { とき: new Date().toISOString(), 何: '許可の頼み', どこから: '同じWi-Fiの端末（192.168.1.5）' },
+    ]);
+    確かめる('入場: 本人がMacで許した・外したことは、間違いに数えない', まとめ.今日の間違い === 0 && !まとめ.気をつけて);
+}
+{
+    // パスワードなしで始める（一時フォルダのアカウント）
+    const アカウント = require('../server/アカウント');
+    const 始めた = アカウント.パスワードなしで始める();
+    確かめる('本人: パスワードなしで始められる（このMacを持ち主の端末にする）', 始めた.ok && 始めた.入場券 && アカウント.ログインなしか());
+    確かめる('本人: 二度目は始められない（あとから来た人に乗っ取られない）', アカウント.パスワードなしで始める().ok === false);
+    確かめる('本人: パスワードの無い本人に、パスワードで入ろうとしても落ちない（入れないだけ）', (() => { try { return アカウント.ログイン('本人', 'なんでもよい文字列です', '127.0.0.1').ok === false; } catch { return false; } })());
+    確かめる('本人: パスワードの無い本人のログインなしは、やめさせない（このMacからも入れなくなるため）', アカウント.ログインなしを切り替える({ 名前: '本人' }, false).ok === false && アカウント.ログインなしか());
+    確かめる('本人: ログインなしにするのに、パスワードを求めない', アカウント.ログインなしを切り替える({ 名前: '本人' }, true).ok === true);
+    const 本体 = fs.readFileSync(path.join(__dirname, '..', 'server', 'index.js'), 'utf8');
+    確かめる('本人: 押すだけで始める・開くのは、Mac本体のブラウザから・JSONの頼みだけ',
+        /app\.post\('\/api\/account\/setup-nopass'[\s\S]{0,120}本体のブラウザからか\(req\) \|\| !req\.is\('application\/json'\)/.test(本体)
+        && /app\.post\('\/api\/account\/nologin\/here'[\s\S]{0,120}本体のブラウザからか\(req\) \|\| !req\.is\('application\/json'\)/.test(本体));
+    確かめる('本人: ほかの端末へ渡す中身は、Mac本体の画面で、入場券を持つ本人にだけ返す',
+        /app\.get\('\/api\/ext-store\/handoff'[\s\S]{0,160}本体のブラウザからか\(req\)[\s\S]{0,120}本人だけ\(req, res\)/.test(本体));
+}
+{
+    // 公開先: 指紋・顔（パスキー）で開く金庫
+    const 金庫JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', '端末の金庫.js'), 'utf8');
+    const 本体JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
+    const 同期JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'sync.js'), 'utf8');
+    確かめる('指紋: パスキーには、メールアドレスも本名も入れない（名前は ARELM だけ）', /user: \{ id: crypto\.getRandomValues\(new Uint8Array\(16\)\), name: 'ARELM', displayName: 'ARELM' \}/.test(金庫JS));
+    確かめる('指紋: 本人確認（指紋・顔・画面ロック）を必ず求める', (金庫JS.match(/userVerification: 'required'/g) || []).length >= 2 && /\(認\[32\] & 0x05\) !== 0x05/.test(金庫JS));
+    確かめる('指紋: PRFの秘密から包む鍵を作る（HKDF）。PRFが無い端末は、取り出せない鍵で包む',
+        /name: 'HKDF'/.test(金庫JS) && /generateKey\(\{ name: 'AES-GCM', length: 256 \}, false,/.test(金庫JS));
+    確かめる('指紋: 答えの出どころ・お題・署名を、この端末で確かめる', /客\.origin !== location\.origin/.test(金庫JS) && /crypto\.subtle\.verify/.test(金庫JS));
+    確かめる('指紋: 中身があるのに閉じたまま、新しい鍵で包まない（前の中身を開けなくしない）', /if \(!this\.開いているか\(\) && Object\.keys\(this\._置き場を読む\(\)\.中身 \|\| \{\}\)\.length\)/.test(金庫JS));
+    確かめる('指紋: この端末のパスキーの名札は同期しない', /除外キー[\s\S]*'areglm_local_passkey'/.test(同期JS));
+    確かめる('メール: Googleのアカウントのメールアドレスを、ほかの端末・倉庫へ送らない', /除外キー[\s\S]*'areglm_google_account_email'/.test(同期JS));
+    確かめる('指紋: 公開先は、指紋・顔で開く（前の合言葉は、一度だけ開いて切り替えるため）',
+        /await 金庫\.指紋で開ける\(\);/.test(本体JS) && /await 金庫\.指紋で開けるようにする\(\);/.test(本体JS) && /前に決めた合言葉で、一度だけ開いてください/.test(本体JS));
+    確かめる('指紋: 新しく始める端末に、合言葉を決めさせない', !/この端末だけで使う合言葉を、ご自身で決めてください/.test(本体JS) && !/欄\('local-lock-2'/.test(本体JS));
+}
+{
+    // 端末を足す（QRで受け取る）
+    globalThis.location = globalThis.location || { origin: 'https://pentakobaryou0907-gif.github.io', pathname: '/ARELM/', hash: '' };
+    globalThis.btoa = globalThis.btoa || ((s) => Buffer.from(s, 'binary').toString('base64'));
+    globalThis.atob = globalThis.atob || ((s) => Buffer.from(s, 'base64').toString('binary'));
+    const 足す = 画面のファイルを読む('端末を足す.js', { addEventListener() {} });
+    const 包み = { github: 'github_pat_試験', 倉庫: 'ARELM-data', 同期: 'x'.repeat(43), gemini: 'AIza試験' };
+    const 住所 = 足す.受け取りの住所を作る(包み, 1000);
+    const 戻した = 足す.受け取りの中身を読む(住所, 2000);
+    確かめる('受け取り: QRの住所は、公開先＋#arelm-receive=（#の後ろは、どこへも送られない。英数字だけなので、ブラウザに書き換えられない）', 住所.startsWith('https://pentakobaryou0907-gif.github.io/ARELM/#arelm-receive=') && /^[\x21-\x7e]+$/.test(住所));
+    確かめる('受け取り: 渡した中身を、そのまま受け取れる', 戻した && 戻した.github === 包み.github && 戻した.同期 === 包み.同期 && 戻した.gemini === 包み.gemini && 戻した.倉庫 === 'ARELM-data');
+    確かめる('受け取り: 10分を過ぎた住所は、受け取らない', 足す.受け取りの中身を読む(住所, 1000 + 11 * 60000).期限切れ === true);
+    確かめる('受け取り: 形の違う住所・おかしな倉庫の名前は、受け取らない',
+        足す.受け取りの中身を読む('https://x/#arelm-receive=!!!', 0) === null
+        && 足す.受け取りの中身を読む(足す.受け取りの住所を作る({ ...包み, 倉庫: '../etc' }, 0), 1) === null
+        && 足す.受け取りの中身を読む(足す.受け取りの住所を作る({ ...包み, 同期: '短い' }, 0), 1) === null);
+    const 足すJS = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '端末を足す.js'), 'utf8');
+    確かめる('受け取り: 開いた瞬間に、住所から #arelm-receive= を消す（履歴に残さない）', /history\.replaceState\(null, '', location\.pathname \+ location\.search\)/.test(足すJS));
+    確かめる('受け取り: QRは2分で消す', /let 秒 = 120;/.test(足すJS));
+    const Mac無しJS = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'Mac無しで使う.js'), 'utf8');
+    確かめる('同期: 同期の合言葉は、打たずに自動で作る（欄を出さない）', !/mac-free-sync-pass|mac-share-pass/.test(Mac無しJS) && /function 同期の合言葉を作る\(\)/.test(Mac無しJS));
 }
 
 /* ---------- まとめ ---------- */
