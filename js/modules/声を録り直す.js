@@ -254,14 +254,18 @@ async function 録り始める(ボタン, 状態, 一覧, 言い方) {
 
     // 待ち受けにも入れ直す
     try {
-        await fetch('/api/voice-listener', {
+        const 返 = await fetch('/api/voice-listener', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 使う: true }),
         });
+        const j = await 返.json().catch(() => ({}));
+        // 待ち受けの入れ直しは、Mac本体の画面からだけ（ほかの端末では断られる）。前は断られても「入れ直しました」と出ていた
         const 注 = document.createElement('p');
-        注.className = 'guard-on';
-        注.textContent = '待ち受けにも入れ直しました。呼びかけてみてください。';
+        注.className = 返.ok && j.ok !== false ? 'guard-on' : 'hint';
+        注.textContent = 返.ok && j.ok !== false
+            ? '待ち受けにも入れ直しました。呼びかけてみてください。'
+            : `待ち受けの入れ直しはできませんでした（${j.訳 || 'Mac本体の画面からだけできます'}）。覚えた声は、次に待ち受けを起こしたときに使われます。`;
         一覧.appendChild(注);
     } catch {
         // 入れ直せなくても、覚えたことは残っている。

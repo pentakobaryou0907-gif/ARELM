@@ -212,7 +212,9 @@ async function renderホーム画面に追加() {
     箱.appendChild(行('p', 'その端末で、このアドレスを開き、上と同じ手順でホーム画面に追加します。Macが止まっていても開け、一度入れれば、あとは自動で最新になります。', 'hint'));
     if (typeof 住所を渡せる行にする === 'function') 箱.appendChild(住所を渡せる行にする(公開先の住所));
     else { const p = 行('p', 公開先の住所); p.style.cssText = 'user-select:all;word-break:break-all;font-weight:600'; 箱.appendChild(p); }
-    箱.appendChild(行('p', '初めて開く端末では、その端末用の合言葉を決めます。データを全部の端末でそろえるには、設定の「☁ Mac無しで使う」で、同じ倉庫と同じ同期の合言葉を入れます。', 'hint'));
+    // 本人の要望（2026-10-09）「合言葉やパスワードはなしに」。前は、合言葉を決める・同期の合言葉を打つ、と案内していた
+    箱.appendChild(行('p', '初めて開く端末では、「この端末で始める」を押し、その端末の指紋・顔で開けるようにします（合言葉もパスワードも要りません）。'
+        + 'データを全部の端末でそろえるには、使っている端末の設定「☁」→「ほかの端末へ渡す」で出るQRを、新しい端末の「QRを読む」で読みます。', 'hint'));
 
     // iPad・iPhone で開くときの、このMacのアドレス
     let 住所 = [];
@@ -224,9 +226,9 @@ async function renderホーム画面に追加() {
     if (住所.length) {
         箱.appendChild(行('h4', 'iPad・iPhoneのSafariで開くアドレス（同じWi-Fiのとき）'));
         住所.forEach((a) => { const p = 行('p', a); p.style.cssText = 'user-select:all;word-break:break-all'; 箱.appendChild(p); });
-        箱.appendChild(行('p', '最初に合言葉を聞かれます（Macで決めたもの）。そのあと、ユーザー名とパスワードでログインします。', 'hint'));
+        箱.appendChild(行('p', '開くと「Macに許可を頼む」が出ます。押して、このMacの画面に出た知らせで「許可」を押すと、その端末で開けます（合言葉・パスワードは要りません）。', 'hint'));
     }
-    箱.appendChild(行('p', 'iPhone・iPadのホーム画面のアプリは、Safariとは別の入れ物で動きます。そのため、追加したあと、初めて開くときに、もう一度、合言葉が要ります（1回だけ）。', 'hint'));
+    箱.appendChild(行('p', 'iPhone・iPadのホーム画面のアプリは、Safariとは別の入れ物で動きます。そのため、追加したあと初めて開くときに、もう一度だけ「Macに許可を頼む」（公開先なら「この端末で始める」）が要ります。', 'hint'));
     if (住所.length) 箱.appendChild(行('p', 'Macのアドレスを外出先（別のWi-Fiや回線）から開くには、Tailscaleの設定が要ります。公開先のアドレスなら、どこからでも開けます。', 'hint'));
 
     const 戻す = 行('button', '案内を、もう一度出す', 'btn btn-sm btn-secondary');

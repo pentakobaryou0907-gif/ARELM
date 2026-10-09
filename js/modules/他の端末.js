@@ -71,6 +71,15 @@ async function render他の端末() {
         + '知らない端末から頼みが来たら、「断る」を押してください。';
     箱.appendChild(断り);
 
+    // 変えられるのは、Mac本体の画面だけ（サーバーも断る）。ほかの端末では、押しても断られるだけなので出さない
+    if (d.Mac本体から === false) {
+        const 注 = document.createElement('p');
+        注.className = 'hint';
+        注.textContent = 'この設定と、許した端末の一覧を変えられるのは、Mac本体の画面だけです。';
+        箱.appendChild(注);
+        return;
+    }
+
     // --- 切り替え ---
     const 行 = document.createElement('div');
     行.className = 'guard-row';
@@ -107,7 +116,7 @@ async function render他の端末() {
                 body: JSON.stringify({ 使う: false }),
             });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         行.appendChild(閉じる);
@@ -120,7 +129,7 @@ async function render他の端末() {
             if (!confirm('許した端末をすべて外します。次に使うときは、もう一度このMacで許可します。')) return;
             const r = await fetch('/api/other-devices/forget', { method: 'POST' });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         行.appendChild(忘れる);
@@ -196,7 +205,7 @@ async function render他の端末() {
                 body: JSON.stringify({ 'Tailscale使う': false }),
             });
             const 返 = await r.json();
-            showNotification(返.訳, 'success');
+            showNotification(返.訳, 返.ok ? 'success' : 'error');
             render他の端末();
         });
         TS行.appendChild(TS閉じる);
