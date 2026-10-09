@@ -50,6 +50,10 @@ function 知らせを出す(x) {
     const 注 = document.createElement('p');
     注.style.cssText = 'margin:0 0 10px;font-size:.85rem';
     注.textContent = '相手の画面に出ているコードと、同じですか？ 違う・知らない端末なら「断る」を押してください。';
+    // どこから来た頼みかも出す（名前は相手が自由に付けられるので、名前だけでは見分けられない）
+    const 出どころ = document.createElement('p');
+    出どころ.style.cssText = 'margin:0 0 8px;font-size:.8rem;color:#555';
+    出どころ.textContent = `経路: ${x.経路 || '不明'} ／ 住所: ${x.住所 || '不明'}`;
 
     const 決める = async (許す, 省く) => {
         枠.querySelectorAll('button').forEach((b) => { b.disabled = true; });
@@ -71,7 +75,7 @@ function 知らせを出す(x) {
         ボタン('許可', 'btn btn-sm btn-primary', () => 決める(true, true)),
         ボタン('断る', 'btn btn-sm btn-secondary', () => 決める(false, false)),
     );
-    枠.append(題, コード, 注, 並び);
+    枠.append(題, コード, 注, 出どころ, 並び);
     台.appendChild(枠);
 }
 

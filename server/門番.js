@@ -36,6 +36,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const 設定ファイル = process.env.ARELM_GATE_FILE || path.join(__dirname, 'data', '門番.json');
 
@@ -203,6 +204,37 @@ function 中継された通信か(req) {
 }
 
 /**
+ * 遠くの端末が、どんな名前でこのMacを開いたか（Host）が、よそのサイトの名前ではないか。
+ *
+ * DNSの付け替え（あるサイトの名前を、途中でこのMacの住所に向け直す手口）を使うと、
+ * 同じWi-Fiの端末で開いた「よそのページ」から、このMacへ頼みを送れる。
+ * 合言葉が無くなり、入るにはMacで「許可」を押すだけになったので、その頼みが本人の端末の頼みと
+ * 見分けられないと、一度押しただけで、よそのページが中に入れてしまう。
+ * よそのサイトは、普通のインターネットの名前（evil.example など）でしか来られない。
+ * だから、住所そのもの（192.168… / 100.… / [fe80::…]）・点の無い名前・家の中だけの名前
+ * （.local・.lan・.home.arpa など）・Tailscaleの名前（.ts.net）・このMacの名前だけを通す。
+ */
+function 家の中の名前か(名前) {
+    const n = String(名前 || '').toLowerCase().trim();
+    if (!n) return false;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(n)) return true;          // IPv4 の住所
+    if (n.includes(':')) return true;                              // IPv6 の住所（[ ] は外してある）
+    if (!n.includes('.')) return true;                             // 点の無い名前（Tailscaleの短い名前など）
+    if (n === String(os.hostname() || '').toLowerCase()) return true;
+    return /\.(local|lan|home|internal|localhost|home\.arpa|ts\.net)$/.test(n);
+}
+function 宛先の名前を取り出す(値) {
+    let h = String(値 || '').split(',')[0].trim();
+    if (h.startsWith('[')) return h.slice(1, h.indexOf(']') > 0 ? h.indexOf(']') : undefined);
+    return h.replace(/:\d+$/, '');
+}
+function 宛先の名前がよいか(req) {
+    const h = (req && req.headers) || {};
+    const 名前たち = [h['host'], h['x-forwarded-host']].filter(Boolean).map(宛先の名前を取り出す);
+    return 名前たち.length > 0 && 名前たち.every(家の中の名前か);
+}
+
+/**
  * この相手は、Tailscale（本人だけの端末をつなぐVPN）の中か。
  *
  * Tailscaleは 100.64.0.0/10（100.64.0.0〜100.127.255.255）という
@@ -259,17 +291,21 @@ function 待ちを掃除() {
     for (const [id, x] of 待ち) if (今 - x.時刻 > 待つ分 * 60000) 待ち.delete(id);
 }
 
-function ペアを頼む(住所, 名前) {
+function ペアを頼む(住所, 名前, 経路) {
     待ちを掃除();
     const 今 = Date.now();
     const 記録 = (頼みの記録.get(住所) || []).filter((t) => 今 - t < 10 * 60000);
     if (記録.length >= 10) return { ok: false, 訳: '続けて頼みすぎです。しばらく待ってください' };
-    if (待ち.size >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
+    // 数えるのは、まだ決めていない頼みだけ。前は決め済みの頼みも5分間数えていたので、
+    // 同じWi-Fiの誰かが頼みを続けると、本人が断っても、誰も頼めないままになった（合言葉の道も閉じたので、入る道が無くなる）。
+    const まだの頼み = [...待ち.values()].filter((x) => x.状態 === '待ち');
+    if (まだの頼み.filter((x) => x.住所 === 住所).length >= 2) return { ok: false, 訳: 'この端末からの頼みが、まだMacで決まっていません。Macの画面を見てください' };
+    if (まだの頼み.length >= 5) return { ok: false, 訳: 'いま、許可待ちが多すぎます。少し待ってください' };
     記録.push(今);
     頼みの記録.set(住所, 記録);
     const id = crypto.randomBytes(16).toString('hex');
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
-    待ち.set(id, { id, code, 名前: String(名前 || '名前のない端末').slice(0, 40), 住所, 時刻: 今, 状態: '待ち', 省く: false });
+    待ち.set(id, { id, code, 名前: String(名前 || '名前のない端末').slice(0, 40), 住所, 経路: String(経路 || ''), 時刻: 今, 状態: '待ち', 省く: false });
     return { ok: true, id, code, 待つ分 };
 }
 
@@ -289,7 +325,7 @@ function ペアの様子(id) {
 function ペアの待ち一覧() {
     待ちを掃除();
     return [...待ち.values()].filter((x) => x.状態 === '待ち')
-        .map((x) => ({ id: x.id, code: x.code, 名前: x.名前, 住所: x.住所, 経過秒: Math.round((Date.now() - x.時刻) / 1000) }));
+        .map((x) => ({ id: x.id, code: x.code, 名前: x.名前, 住所: x.住所, 経路: x.経路, 経過秒: Math.round((Date.now() - x.時刻) / 1000) }));
 }
 
 function ペアを決める(id, 許す, ログインも省く) {
@@ -590,6 +626,13 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         const Tailscale経由 = 中継 || Tailscaleの中か(住所);
         const 普通のLAN経由 = !Tailscale経由 && 同じLANか(住所);
 
+        // よそのサイトの名前で来た頼み（DNSの付け替え）は、何も見せずに断る
+        if (!宛先の名前がよいか(req)) {
+            console.warn(`[門番] よそのサイトの名前で来ました: ${住所} → ${String(req.headers['host'] || '').slice(0, 80)}`);
+            res.status(403).type('text/plain; charset=utf-8');
+            return res.end('この名前では開けません。Macの住所（例: http://192.168.…）か、Tailscaleの名前で開いてください。');
+        }
+
         // 強い口は、原則として外からは通さない。
         //
         // 合言葉は、いつか漏れるものとして考える。
@@ -599,7 +642,10 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // 繋がらない閉じたネットワークなので、同じWi-Fi（他人が
         // 混ざりうる）とは切り分ける。ここを通っても、この先の
         // 合言葉の認証は普通に必要（次の if 群 → __gate → 印）。
-        if (この端末だけの口.some((道) => req.path.startsWith(道))) {
+        // 大文字・小文字を揃えて比べる。Expressの道は大小を区別しないので、/API/computer が
+        // ここの比べ（区別する）をすり抜けて、同じWi-Fiの端末からMacを操る口に届いていた。
+        const 小文字の道 = String(req.path || '').toLowerCase();
+        if (この端末だけの口.some((道) => 小文字の道.startsWith(道))) {
             const Tailscaleから強い口を許すか = Tailscale経由
                 && Tailscaleを許しているか && Tailscaleを許しているか();
             if (!Tailscaleから強い口を許すか) {
@@ -649,7 +695,8 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // 許可の頼み（合言葉の代わりに、Macの前で許してもらう）。
         // ここに来られるのは、上の経路の確認を通った相手だけ（同じLAN／Tailscale）。
         if (req.method === 'POST' && req.path === '/__pair/request') {
-            const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']));
+            const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']),
+                Tailscale経由 ? 'Tailscale' : '同じWi-Fi');
             // 頼んだことを、入場の記録に残す（見慣れない住所からの頼みに、本人が気づけるように）
             if (r.ok && 間違いの知らせ先) { try { 間違いの知らせ先('許可の頼み', 住所); } catch { /* 記録できなくても、頼みは止めない */ } }
             return res.status(r.ok ? 200 : 429).json(r);
@@ -733,4 +780,7 @@ module.exports = {
     ログイン省略を変える,
     合言葉で入れるか,
     印を延ばす,
+    家の中の名前か,
+    宛先の名前がよいか,
+    ペアを頼む,
 };

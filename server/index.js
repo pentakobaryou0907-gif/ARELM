@@ -9,6 +9,8 @@ const fs = require('fs');
 const os = require('os');
 
 const app = express();
+// 道の大文字・小文字を区別する。区別しないと、門番が守る /api/computer を /API/computer で呼べてしまう。
+app.set('case sensitive routing', true);
 const PORT = process.env.PORT || 8080;
 
 // HTTPS が使えるかどうか（マイクを使える接続へ回すために先に判定しておく）
@@ -573,6 +575,7 @@ app.get('/api/other-devices', (req, res) => {
         Tailscaleの住所: tailscaleアドレス(),
         入口: PORT,
         アプリ入口: APP_PORT,
+        Mac本体から: 本体のブラウザからか(req),
     });
 });
 
@@ -792,8 +795,12 @@ app.post('/api/ext-store/config', async (req, res) => {
     if (!本体からか(req)) return res.status(403).json({ ok: false, 訳: 'この設定は、Mac本体の画面からだけできます' });
     const { 鍵, 倉庫, 合言葉 } = req.body || {};
     if (!鍵 || typeof 鍵 !== 'string') return res.status(400).json({ ok: false, 訳: '鍵を貼ってください' });
+    const 倉庫名 = String(倉庫 || 'ARELM-data').trim();
+    // 鍵だけ替えるとき（合言葉が空）は、同じ倉庫なら、Macにある同期の合言葉を使い続ける
+    const 前 = 外の倉庫.設定を読む(外の倉庫の設定の場所);
+    const 使う合言葉 = (typeof 合言葉 === 'string' && 合言葉) ? 合言葉 : (前 && 前.倉庫 === 倉庫名 ? 前.合言葉 : '');
     try {
-        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: String(倉庫 || 'ARELM-data').trim(), 合言葉: typeof 合言葉 === 'string' ? 合言葉 : '' }, safeFetch);
+        const 設定 = await 外の倉庫.確かめる({ 鍵: 鍵.trim(), 倉庫: 倉庫名, 合言葉: 使う合言葉 }, safeFetch);
         外の倉庫.設定を書く(外の倉庫の設定の場所, 設定);
         const 最後 = await 外の倉庫とまぜる();
         res.json(Object.assign({ ok: true }, 外の倉庫.様子(設定, 最後)));
@@ -3179,12 +3186,19 @@ app.post('/api/notion-proxy', async (req, res) => {
  * の対象にはしない。ただし送信先は必ず127.0.0.1固定・ポート番号は
  * 数字のみに絞り、他のホストへは向けさせない。
  */
+// Obsidian（Local REST API）が使う番号だけ。前は1〜65535のどれでも中継したため、
+// 許可した端末がこの口を通してMac自身（8090など）へ頼むと「Mac本体から」に見え、Mac専用の操作が素通しだった。
+const Obsidianの番号 = new Set([27123, 27124]);
 app.post('/api/obsidian-proxy', async (req, res) => {
+    if (!本人だけ(req, res)) return;
     const key = req.headers['x-obsidian-key'];
     if (!key) return res.status(401).json({ error: 'ObsidianのAPIキーが必要です' });
     const { method, path, body, port } = req.body || {};
     const ポート = parseInt(port, 10) || 27123;
-    if (!method || !path || !/^\/[\w./%-]*$/.test(path) || ポート < 1 || ポート > 65535) {
+    if (!Obsidianの番号.has(ポート)) {
+        return res.status(400).json({ error: 'Obsidianの番号（27123 か 27124）だけ使えます' });
+    }
+    if (!method || !path || !/^\/[\w./%-]*$/.test(path) || !['GET', 'PUT', 'POST', 'PATCH', 'DELETE'].includes(String(method).toUpperCase())) {
         return res.status(400).json({ error: 'method・path・port の形が不正です' });
     }
     try {

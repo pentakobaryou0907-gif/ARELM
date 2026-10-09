@@ -174,7 +174,10 @@ const 外の倉庫 = {
         for (let 回 = 0; 回 < 4; 回++) {
             const { データ, sha, 塩 } = await this.読む();
             const { 中身, 変わった } = 同期の中身をまぜる(データ, 足す);
-            if (!変わった && sha && 塩) return true;
+            // メールアドレスは倉庫へ置かない（本人の要望 2026-10-09）。前に置かれた分も、ここで外す（Macには残る）
+            const 外した = ['areglm_google_account_email'].filter((k) => k in 中身);
+            外した.forEach((k) => { delete 中身[k]; });
+            if (!変わった && !外した.length && sha && 塩) return true;
             const 合言葉 = await 端末の金庫.出す('同期の合言葉');
             if (!合言葉) throw new Error('同期の合言葉が入っていません');
             const 閉じた = await 倉庫の暗号.閉じる(JSON.stringify(中身), 合言葉, 塩);
@@ -215,6 +218,19 @@ const 外の倉庫 = {
         catch (e) { console.warn('[外の倉庫] 送れませんでした:', e.message); }
         // 送れなかった項目は、sync.js の決まり通り、次にその項目へ書き込みが起きたとき送り直される
         返事.forEach((r) => r(ok));
+    },
+
+    /** 受け取った鍵が、GitHubの誰の鍵か（金庫へ入れる前に、手元の値のまま確かめる） */
+    async 鍵の持ち主(鍵) {
+        const r = await 選んだ置き場へ送る(`${this.窓口}/user`, {
+            headers: { Authorization: 'Bearer ' + 鍵, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+            cache: 'no-store',
+        });
+        if (r.status === 401) throw new Error('鍵が正しくないか、期限が切れています');
+        if (!r.ok) throw new Error('鍵の持ち主を確かめられませんでした（' + r.status + '）');
+        const 名 = (await r.json()).login;
+        if (!名) throw new Error('鍵の持ち主を確かめられませんでした');
+        return String(名);
     },
 
     /** 鍵の持ち主を確かめ、倉庫が無ければ非公開で作る（設定の保存のときに使う） */
