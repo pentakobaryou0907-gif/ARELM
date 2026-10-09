@@ -37,6 +37,43 @@ const 通信 = (headers) => ({ headers });
 確かめる('門番: Via つきは、中継', 門番.中継された通信か(通信({ host: 'localhost', via: '1.1 proxy' })));
 確かめる('門番: 宛先の無い通信は、中継として扱う（安全側）', 門番.中継された通信か(通信({})));
 
+/* ---------- 門番: 同じWi-Fiの端末から来た頼みを、実際に通して確かめる ---------- */
+{
+    let 中の口 = null;
+    const 元のwarn = console.warn;
+    console.warn = () => {};   // 断ったときの記録（[門番] …）は、試験の結果に混ぜない
+    門番.門番を置く({ use(f) { 中の口 = f; } }, () => true, () => false);
+    const 通す = (道, 頭 = {}, 方法 = 'GET', 住所 = '192.168.1.50') => {
+        const 答え = { 番号: 200, 本文: '', 通った: false };
+        const res = {
+            status(n) { 答え.番号 = n; return res; }, type() { return res; }, set() { return res; }, setHeader() {}, append() {},
+            end(t) { 答え.本文 = String(t || ''); }, send(t) { 答え.本文 = String(t || ''); }, json(o) { 答え.本文 = JSON.stringify(o); },
+        };
+        中の口({ socket: { remoteAddress: 住所 }, headers: Object.assign({ host: '192.168.1.9:8090' }, 頭), path: 道, method: 方法, body: {}, query: {} }, res, () => { 答え.通った = true; });
+        return 答え;
+    };
+    const 大 = 通す('/API/computer/type', {}, 'POST');
+    確かめる('門番: Macを操る口は、大文字で呼んでも、同じWi-Fiの端末からは断る（Expressは大小を区別しなかった）',
+        大.番号 === 403 && !大.通った && /この端末か、Tailscale/.test(大.本文));
+    確かめる('門番: Macを操る口は、同じWi-Fiの端末からは断る', 通す('/api/computer/type', {}, 'POST').番号 === 403);
+    const よそ = 通す('/', { host: 'evil.example:8090' });
+    確かめる('門番: よそのサイトの名前で来た頼み（DNSの付け替え）は、何も見せずに断る', よそ.番号 === 403 && !よそ.通った && /この名前では開けません/.test(よそ.本文));
+    確かめる('門番: よそのサイトの名前では、許可も頼めない', 通す('/__pair/request', { host: 'evil.example' }, 'POST').番号 === 403);
+    確かめる('門番: Macの住所・.local・Tailscaleの名前・短い名前では開ける（許可の画面が出る）',
+        ['192.168.1.9:8090', 'macbook.local', 'arelm-mac.tail1234.ts.net', 'macbook', '[fe80::1]:8090'].every((h) => 通す('/', { host: h }).番号 !== 403));
+    確かめる('門番: 家の中の名前の見分け', 門番.家の中の名前か('192.168.1.9') && !門番.家の中の名前か('evil.example') && !門番.家の中の名前か('evil.example.') && 門番.家の中の名前か('x.home.arpa'));
+    // 許可の頼みの列: 決めた頼みは数えない・同じ端末からは2つまで
+    const 一 = 門番.ペアを頼む('192.168.1.60', 'A', '同じWi-Fi');
+    const 二 = 門番.ペアを頼む('192.168.1.60', 'B', '同じWi-Fi');
+    const 三 = 門番.ペアを頼む('192.168.1.60', 'C', '同じWi-Fi');
+    確かめる('門番: 同じ端末から、決まっていない頼みは2つまで', 一.ok && 二.ok && 三.ok === false);
+    門番.ペアを決める(一.id, false, false);
+    門番.ペアを決める(二.id, false, false);
+    確かめる('門番: 断った頼みは数えない（同じWi-Fiの誰かが頼み続けても、本人が断れば、また頼める）', 門番.ペアを頼む('192.168.1.60', 'D', '同じWi-Fi').ok === true);
+    確かめる('門番: Macの許可の知らせに、経路と住所を出す（名前だけでは見分けられない）', 門番.ペアの待ち一覧().some((x) => x.住所 === '192.168.1.60' && x.経路 === '同じWi-Fi'));
+    console.warn = 元のwarn;
+}
+
 /* ---------- 夜の当番: 時刻の判断 ---------- */
 const 設定 = { 有効: true, 時刻: '03:30', 通知: true, 通知の時刻: '08:00' };
 const 日時 = (時, 分 = 0, 日 = 8) => new Date(2026, 9, 日, 時, 分, 0);   // 2026-10-08
@@ -245,6 +282,15 @@ async function 外の倉庫の試験() {
     try { await 倉庫.確かめる({ 鍵: '試験の鍵', 倉庫: 'ARELM-data', 合言葉: '違う合言葉999' }, 偽.取りに行く); } catch (e) { 断った = e.message; }
     確かめる('倉庫: 倉庫の合言葉と違うものでは、設定を保存しない', /合言葉が違います/.test(断った));
 
+    // メールアドレスは倉庫へ置かない（前に置かれた分も、倉庫からだけ外す。Macの手元には残す）
+    const メール = 偽のGitHub();
+    メール.中.file = JSON.stringify(倉庫.閉じる(JSON.stringify({ areglm_google_account_email: { value: 'a@example.com', updatedAt: 5 }, x: { value: '1', updatedAt: 1 } }), '同期の合言葉123'));
+    let メールの手元 = { areglm_google_account_email: { value: 'b@example.com', updatedAt: 9 }, y: { value: '2', updatedAt: 2 } };
+    await 倉庫.一度まわす({ 設定, 読む: () => メールの手元, 書く: (x) => { メールの手元 = x; }, 取りに行く: メール.取りに行く });
+    const メール後 = 開いて読む(メール.中.file);
+    確かめる('メール: Macの手元にあるメールアドレスを、倉庫（GitHub）へ置かない。前に置かれた分も、倉庫から外す（Macには残す）',
+        !('areglm_google_account_email' in メール後) && メール後.x && メール後.y && メールの手元.areglm_google_account_email);
+
     // 鍵の保存: 権限600
     const 場所 = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'arelm-ext-')), '外の倉庫.json');
     倉庫.設定を書く(場所, 設定);
@@ -271,7 +317,7 @@ const 本体のサーバー = fs.readFileSync(path.join(__dirname, '..', 'server
 確かめる('代わり: Geminiへは、カード番号・キー・メールらしきものを送らない', /送ってよいか\(文\)/.test(代わりJS) && /メールアドレス/.test(代わりJS));
 確かめる('代わり: Geminiのキーは、URLではなく頭に載せる', /'x-goog-api-key': キー/.test(代わりJS) && !/generateContent\?key=/.test(代わりJS));
 確かめる('代わり: 公開の倉庫にはデータを置かない（画面側）', /中\.private !== true/.test(代わりJS));
-確かめる('代わり: 倉庫へは、同期の合言葉で閉じてから送る（画面側）', /倉庫の暗号\.閉じる\(JSON\.stringify\(中身\)/.test(代わりJS) && /if \(!変わった && sha && 塩\) return true;/.test(代わりJS));
+確かめる('代わり: 倉庫へは、同期の合言葉で閉じてから送る（画面側）', /倉庫の暗号\.閉じる\(JSON\.stringify\(中身\)/.test(代わりJS) && /if \(!変わった && !外した\.length && sha && 塩\) return true;/.test(代わりJS) && /'areglm_google_account_email'\]\.filter/.test(代わりJS));
 確かめる('代わり: 壊れた倉庫の中身を、空として扱わない（上書きで消さない）', /倉庫の中身が壊れています（上書きはしません）/.test(代わりJS));
 確かめる('橋渡し: 鍵を預けるのは、Mac本体の画面からだけ', /app\.post\('\/api\/ext-store\/config'[\s\S]{0,120}本体からか\(req\)/.test(本体のサーバー));
 確かめる('橋渡し: GitHubへの通信は、許可リスト(safeFetch)を通す', /取りに行く: safeFetch/.test(本体のサーバー) && /host: 'api\.github\.com'/.test(本体のサーバー));
@@ -547,6 +593,13 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     確かめる('本人: 押すだけで始める・開くのは、Mac本体のブラウザから・JSONの頼みだけ',
         /app\.post\('\/api\/account\/setup-nopass'[\s\S]{0,120}本体のブラウザからか\(req\) \|\| !req\.is\('application\/json'\)/.test(本体)
         && /app\.post\('\/api\/account\/nologin\/here'[\s\S]{0,120}本体のブラウザからか\(req\) \|\| !req\.is\('application\/json'\)/.test(本体));
+    確かめる('守り: Obsidianの中継は、Obsidianの番号だけ・ログイン中の本人だけ（Mac自身の口へ向けて、Mac専用の操作を素通しさせない）',
+        /const Obsidianの番号 = new Set\(\[27123, 27124\]\);/.test(本体) && /app\.post\('\/api\/obsidian-proxy'[\s\S]{0,80}if \(!本人だけ\(req, res\)\) return;/.test(本体)
+        && /if \(!Obsidianの番号\.has\(ポート\)\)/.test(本体));
+    確かめる('守り: 道の大文字・小文字を区別する（/API/computer で門番をすり抜けさせない）', /app\.set\('case sensitive routing', true\);/.test(本体));
+    確かめる('橋渡し: Macで鍵だけ替えるときは、Macにある同期の合言葉を使い続ける（切れた鍵を替えられるように）',
+        /前 && 前\.倉庫 === 倉庫名 \? 前\.合言葉 : ''/.test(本体));
+    確かめる('本人: ほかの端末の設定画面は、Mac本体かどうかを知らせる（ほかの端末では、押しても断られるボタンを出さない）', /Mac本体から: 本体のブラウザからか\(req\),/.test(本体));
     確かめる('本人: ほかの端末へ渡す中身は、Mac本体の画面で、入場券を持つ本人にだけ返す',
         /app\.get\('\/api\/ext-store\/handoff'[\s\S]{0,160}本体のブラウザからか\(req\)[\s\S]{0,120}本人だけ\(req, res\)/.test(本体));
 }
@@ -555,7 +608,9 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     const 金庫JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', '端末の金庫.js'), 'utf8');
     const 本体JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
     const 同期JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', 'sync.js'), 'utf8');
-    確かめる('指紋: パスキーには、メールアドレスも本名も入れない（名前は ARELM だけ）', /user: \{ id: crypto\.getRandomValues\(new Uint8Array\(16\)\), name: 'ARELM', displayName: 'ARELM' \}/.test(金庫JS));
+    確かめる('指紋: パスキーには、メールアドレスも本名も入れない（名前は「ARELM（端末・日付）」だけ。どの端末のものか見分けられる）',
+        /user: \{ id: crypto\.getRandomValues\(new Uint8Array\(16\)\), name: 呼び名, displayName: 呼び名 \}/.test(金庫JS)
+        && /return `ARELM（\$\{名\}・\$\{new Date\(\)\.toISOString\(\)\.slice\(0, 10\)\}）`;/.test(金庫JS) && !/email/i.test(金庫JS));
     確かめる('指紋: 本人確認（指紋・顔・画面ロック）を必ず求める', (金庫JS.match(/userVerification: 'required'/g) || []).length >= 2 && /\(認\[32\] & 0x05\) !== 0x05/.test(金庫JS));
     確かめる('指紋: PRFの秘密から包む鍵を作る（HKDF）。PRFが無い端末は、取り出せない鍵で包む',
         /name: 'HKDF'/.test(金庫JS) && /generateKey\(\{ name: 'AES-GCM', length: 256 \}, false,/.test(金庫JS));
@@ -565,6 +620,16 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     確かめる('メール: Googleのアカウントのメールアドレスを、ほかの端末・倉庫へ送らない', /除外キー[\s\S]*'areglm_google_account_email'/.test(同期JS));
     確かめる('指紋: 公開先は、指紋・顔で開く（前の合言葉は、一度だけ開いて切り替えるため）',
         /await 金庫\.指紋で開ける\(\);/.test(本体JS) && /await 金庫\.指紋で開けるようにする\(\);/.test(本体JS) && /前に決めた合言葉で、一度だけ開いてください/.test(本体JS));
+    確かめる('入口: ログアウト・自動ロックのあとは、入り口をその時の様子で作り直す（古い「始める」を残さない・押して入る口を出す）',
+        /document\.getElementById\('local-lock-form'\)\?\.remove\(\);\s*document\.getElementById\('nopass-entry'\)\?\.remove\(\);/.test(本体JS)
+        && /\} else if \(r\.端末でログイン省略\) \{\s*\/\/[^\n]*\n\s*パスワードなしの入り口を出す\('この端末で開く', '\/api\/account\/device-login'/.test(本体JS));
+    確かめる('指紋: 開けないときは、データを消さずに登録し直せる', /金庫\.登録をやり直す\(\);/.test(本体JS) && /この端末のデータ（商品・メモなど）は消えません/.test(本体JS));
+    const 画面 = (名) => fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 名), 'utf8');
+    確かめる('画面: アカウントの様子が聞けないときを、「パスワードなし」と取り違えない', /if \(!私 \|\| !私\.ok\)/.test(画面('アカウント画面.js')));
+    確かめる('画面: Mac専用の操作を断られたら、成功と出さない（待ち受け・記録・ほかの端末）',
+        /返\.ok && j\.ok !== false/.test(画面('声を録り直す.js')) && /if \(!r\.ok && !r\.段階\)/.test(画面('自己修正の安全装置.js'))
+        && !/showNotification\(返\.訳, 'success'\)/.test(画面('他の端末.js')) && /d\.Mac本体から === false/.test(画面('他の端末.js')));
+    確かめる('画面: ホーム画面の案内に、合言葉を決める・打つ、を書かない', !/合言葉を決めます|同期の合言葉を入れます|もう一度、合言葉が要ります/.test(画面('ホーム画面に追加.js')));
     確かめる('指紋: 新しく始める端末に、合言葉を決めさせない', !/この端末だけで使う合言葉を、ご自身で決めてください/.test(本体JS) && !/欄\('local-lock-2'/.test(本体JS));
 }
 {
@@ -585,15 +650,106 @@ function 画面のファイルを読む(名前, 窓 = {}) {
         && 足す.受け取りの中身を読む(足す.受け取りの住所を作る({ ...包み, 同期: '短い' }, 0), 1) === null);
     const 足すJS = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', '端末を足す.js'), 'utf8');
     確かめる('受け取り: 開いた瞬間に、住所から #arelm-receive= を消す（履歴に残さない）', /history\.replaceState\(null, '', location\.pathname \+ location\.search\)/.test(足すJS));
-    確かめる('受け取り: QRは2分で消す', /let 秒 = 120;/.test(足すJS));
+    確かめる('受け取り: 鍵のQRは2分で画面から消し、コピーした文字も2分でクリップボードから外す', /残りを数える\(残り, 120\)/.test(足すJS) && /setTimeout\(\(\) => 写しを外す\(文字\), 120000\)/.test(足すJS));
+    const 文字 = 足す.受け取りの文字を作る(包み, 1000);
+    確かめる('受け取り: 鍵のQRは住所ではない（カメラで読んでも開かれず、閲覧履歴に鍵が残らない）', 文字.startsWith('arelm-receive:') && !/https?:/.test(文字) && /^[\x21-\x7e]+$/.test(文字));
+    確かめる('受け取り: 鍵のQRの文字も、そのまま受け取れる（前の形の住所も読める）', (足す.受け取りの中身を読む(文字, 2000) || {}).同期 === 包み.同期 && (足す.受け取りの中身を読む(住所, 2000) || {}).github === 包み.github);
+    const 控え = 足す.受け取りの文字を作る(包み, 1000, true);
+    確かめる('受け取り: 復旧用の控えは、期限なしで受け取れる（ほかの期限付きは10分）', (足す.受け取りの中身を読む(控え, 1000 + 400 * 86400000) || {}).github === 包み.github && 足す.受け取りの中身を読む(文字, 1000 + 11 * 60000).期限切れ === true);
+    確かめる('受け取り: 自動では使わない。「GitHubの誰の・どの倉庫か」を出して、本人に確かめてから使う',
+        /const 持ち主 = await 外の倉庫\.鍵の持ち主\(x\.github\);/.test(足すJS) && /if \(!confirm\(文\)\)/.test(足すJS)
+        && 足すJS.indexOf('await 外の倉庫.鍵の持ち主(x.github)') < 足すJS.indexOf("await 金庫.入れる('github', x.github)"));
+    確かめる('受け取り: 前の設定は消さずに控えへ移し、つながらなければ元に戻す',
+        /await 金庫\.入れる\('前の_github', 前\.github\)/.test(足すJS) && /await 金庫\.入れる\('前の_同期の合言葉', 前\.同期\)/.test(足すJS)
+        && /catch \(e\) \{\s*try \{ await 元に戻す\(\); \}/.test(足すJS) && /金庫\.写しから戻す\(写し\)/.test(足すJS) && !/金庫\.取り下げる\(/.test(足すJS));
+    確かめる('受け取り: Geminiの「お金がかかる機能」の許可を、受け取る側で勝手に入れない（渡す側も、許しているときだけ渡す）',
+        !/許可を切り替える/.test(足すJS.slice(足すJS.indexOf('async function 受け取りを仕上げる'), 足すJS.indexOf('function jsQRを読み込む')))
+        && /if \(包み\.gemini && !\(typeof 使ってよいか === 'function' && 使ってよいか\('gemini'\)\)\) delete 包み\.gemini;/.test(足すJS));
+    確かめる('受け取り: 開いたあとのタブに貼られた住所（hashchange）も、すぐ消して拾う', /window\.addEventListener\('hashchange', 住所の受け取りを拾う\)/.test(足すJS));
+    確かめる('受け取り: QRは画面の中で読む（ホーム画面のアプリでも読める）。読む部品は同梱・外へ送らない',
+        /getUserMedia\(\{ video: \{ facingMode: 'environment' \}, audio: false \}\)/.test(足すJS) && /s\.src = 'js\/vendor\/jsQR\.js';/.test(足すJS)
+        && !/fetch\(|XMLHttpRequest|WebSocket/.test(fs.readFileSync(path.join(__dirname, '..', 'js', 'vendor', 'jsQR.js'), 'utf8')));
+    // 作ったQRを、同梱の読み取り部品で実際に読めるか（中身が大きすぎて読めない、を見つける）
+    {
+        const qrcode = require('../js/core/qrcode.js');
+        const jsQR = require('../js/vendor/jsQR.js');
+        const 長い包み = { ...包み, github: 'github_pat_' + 'A'.repeat(82), gemini: 'AIza' + 'B'.repeat(35) };
+        const 長い文字 = 足す.受け取りの文字を作る(長い包み, 1000);
+        const q = qrcode(0, 'L'); q.addData(長い文字); q.make();
+        const n = q.getModuleCount(); const 枠 = 4; const 拡 = 4; const 辺 = (n + 枠 * 2) * 拡;
+        const 絵 = new Uint8ClampedArray(辺 * 辺 * 4).fill(255);
+        for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) {
+            for (let dy = 0; dy < 拡; dy++) for (let dx = 0; dx < 拡; dx++) {
+                const i = (((y + 枠) * 拡 + dy) * 辺 + (x + 枠) * 拡 + dx) * 4; 絵[i] = 絵[i + 1] = 絵[i + 2] = 0;
+            }
+        }
+        const 読めた = jsQR(絵, 辺, 辺);
+        確かめる('受け取り: 作った鍵のQRを、同梱の部品で読み戻せる（GitHubの鍵・Geminiのキーが長くても）', 読めた && 読めた.data === 長い文字 && (足す.受け取りの中身を読む(読めた.data, 2000) || {}).gemini === 長い包み.gemini);
+    }
     const Mac無しJS = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'Mac無しで使う.js'), 'utf8');
     確かめる('同期: 同期の合言葉は、打たずに自動で作る（欄を出さない）', !/mac-free-sync-pass|mac-share-pass/.test(Mac無しJS) && /function 同期の合言葉を作る\(\)/.test(Mac無しJS));
+}
+
+/* ---------- 公開先の金庫: 前の合言葉の鍵を、それきり使わない・登録のやり直しで消さない ---------- */
+async function 金庫の試験() {
+    const 箱を作る = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), _m: m }; };
+    const 前の = { l: globalThis.localStorage, s: globalThis.sessionStorage, w: globalThis.window };
+    globalThis.localStorage = 箱を作る();
+    globalThis.sessionStorage = 箱を作る();
+    globalThis.window = globalThis.window || {};
+    try {
+        delete require.cache[require.resolve('../js/core/端末の金庫.js')];
+        const { 端末の金庫: 金庫 } = require('../js/core/端末の金庫.js');
+        localStorage.setItem('areglm_local_lock', JSON.stringify({ 値: 'x', 塩: 'y' }));
+        await 金庫.開ける('前の合言葉です12');
+        await 金庫.入れる('github', 'github_pat_試験');
+        const 前の鍵 = sessionStorage.getItem(金庫.鍵の名);
+        const 前の中身 = JSON.parse(localStorage.getItem(金庫.置き場の名)).中身.github;
+        const 閉じ直し = await 金庫._新しい鍵で閉じ直す();
+        確かめる('金庫: 閉じ直しは、包みと同時に書くまで、置き場を書き換えない（途中で止まっても前の合言葉で開ける）',
+            sessionStorage.getItem(金庫.鍵の名) === 前の鍵 && JSON.stringify(JSON.parse(localStorage.getItem(金庫.置き場の名)).中身.github) === JSON.stringify(前の中身));
+        // 包みと同時に書いた、という形にする（指紋で開けるようにする の書き方）
+        const 置き場 = JSON.parse(localStorage.getItem(金庫.置き場の名));
+        置き場.中身 = 閉じ直し.中身;
+        localStorage.setItem(金庫.置き場の名, JSON.stringify(置き場));
+        sessionStorage.setItem(金庫.鍵の名, Array.from(閉じ直し.バイト, (b) => b.toString(16).padStart(2, '0')).join(''));
+        確かめる('金庫: 閉じ直したあとも、中身は同じ値で開ける', (await 金庫.出す('github')) === 'github_pat_試験');
+        await 金庫.開ける('前の合言葉です12');
+        確かめる('金庫: 閉じ直したあとは、前の合言葉の鍵では、もう何も開かない', (await 金庫.出す('github')) === null);
+        const 金庫JS = fs.readFileSync(path.join(__dirname, '..', 'js', 'core', '端末の金庫.js'), 'utf8');
+        確かめる('金庫: 指紋・顔に切り替えたら、前の合言葉の印は使わなくなった所へ移す（消さない）',
+            /localStorage\.setItem\('areglm_local_lock_retired'/.test(金庫JS) && /前の合言葉の端末 \? await this\._新しい鍵で閉じ直す\(\)/.test(金庫JS));
+        // 写しから戻す: 開けない項目も、閉じたまま元どおりに戻す（消さない）
+        const 写し = 金庫.中身の写し(['github', '無い項目']);
+        await 金庫.入れる('github', '別の値'); await 金庫.入れる('無い項目', 'x');
+        金庫.写しから戻す(写し);
+        const 戻した中身 = JSON.parse(localStorage.getItem(金庫.置き場の名)).中身;
+        確かめる('金庫: 受け取りに失敗したら、閉じたままの写しで元どおりに戻す（開けない項目も消さない）',
+            JSON.stringify(戻した中身.github) === JSON.stringify(写し.github) && !('無い項目' in 戻した中身));
+        // 登録のやり直し: 前の包み・中身・パスキーの名札は、使わなくなった所へ移す
+        const 置き場2 = JSON.parse(localStorage.getItem(金庫.置き場の名));
+        置き場2.包み = { 前のid: { 包み方: 'prf', iv: [1], data: [2] } };
+        localStorage.setItem(金庫.置き場の名, JSON.stringify(置き場2));
+        localStorage.setItem(金庫.パスキーの名, JSON.stringify({ id: '前のid' }));
+        金庫.登録をやり直す();
+        const 後 = JSON.parse(localStorage.getItem(金庫.置き場の名));
+        const 移した = (後.使わなくなった || []).slice(-1)[0] || {};
+        確かめる('金庫: 登録のやり直しは、前の包み・中身・パスキーの名札を消さずに移し、新しく始められる形にする',
+            移した.包み && 移した.包み.前のid && 移した.中身 && 移した.中身.github && 移した.パスキー && 移した.パスキー.id === '前のid'
+            && !Object.keys(後.包み).length && !Object.keys(後.中身).length && !金庫.指紋で開けるか() && !金庫.開いているか());
+    } finally {
+        globalThis.localStorage = 前の.l;
+        globalThis.sessionStorage = 前の.s;
+        if (前の.w) globalThis.window = 前の.w;
+    }
 }
 
 /* ---------- まとめ ---------- */
 (async () => {
     try { await 外の倉庫の試験(); }
     catch (e) { 確かめる('倉庫: 試験そのものが落ちた', false, e.message); }
+    try { await 金庫の試験(); }
+    catch (e) { 確かめる('金庫: 試験そのものが落ちた', false, e.message); }
     const 失敗 = 結果.filter((x) => !x.ok);
     console.log(`サーバーの試験: ${結果.length - 失敗.length}/${結果.length} 件が成功`);
     失敗.forEach((x) => console.log(`  ✗ ${x.名}${x.詳細 ? ' — ' + x.詳細 : ''}`));
