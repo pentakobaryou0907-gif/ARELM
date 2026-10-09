@@ -425,8 +425,13 @@ async function ログイン画面を整える() {
             }
         } else if (r.本体から) {
             // パスワードを決めて使っていたMacでも、押すだけで、このMacではパスワードなしにできる
-            パスワードなしの入り口を出す('このMacでは、パスワードなしで開く', '/api/account/nologin/here',
+            // （ログアウトしたあとも、ここから入り直す。前はパスワードの欄だけになり、パスワードの無い本人は入れなかった）
+            パスワードなしの入り口を出す(r.ログインなし ? 'このMacで開く' : 'このMacでは、パスワードなしで開く', '/api/account/nologin/here',
                 'このMacの前にいる人を本人とします。次からは、開くだけで入れます。');
+        } else if (r.端末でログイン省略) {
+            // Macで「許可」した端末。ログアウトしたあとも、押すだけで入り直せる（前はパスワードの欄だけで、行き止まりだった）
+            パスワードなしの入り口を出す('この端末で開く', '/api/account/device-login',
+                'この端末は、Macで「許可」されています。押すだけで開きます。');
         } else if (注意) {
             // Macで許した端末なのに、ログインが要る形で許されていた
             注意.hidden = false;
@@ -673,9 +678,32 @@ function サーバーの無い置き場の入り口を出す() {
     const 受け取り = typeof 受け取り待ちがあるか === 'function' && 受け取り待ちがあるか();
 
     if (指紋で開ける) {
-        説明.textContent = 'この端末の指紋・顔（Face ID・Touch ID・Windows Hello）で開きます。';
+        説明.textContent = 'この端末の指紋・顔（Face ID・Touch ID・Windows Hello）で開きます。'
+            + (受け取り ? 'ほかの端末から受け取った設定があります。開いたあと、どのGitHubの倉庫かを確かめてから使います。' : '');
         押す.textContent = '指紋・顔で開く';
         形.append(説明, 押す);
+        // 開けないとき（パスキーを消した・ブラウザのデータが一部消えた）の戻り道。前は、データを消すしかなかった
+        const 困った = document.createElement('details');
+        const 題 = document.createElement('summary');
+        題.textContent = '開けないとき';
+        const 困った説明 = document.createElement('p');
+        困った説明.className = 'hint';
+        困った説明.textContent = '指紋・顔の登録（パスキー）を消してしまったときは、この端末を登録し直せます。'
+            + 'この端末のデータ（商品・メモなど）は消えません。前の鍵の控えも消さずに残します。'
+            + 'データの共有（GitHubの鍵など）は、登録し直したあと、ほかの端末の「ほかの端末へ渡す」から受け取り直します。';
+        const やり直す = document.createElement('button');
+        やり直す.type = 'button';
+        やり直す.className = 'btn btn-sm btn-secondary';
+        やり直す.textContent = 'この端末を、指紋・顔で登録し直す';
+        やり直す.addEventListener('click', () => {
+            if (!confirm('この端末の指紋・顔の登録をやり直します。\nこの端末のデータは消えません。データの共有は、ほかの端末から受け取り直します。続けますか？')) return;
+            金庫.登録をやり直す();
+            端末の入場を残す('指紋・顔の登録をやり直した');
+            形.remove();
+            サーバーの無い置き場の入り口を出す();
+        });
+        困った.append(題, 困った説明, やり直す);
+        形.append(困った);
         形.addEventListener('submit', async (e) => {
             e.preventDefault();
             押す.disabled = true;
@@ -766,10 +794,12 @@ function サーバーの無い置き場の入り口を出す() {
         押す.disabled = !使える;
         const 足し = document.createElement('p');
         足し.className = 'hint';
-        足し.textContent = 受け取り
-            ? 'ほかの端末から受け取った設定があります。始めると、そのままデータの共有が始まります。'
-            : 'ほかの端末ですでに使っているときは、始めたあと、その端末の設定「☁ Mac無しで使う」→「ほかの端末へ渡す」のQRを、この端末のカメラで読むと、同じデータになります。';
+        const 受け取れた = () => { 足し.textContent = 'ほかの端末から受け取る準備ができました。「この端末で始める」を押してください（始めたあと、どのGitHubの倉庫かを確かめます）。'; };
+        if (受け取り) 受け取れた();
         形.append(説明, 押す, 足し);
+        // ほかの端末ですでに使っているときは、その端末のQRを、この画面の中で読む（住所＝閲覧履歴に鍵を残さない）。
+        // ホーム画面に入れたアプリでも読める（前は、カメラのアプリで読むとSafariが開き、アプリへ渡らなかった）
+        if (使える && typeof 受け取る欄を描く === 'function') 受け取る欄を描く(形, 受け取れた);
         形.addEventListener('submit', async (e) => {
             e.preventDefault();
             押す.disabled = true;
@@ -983,9 +1013,17 @@ function hideMainApp() {
     if (loginScreen) {
         loginScreen.style.display = 'flex';
         console.log('ログイン画面を表示しました');
-        ログインなしなら入る().then((入った) => {
-            if (!入った && typeof パスキーをもう一度求める === 'function') パスキーをもう一度求める();
-        });
+        // 入り口は、その時の様子で作り直す。前は、最初に作った入り口（公開先の「始める」など）が残り、
+        // 自動ロック・ログアウトのあとに押すと「前の中身があります」で止まった。ログアウト後の Mac・許可した端末は、押して入る口が無かった
+        document.getElementById('local-lock-form')?.remove();
+        document.getElementById('nopass-entry')?.remove();
+        const ログイン欄 = document.getElementById('login-form');
+        if (ログイン欄) { ログイン欄.hidden = false; ログイン欄.style.display = ''; }
+        ログイン画面を整える().then(() => {
+            if (document.getElementById('main-app')?.style.display === 'none'
+                && !document.getElementById('nopass-entry') && !document.getElementById('local-lock-form')
+                && typeof パスキーをもう一度求める === 'function') パスキーをもう一度求める();
+        }).catch(() => {});
     }
     
     if (mainApp) {

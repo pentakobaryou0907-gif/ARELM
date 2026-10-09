@@ -84,6 +84,20 @@ const 端末の金庫 = {
         return !!this._置き場を読む().中身[名];
     },
 
+    /** 指定した項目の、閉じたままの写し（開けなくても、そのまま戻せる。無い項目は null） */
+    中身の写し(名たち) {
+        const 中 = this._置き場を読む().中身 || {};
+        return Object.fromEntries(名たち.map((n) => [n, 中[n] ? JSON.parse(JSON.stringify(中[n])) : null]));
+    },
+
+    /** 写しのとおりに戻す（写しで null の項目は、写しを取ったときに無かったもの） */
+    写しから戻す(写し) {
+        const 置き場 = this._置き場を読む();
+        置き場.中身 = 置き場.中身 || {};
+        Object.entries(写し || {}).forEach(([n, v]) => { if (v) 置き場.中身[n] = v; else delete 置き場.中身[n]; });
+        this._置き場を書く(置き場);
+    },
+
     /** 自動で作った値が使えなかったとき（倉庫の合言葉と違った等）に、入れたものを取り下げる。本人が入れた値には使わない */
     取り下げる(名) {
         const 置き場 = this._置き場を読む();
@@ -94,7 +108,7 @@ const 端末の金庫 = {
     /* ==========================================================
        指紋・顔（パスキー）で開ける — 本人の要望（2026-10-09）「合言葉やパスワードはなしに」
        ==========================================================
-       金庫の鍵（ランダム。前の合言葉の端末は、合言葉から作った鍵をそのまま使う）を、パスキーで包んで置く。
+       金庫の鍵（ランダム。前の合言葉の端末は、新しいランダムな鍵で中身を閉じ直す）を、パスキーで包んで置く。
          ・PRF（パスキーが、本人確認のあとにだけ出す秘密）が使える端末: 秘密からHKDFで包む鍵を作る。
            パスキーで本人確認しない限り、金庫の中身は誰にも開けない（JSを書き換えても開けない）
          ・PRFが無い端末: 取り出せない形の鍵をこの端末（IndexedDB）に作って包む。
@@ -224,9 +238,65 @@ const 端末の金庫 = {
         return { 答え, お題, 出力: 出力 ? new Uint8Array(出力) : null };
     },
 
+    /** パスキーの名前（パスワード管理の一覧で、どの端末のものか見分けられるように。メールアドレスは使わない） */
+    _パスキーの呼び名() {
+        const ua = navigator.userAgent || '';
+        let 名 = '';
+        try { 名 = String(localStorage.getItem('areglm_device_name') || '').slice(0, 20); } catch { 名 = ''; }
+        if (!名) {
+            名 = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad'
+                : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : '端末';
+        }
+        return `ARELM（${名}・${new Date().toISOString().slice(0, 10)}）`;
+    },
+
+    /**
+     * いま開いている中身を、新しいランダムな鍵で閉じ直す（前の合言葉から作った鍵を、それきり使わないため）。
+     * 前は、前の合言葉で開いた端末は、その鍵をそのまま指紋・顔で包んでいたので、合言葉を知る人は、指紋・顔なしで全部開けた。
+     * 中身は同じ値のまま、閉じ方だけ変える（消さない）。開けなかった項目は、使わなくなった控えに移す。
+     */
+    async _新しい鍵で閉じ直す() {
+        const 前の鍵 = await this._鍵();
+        if (!前の鍵) return { バイト: this._いまの鍵のバイト(), 中身: null };
+        const 新しいバイト = crypto.getRandomValues(new Uint8Array(32));
+        const 新しい鍵 = await crypto.subtle.importKey('raw', 新しいバイト, 'AES-GCM', false, ['encrypt', 'decrypt']);
+        const 置き場 = this._置き場を読む();
+        const 新しい中身 = {};
+        const 開けなかった = {};
+        for (const [名, 物] of Object.entries(置き場.中身 || {})) {
+            try {
+                const 開いた = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(物.iv) }, 前の鍵, new Uint8Array(物.data));
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const 閉じた = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, 新しい鍵, 開いた);
+                新しい中身[名] = { iv: Array.from(iv), data: Array.from(new Uint8Array(閉じた)) };
+            } catch {
+                開けなかった[名] = 物;
+            }
+        }
+        // ここでは書かない。包み（パスキーで開ける形）と同時に書く（途中で止まって、どちらでも開けない金庫を残さないため）
+        return { バイト: 新しいバイト, 中身: 新しい中身, 開けなかった };
+    },
+
+    /**
+     * 指紋・顔の登録をやり直す（パスキーを消してしまった・ブラウザのデータが一部消えて開けないとき）。
+     * 前の包み・中身・パスキーの名札は、消さずに「使わなくなった」へ移す（あとで開ける方法が見つかったときのため）。
+     * この端末のデータ（商品・メモなど）には触らない。GitHubの鍵などは、ほかの端末から受け取り直す。
+     */
+    登録をやり直す() {
+        const 置き場 = this._置き場を読む();
+        const 前 = { 日: new Date().toISOString(), 訳: '登録をやり直した', 塩: 置き場.塩, 包み: 置き場.包み || {}, 中身: 置き場.中身 || {}, パスキー: this.パスキーの記録() };
+        置き場.使わなくなった = (置き場.使わなくなった || []).concat([前]).slice(-5);
+        置き場.包み = {};
+        置き場.中身 = {};
+        this._置き場を書く(置き場);
+        localStorage.removeItem(this.パスキーの名);
+        this.閉じる();
+        return { ok: true };
+    },
+
     /**
      * この端末を、指紋・顔で開けるようにする（新しく始める端末も、前の合言葉で開いた端末も）。
-     * 前の合言葉で開いているときは、その鍵をそのまま包む（中身を作り直さない・消さない）。
+     * 前の合言葉で開いているときは、中身を新しい鍵で閉じ直してから包む（値は変えない・消さない）。
      */
     async 指紋で開けるようにする() {
         if (!this.パスキーが使えるか()) throw new Error('この端末・ブラウザでは、指紋・顔が使えません（Safari・Chrome・Edge で開いてください）');
@@ -234,12 +304,14 @@ const 端末の金庫 = {
         if (!this.開いているか() && Object.keys(this._置き場を読む().中身 || {}).length) {
             throw new Error('この端末の金庫には、前の中身があります。先に、前の決め方で開いてください');
         }
-        const 鍵のバイト = this._いまの鍵のバイト();
+        // ブラウザが空き容量の都合で、この端末の鍵（IndexedDB）を消さないように頼む（断られても続ける）
+        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch { /* 頼めなくても続ける */ }
+        const 呼び名 = this._パスキーの呼び名();
         const 作った = await navigator.credentials.create({
             publicKey: {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
                 rp: { id: location.hostname, name: 'ARELM' },
-                user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'ARELM', displayName: 'ARELM' },
+                user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 呼び名, displayName: 呼び名 },
                 pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
                 authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
                 timeout: 120000,
@@ -260,6 +332,12 @@ const 端末の金庫 = {
             try { 出力 = (await this._PRFを聞く(id)).出力; } catch { 出力 = null; }
         }
 
+        // パスキーができてから、閉じ直す（取り消されたときは、前のまま）。
+        // 前の合言葉の鍵だったときは、新しい鍵へ。新しく始める端末は、ここで初めて鍵を作る
+        const 前の合言葉の端末 = this.開いているか() && !Object.keys(this._置き場を読む().包み || {}).length;
+        const 閉じ直し = 前の合言葉の端末 ? await this._新しい鍵で閉じ直す() : { バイト: this._いまの鍵のバイト(), 中身: null };
+        const 鍵のバイト = 閉じ直し.バイト;
+
         let 包む鍵;
         let 包み方;
         if (出力) {
@@ -274,10 +352,26 @@ const 端末の金庫 = {
         const 包んだ = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, 包む鍵, 鍵のバイト);
         const 置き場 = this._置き場を読む();
         if (!Array.isArray(置き場.塩)) 置き場.塩 = Array.from(crypto.getRandomValues(new Uint8Array(16)));
+        if (閉じ直し.中身) {
+            if (Object.keys(閉じ直し.開けなかった || {}).length) {
+                置き場.使わなくなった = (置き場.使わなくなった || []).concat([{ 日: new Date().toISOString(), 訳: '閉じ直せなかった項目', 中身: 閉じ直し.開けなかった }]).slice(-5);
+            }
+            置き場.中身 = 閉じ直し.中身;
+        }
         置き場.包み = Object.assign({}, 置き場.包み, { [id]: { 包み方, iv: Array.from(iv), data: Array.from(new Uint8Array(包んだ)) } });
         this._置き場を書く(置き場);
-        localStorage.setItem(this.パスキーの名, JSON.stringify({ id, 公開鍵, 方式, 包み方, 作った日: new Date().toISOString() }));
+        localStorage.setItem(this.パスキーの名, JSON.stringify({ id, 公開鍵, 方式, 包み方, 呼び名, 作った日: new Date().toISOString() }));
         this._鍵を開いておく(鍵のバイト);
+        // 前の合言葉は、それきり使わない（中身は新しい鍵で閉じ直したので、前の合言葉では何も開かない）。印は消さずに移す
+        if (前の合言葉の端末) {
+            try {
+                const 前 = localStorage.getItem('areglm_local_lock');
+                if (前) {
+                    localStorage.setItem('areglm_local_lock_retired', JSON.stringify({ 使わなくなった日: new Date().toISOString(), 前: JSON.parse(前) }));
+                    localStorage.removeItem('areglm_local_lock');
+                }
+            } catch { /* 移せなくても、中身は新しい鍵で閉じ直してある */ }
+        }
         return { ok: true, 包み方 };
     },
 

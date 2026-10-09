@@ -55,14 +55,25 @@ function 入力欄(ラベル, 型, id) {
     return 枠;
 }
 
+let アカウントを描いた回 = 0;
 async function renderアカウント() {
-    const 箱 = document.getElementById('account-panel');
-    if (!箱) return;
-    箱.textContent = '';
+    const 置き場 = document.getElementById('account-panel');
+    if (!置き場) return;
+    // 続けて呼ばれたとき（ページを開いたときと、設定の切り替え）、返事を待つ間に両方が描き足して、欄が2つずつ出ていた。
+    // 見えない箱に描いてから、最後の呼び出しの分だけを入れ替える
+    const 回 = ++アカウントを描いた回;
+    const 箱 = document.createElement('div');
+    const 入れ替える = () => { if (回 === アカウントを描いた回) 置き場.replaceChildren(...箱.childNodes); };
 
     // パスワードなしで使っているとき（本人の要望 2026-10-09）は、パスワードの欄を出さない
     const 私 = await アカウントAPI('/api/account/me');
-    const パスワードあり = !!(私 && 私.パスワードあり);
+    // 聞けなかったとき（入場券切れ等）を「パスワードなし」と取り違えない。前は失敗でもパスワードの欄を隠していた
+    if (!私 || !私.ok) {
+        箱.appendChild(行を作る('p', (私 && 私.訳) || 'アカウントの様子が分かりません。ログインし直してください', 'hint'));
+        入れ替える();
+        return;
+    }
+    const パスワードあり = 私.パスワードあり !== false;
     if (!パスワードあり) 箱.appendChild(行を作る('p', 'パスワードなしで使っています。このMacは開くだけ、ほかの端末はMacで「許可」した端末だけが開けます。', 'guard-off'));
 
     const p = document.createElement('form');
@@ -89,6 +100,7 @@ async function renderアカウント() {
     await ログインなしの欄を描く(箱);
     if (パスワードあり) await 表示の欄を描く(箱);
     await パスキーの欄を描く(箱);
+    入れ替える();
 }
 
 /* --- ログインなしで使う（このMac本体のブラウザだけ） --- */
@@ -102,11 +114,14 @@ async function ログインなしの欄を描く(箱) {
         + 'Windows PCなど他の端末は、このMacで「許可」を押した端末だけが開けます。', 'hint'));
     if (s.ログインなし) {
         枠.appendChild(行を作る('p', '現在: オン（このMacではログイン不要）', 'guard-off'));
-        枠.appendChild(行を作る('p', 'やめると、次からユーザー名とパスワードが必要です。忘れているときは、先に新しく作り直してください。', 'hint'));
+        // 前は「やめると、パスワードが必要」とだけ書いていたが、このMacの画面からは、押すだけでまたログインなしにできる
+        // （本人の要望「パスワードはなしに」）。守りにならないことを、正直に書く。
+        枠.appendChild(行を作る('p', 'やめても、このMacのログイン画面の「パスワードなしで開く」を押せば、またログインなしになります。'
+            + 'このMacを守るのは、Macそのもののログイン（Macのパスワード・Touch ID）です。', 'hint'));
         const b = 行を作る('button', 'ログインなしをやめる', 'btn btn-primary');
         b.type = 'button';
         b.addEventListener('click', async () => {
-            if (!confirm('ログインなしをやめます。次からは、ユーザー名とパスワードが必要です。\nパスワードを覚えていますか？')) return;
+            if (!confirm('ログインなしをやめます。次から、このMacでは、ログイン画面で「パスワードなしで開く」を押すか、パスワードで入ります。')) return;
             const r = await アカウントAPI('/api/account/nologin/set', { 有効: false });
             showNotification(r.訳 || '', r.ok ? 'success' : 'error');
             renderアカウント();
