@@ -60,6 +60,11 @@ async function renderアカウント() {
     if (!箱) return;
     箱.textContent = '';
 
+    // パスワードなしで使っているとき（本人の要望 2026-10-09）は、パスワードの欄を出さない
+    const 私 = await アカウントAPI('/api/account/me');
+    const パスワードあり = !!(私 && 私.パスワードあり);
+    if (!パスワードあり) 箱.appendChild(行を作る('p', 'パスワードなしで使っています。このMacは開くだけ、ほかの端末はMacで「許可」した端末だけが開けます。', 'guard-off'));
+
     const p = document.createElement('form');
     p.className = 'login-form';
     p.append(
@@ -79,10 +84,10 @@ async function renderアカウント() {
         showNotification(結果.訳 || '', 結果.ok ? 'success' : 'error');
         if (結果.ok) p.reset();
     });
-    箱.appendChild(p);
+    if (パスワードあり) 箱.appendChild(p);
 
     await ログインなしの欄を描く(箱);
-    await 表示の欄を描く(箱);
+    if (パスワードあり) await 表示の欄を描く(箱);
     await パスキーの欄を描く(箱);
 }
 
@@ -94,7 +99,7 @@ async function ログインなしの欄を描く(箱) {
     const s = await fetch('/api/account/status', { cache: 'no-store' }).then((y) => y.json()).catch(() => ({}));
     枠.appendChild(行を作る('p',
         'オンの間、このMacのブラウザ・アプリでは、ユーザー名とパスワードなしで開きます。'
-        + 'Windows PCなど他の端末は、これまでどおり合言葉とログインが必要です。', 'hint'));
+        + 'Windows PCなど他の端末は、このMacで「許可」を押した端末だけが開けます。', 'hint'));
     if (s.ログインなし) {
         枠.appendChild(行を作る('p', '現在: オン（このMacではログイン不要）', 'guard-off'));
         枠.appendChild(行を作る('p', 'やめると、次からユーザー名とパスワードが必要です。忘れているときは、先に新しく作り直してください。', 'hint'));
@@ -109,11 +114,11 @@ async function ログインなしの欄を描く(箱) {
         枠.appendChild(b);
     } else {
         枠.appendChild(行を作る('p', '現在: オフ', 'guard-on'));
-        枠.appendChild(入力欄('いまのパスワード（オンにするときに確かめます）', 'password', 'acct-nologin-pass'));
+        // パスワードはもう確かめない（本人の要望 2026-10-09）。このMacの画面からだけ変えられる（サーバーが確かめる）
         const b = 行を作る('button', 'ログインなしにする', 'btn btn-secondary');
         b.type = 'button';
         b.addEventListener('click', async () => {
-            const r = await アカウントAPI('/api/account/nologin/set', { 有効: true, パスワード: document.getElementById('acct-nologin-pass').value });
+            const r = await アカウントAPI('/api/account/nologin/set', { 有効: true });
             showNotification(r.訳 || '', r.ok ? 'success' : 'error');
             renderアカウント();
         });

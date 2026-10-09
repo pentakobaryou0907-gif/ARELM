@@ -6,7 +6,8 @@
  * 合言葉やパスワードを覚えていなくても、これで入れる。
  *
  * ・許せるのは、Mac本体の画面だけ（サーバー側でも、Mac本体のブラウザからしか受け付けない）
- * ・「ログインも省く」で許すと、その端末は、ユーザー名・パスワードなしで開ける（30日）
+ * ・許すと、その端末は、ユーザー名・パスワードなしで開ける（使っている間は切れない。使わなければ30日で切れる）
+ *   本人の要望（2026-10-09）「合言葉やパスワードはなしに」。以前の「許可（ログインは必要）」は、出さない
  * ・知らない端末のコードなら、断る（頼みは5分で消える）
  */
 
@@ -67,8 +68,7 @@ function 知らせを出す(x) {
     const 並び = document.createElement('div');
     並び.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
     並び.append(
-        ボタン('許可（ログインも省く）', 'btn btn-sm btn-primary', () => 決める(true, true)),
-        ボタン('許可（ログインは必要）', 'btn btn-sm btn-secondary', () => 決める(true, false)),
+        ボタン('許可', 'btn btn-sm btn-primary', () => 決める(true, true)),
         ボタン('断る', 'btn btn-sm btn-secondary', () => 決める(false, false)),
     );
     枠.append(題, コード, 注, 並び);

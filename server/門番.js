@@ -72,7 +72,9 @@ function 設定を読む() {
 function 設定を書く(中身) {
     const 場所 = path.dirname(設定ファイル);
     if (!fs.existsSync(場所)) fs.mkdirSync(場所, { recursive: true });
-    fs.writeFileSync(設定ファイル, JSON.stringify(中身, null, 2));
+    // 許した端末の印が入るので、本人だけが読める形で書く（以前は誰でも読める権限で書いていた）
+    fs.writeFileSync(設定ファイル, JSON.stringify(中身, null, 2), { mode: 0o600 });
+    try { fs.chmodSync(設定ファイル, 0o600); } catch { /* 権限を変えられない置き場でも、書けていればよい */ }
 }
 
 /**
@@ -298,6 +300,66 @@ function ペアを決める(id, 許す, ログインも省く) {
     return { ok: true, 訳: 許す ? `「${x.名前}」を許しました` : `「${x.名前}」を断りました` };
 }
 
+/** 端末を指す、秘密でない名札（印そのものは画面に出さない） */
+function 端末の名札(印) {
+    return crypto.createHash('sha256').update(String(印)).digest('hex').slice(0, 12);
+}
+
+/**
+ * 使っている端末の印を延ばす（最後に来た日も残す）。
+ * 本人の要望「合言葉なしで、私の端末だけ」。許可はMacの前で押すだけになったが、
+ * 30日で切れるたびにMacの前へ行く必要があった。使っている間は切れないようにする（使わなくなった端末は30日で切れる）。
+ * 書き込みは1日に1回まで。延ばしたときだけ、新しい期限を返す。
+ */
+function 印を延ばす(印) {
+    if (!印) return null;
+    const 設定 = 設定を読む();
+    const d = (設定.端末 || []).find((x) => x.印 === 印);
+    if (!d || new Date(d.期限) <= new Date()) return null;
+    const 今 = Date.now();
+    if (d.最後 && 今 - new Date(d.最後).getTime() < 86400000) return null;
+    d.最後 = new Date(今).toISOString();
+    d.期限 = new Date(今 + 印の日数 * 86400000).toISOString();
+    設定を書く(設定);
+    return d.期限;
+}
+
+/** 許した端末の一覧（印は出さない） */
+function 許した端末の一覧() {
+    return (設定を読む().端末 || [])
+        .filter((d) => new Date(d.期限) > new Date())
+        .map((d) => ({ id: 端末の名札(d.印), 名前: d.名前, 許した日: d.許した日, 期限: d.期限, 最後: d.最後 || null, ログイン省略: d.ログイン省略 === true }));
+}
+
+/**
+ * 1台だけ外す（なくした端末など）。消さずに「外した端末」へ移す（いつ・どの端末を外したかが残る）。
+ * 外した端末の印は、もう通らない。
+ */
+function 端末を外す(id) {
+    const 設定 = 設定を読む();
+    const i = (設定.端末 || []).findIndex((d) => 端末の名札(d.印) === String(id || ''));
+    if (i < 0) return { ok: false, 訳: 'その端末は、もう一覧にありません' };
+    const [d] = 設定.端末.splice(i, 1);
+    設定.外した端末 = (設定.外した端末 || []).concat([{ 名前: d.名前, 許した日: d.許した日, 外した日: new Date().toISOString(), 名札: 端末の名札(d.印) }]).slice(-100);
+    設定を書く(設定);
+    return { ok: true, 訳: `「${d.名前}」を外しました（もう一度使うには、Macで許可し直します）` };
+}
+
+/** 許した端末の「ログインも省く」を切り替える（前に「ログインは必要」で許した端末を、押すだけで入れるようにする） */
+function ログイン省略を変える(id, 入) {
+    const 設定 = 設定を読む();
+    const d = (設定.端末 || []).find((x) => 端末の名札(x.印) === String(id || ''));
+    if (!d) return { ok: false, 訳: 'その端末は、もう一覧にありません' };
+    d.ログイン省略 = 入 === true;
+    設定を書く(設定);
+    return { ok: true, 訳: 入 ? `「${d.名前}」は、ログインなしで入れます` : `「${d.名前}」は、入るたびにログインが要ります` };
+}
+
+/** 合言葉で入る道を、まだ使うか（既定は使わない。本人の要望「合言葉はなしに」。許可はMacの前で押すだけ） */
+function 合言葉で入れるか() {
+    return 設定を読む().合言葉で入れる === true && !!設定を読む().合言葉;
+}
+
 /** cookie の印から、許した端末の記録を引く（無ければ null） */
 function 印からの端末(cookie) {
     const 部分 = String(cookie || '').split(';').map((s) => s.trim()).find((s) => s.startsWith('areglm_pass='));
@@ -363,6 +425,10 @@ function 端末名を推す(ua) {
 }
 
 function 合言葉を聞く画面(訳, 初期の名前 = '') {
+    // 本人の要望（2026-10-09）「合言葉やパスワードはなしにして、私のデバイスでしか開けないように」。
+    // 入るには、Macの前で本人が「許可」を押すだけにする。合言葉の欄は、本人が合言葉で入る道を残したときだけ出す。
+    const 合言葉も = 合言葉で入れるか();
+    const 名前 = String(初期の名前).replace(/[&<>"']/g, '');
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ARELM</title>
@@ -377,23 +443,22 @@ function 合言葉を聞く画面(訳, 初期の名前 = '') {
   p { font-size:.82rem; line-height:1.7; margin:0; opacity:.8; }
   input { padding:.7rem; font-size:1rem; border-radius:10px;
           border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; }
-  button { padding:.7rem; font-size:1rem; border:0; border-radius:10px;
+  button { padding:.8rem; font-size:1rem; border:0; border-radius:10px;
            background:#2e7d4f; color:#fff; cursor:pointer; }
   .err { color:#dc2626; font-size:.82rem; }
+  details summary { font-size:.82rem; opacity:.7; cursor:pointer; }
 </style></head><body>
 <form class="box" method="POST" action="/__gate">
   <h1>ARELM</h1>
-  <p>この端末は、まだ許可されていません。<br>合言葉を入れてください。</p>
+  <p>この端末は、まだ許可されていません。<br>下のボタンを押して、Macの画面で「許可」を押すと入れます（合言葉もパスワードも要りません）。</p>
   ${訳 ? `<p class="err">${訳}</p>` : ''}
-  <input type="password" name="合言葉" autocomplete="current-password" autofocus required>
-  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off" value="${String(初期の名前).replace(/[&<>"']/g, '')}">
-  <button type="submit">入る</button>
-  <p>合っていれば、この端末を${印の日数}日間おぼえます。<br>
-     このツールは外部へ一切送信しません。</p>
-  <hr style="width:100%;border:0;border-top:1px solid rgba(128,128,128,.3)">
-  <p>合言葉を覚えていないときは、Macの前で許可してもらえます。</p>
-  <button type="button" id="pair" style="background:#555">Macで許可してもらう</button>
+  <input type="text" name="名前" placeholder="端末の名前（例: iPhone）" autocomplete="off" value="${名前}" aria-label="端末の名前">
+  <button type="button" id="pair">Macに許可を頼む</button>
   <p id="pairmsg"></p>
+  <p>許可した端末だけが、このツールを開けます。使っている間は、許可が切れません。<br>このツールは外部へ一切送信しません。</p>
+  ${合言葉も ? `<details><summary>合言葉で入る（前の決め方）</summary>
+  <input type="password" name="合言葉" autocomplete="current-password" aria-label="合言葉">
+  <button type="submit" style="background:#555;margin-top:.5rem">合言葉で入る</button></details>` : ''}
 </form>
 <script>
 // iPadは、別のアプリへ切り替えて戻るとページを読み込み直すことがあり、そのたびに新しい頼み（新しいコード）を
@@ -417,6 +482,10 @@ function 覚えた待ち() {
 }
 var 前 = 覚えた待ち();
 if (前) 待ちを見せる(前);
+// 名前の欄でEnterを押したときも、合言葉ではなく、許可を頼む（合言葉の道を残していないときは、送らない）
+document.querySelector('form').addEventListener('submit', function (e) {
+  if (!document.querySelector('[name=合言葉]') || !document.querySelector('[name=合言葉]').value) { e.preventDefault(); document.getElementById('pair').click(); }
+});
 document.getElementById('pair').addEventListener('click', async function () {
   var m = document.getElementById('pairmsg');
   var 続き = 覚えた待ち();
@@ -581,6 +650,8 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         // ここに来られるのは、上の経路の確認を通った相手だけ（同じLAN／Tailscale）。
         if (req.method === 'POST' && req.path === '/__pair/request') {
             const r = ペアを頼む(住所, (req.body && req.body['名前']) || 端末名を推す(req.headers['user-agent']));
+            // 頼んだことを、入場の記録に残す（見慣れない住所からの頼みに、本人が気づけるように）
+            if (r.ok && 間違いの知らせ先) { try { 間違いの知らせ先('許可の頼み', 住所); } catch { /* 記録できなくても、頼みは止めない */ } }
             return res.status(r.ok ? 200 : 429).json(r);
         }
         // Windows用キットのインストーラーからの報告。ブラウザの印（cookie）は持たないので、ここでは通し、
@@ -604,6 +675,11 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         if (req.method === 'POST' && req.path === '/__gate') {
             const 言葉 = (req.body && req.body['合言葉']) || '';
             const 名前 = (req.body && req.body['名前']) || '';
+            // 合言葉の道は、既定では閉じている（許可はMacの前で押すだけ）。前の合言葉を知っている人でも入れない
+            if (!合言葉で入れるか()) {
+                res.status(403).type('text/html; charset=utf-8');
+                return res.end(合言葉を聞く画面('合言葉では入れません。「Macに許可を頼む」を押してください。', 端末名を推す(req.headers['user-agent'])));
+            }
 
             if (!合言葉が合うか(言葉)) {
                 間違えた(住所);
@@ -623,7 +699,13 @@ function 門番を置く(app, 他の端末を許しているか, Tailscaleを許
         const 印 = (req.headers.cookie || '')
             .split(';').map((s) => s.trim())
             .find((s) => s.startsWith('areglm_pass='));
-        if (印 && 印が通るか(印.slice('areglm_pass='.length))) return next();
+        if (印 && 印が通るか(印.slice('areglm_pass='.length))) {
+            const 新しい期限 = 印を延ばす(印.slice('areglm_pass='.length));
+            if (新しい期限) {
+                res.append('Set-Cookie', `${印}; Path=/; Max-Age=${印の日数 * 86400}; HttpOnly; SameSite=Lax`);
+            }
+            return next();
+        }
 
         // まだなら、合言葉を聞く。
         // ここで next() してしまうと、画面のファイルが誰でも取れてしまう。
@@ -646,4 +728,9 @@ module.exports = {
     ペアの待ち一覧,
     ペアを決める,
     印からの端末,
+    許した端末の一覧,
+    端末を外す,
+    ログイン省略を変える,
+    合言葉で入れるか,
+    印を延ばす,
 };
