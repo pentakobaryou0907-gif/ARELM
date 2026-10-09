@@ -222,6 +222,12 @@
                         <div id="night-panel"></div>
                     </section>
 
+                    <section data-home-group="today" class="panel-card full-width" id="hq-home-card">
+                        <h3><span class="sec-icon">📋</span>司令（席を外しても進める）</h3>
+                        <p class="hint">「席を外して在庫を見て」のように頼むと、係が裏で進めて、結果をまとめます。送る・公開する・消す、はあなたの「よい」を待ちます。SUZURIの公開ボタンは押しません。</p>
+                        <div id="hq-home-panel"></div>
+                    </section>
+
                     <section data-home-group="today" class="panel-card">
                         <div class="panel-header-row">
                             <h3><span class="sec-icon">⏱</span>タイマー</h3>
@@ -755,6 +761,16 @@
                             <button type="submit" class="btn btn-primary btn-sm">実行</button>
                         </form>
                         <div id="mainai-suggest" class="mainai-suggest"></div>
+                    </section>
+
+                    <section class="panel-card full-width" id="hq-card">
+                        <h3><span class="sec-icon">📋</span>司令（席を外しても、係が裏で進める）</h3>
+                        <p class="hint">
+                            画面を閉じても、Macのサーバーが係に振って進めます。
+                            進み具合と確認待ちは「作業」ページでも見られます。
+                            チーム（開いているあいだの同時作業）とは別です。
+                        </p>
+                        <div id="hq-mainai-panel"></div>
                     </section>
 
                     <section class="panel-card full-width" id="team-card">
@@ -2439,9 +2455,18 @@
                         <h2 class="section-title">作業状況</h2>
                     </div>
                     <p class="page-lead">
-                        「裏で〜して」と頼んだ作業が、ここに並びます。待機中の作業は取り消せ、
-                        失敗した作業はやり直せます。
+                        「席を外して〜して」と頼んだ係の仕事と、「裏で〜して」の文章づくりが、ここに並びます。
+                        確認が要る門（送る・公開する・消す）は、よい／見送りを選べます。
                     </p>
+
+                    <section class="panel-card full-width" id="hq-tasks-card">
+                        <h3><span class="sec-icon">📋</span>司令の列（係が裏で進める）</h3>
+                        <p class="hint">
+                            在庫・やること・控え・文章の下書きまで、画面を閉じても進みます。
+                            投稿・公開・削除はしません。SUZURIの「商品を公開する」は、あなたが押します。
+                        </p>
+                        <div id="hq-panel"></div>
+                    </section>
 
                     <section class="panel-card full-width" id="agent-chain-card">
                         <h3><span class="sec-icon">🔗</span>オーケストレーター（担当を順番に連携させる）</h3>
@@ -3630,6 +3655,7 @@
     <script src="js/modules/チーム実行.js" defer></script>
     <script src="js/modules/夜の当番.js" defer></script>
     <script src="js/modules/チーム画面.js" defer></script>
+    <script src="js/modules/司令塔画面.js" defer></script>
     <script src="js/modules/ホーム画面に追加.js" defer></script>
     <script src="js/core/qrcode.js" defer></script>
     <script src="js/modules/三端末.js" defer></script>

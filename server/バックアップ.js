@@ -42,6 +42,9 @@ const 取るファイル = [
     '権利のある資料.json',
     '夜の当番.json',
     '朝の報告.jsonl',
+    '司令の仕事.json',
+    '司令の決まり.json',
+    '司令の記憶.json',
 ];
 const 取るフォルダ = ['ひらめき箱', 'techpack_decks', '永久の記憶'];
 const 自動で戻すもの = ['sync_store.json', 'ひらめき箱'];

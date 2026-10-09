@@ -320,6 +320,21 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/health':
             return self._send(200, {'ok': True, 'service': 'ARELM AI Engine', 'local': True})
 
+        # ---- 司令塔（席を外しても進める列）----
+        if self.path == '/hq/list':
+            import 司令塔
+            return self._send(200, {
+                'ok': True,
+                '一覧': 司令塔.一覧を得る(),
+                '決まり': 司令塔.決まりを読む(),
+            })
+
+        if self.path.startswith('/hq/memory'):
+            import 司令塔
+            from urllib.parse import urlparse, parse_qs
+            係 = (parse_qs(urlparse(self.path).query).get('係') or [''])[0]
+            return self._send(200, {'ok': True, '記憶': 司令塔.記憶を出す(係)})
+
         # ---- チーム（係で手分けして、実際の操作を進める）: 係の一覧 ----
         if self.path == '/team/roster':
             import チーム
@@ -734,6 +749,40 @@ class Handler(BaseHTTPRequestHandler):
                         上限=data.get('上限'),
                     )
                 return self._send(200, 決めた)
+
+            # ---- 司令塔（席を外しても進める列）----
+            if self.path == '/hq/submit':
+                import 司令塔
+                本文 = (data.get('text') or '').strip()
+                if not 本文:
+                    return self._send(400, {'ok': False, '訳': '頼みを入れてください'})
+                verdict = rules.check(本文)
+                if not verdict['ok']:
+                    return self._send(200, {'ok': False, '分かった': False, '訳': verdict['reason']})
+                return self._send(200, 司令塔.仕事を受ける(本文, 定時=bool(data.get('定時'))))
+
+            if self.path == '/hq/advance':
+                import 司令塔
+                司令塔.定時を積む()
+                return self._send(200, 司令塔.進める(data.get('同期')))
+
+            if self.path == '/hq/result':
+                import 司令塔
+                return self._send(200, 司令塔.結果を入れる(data.get('id'), data.get('番号'), data.get('結果') or {}))
+
+            if self.path == '/hq/approve':
+                import 司令塔
+                return self._send(200, 司令塔.門に答える(data.get('id'), data.get('よい') is not False, data.get('番号')))
+
+            if self.path == '/hq/cancel':
+                import 司令塔
+                return self._send(200, 司令塔.取り消す(data.get('id')))
+
+            if self.path == '/hq/rules':
+                import 司令塔
+                if data.get('決まり') is not None:
+                    return self._send(200, 司令塔.決まりを書く(data.get('決まり')))
+                return self._send(200, {'ok': True, '決まり': 司令塔.決まりを読む()})
 
             # ---- チーム: 頼んだら誰がやるかの下見（動かさない）----
             if self.path == '/team/preview':
@@ -1231,6 +1280,8 @@ def main():
     # マルチエージェント化 第2段: 裏で進める作業の常駐ワーカーを起動する。
     import バックグラウンド作業
     バックグラウンド作業.起動する()
+    import 司令塔
+    司令塔.起動時の片付け()
 
     # 終了の合図を受けたら、覚えたことを書き出してから終わる。
     #

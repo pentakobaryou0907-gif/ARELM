@@ -15,6 +15,7 @@ const path = require('path');
 
 const 門番 = require('../server/門番');
 const 夜 = require('../server/夜の当番');
+const 司令の列 = require('../server/司令の列');
 
 const 結果 = [];
 function 確かめる(名, 条件, 詳細 = '') { 結果.push({ 名, ok: !!条件, 詳細 }); }
@@ -475,6 +476,21 @@ function 画面のファイルを読む(名前, 窓 = {}) {
     const 手の画面 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'Chromeの手.js'), 'utf8');
     確かめる('手: AIが選んだ材料から「本人が許した」を外してから頼む', /delete 送る\.本人が許した/.test(手の画面) && /delete 材料\.本人が許した/.test(手の画面));
     確かめる('手: 「本人が許した」を付けて頼み直すのは、本人が「よい」を押したときだけ', /const よい = await 手の本人に確かめる\([\s\S]{0,200}if \(!よい\) return[\s\S]{0,120}本人が許した: true/.test(手の画面));
+}
+
+/* ---------- 司令の列: 消さない・公開しない ---------- */
+{
+    const 店 = {};
+    const 足 = 司令の列.同期の配列を足す(店, 'areglm_tasks', { title: '補充', done: false });
+    確かめる('司令: やることを配列へ足せる', 足.ok && 足.数 === 1 && JSON.parse(店.areglm_tasks.value).length === 1);
+    司令の列.同期の配列を足す(店, 'areglm_tasks', { title: '二件目', done: false });
+    確かめる('司令: 足しても、前の件は残る（消さない）', JSON.parse(店.areglm_tasks.value).length === 2
+        && JSON.parse(店.areglm_tasks.value)[0].title === '補充');
+    店.壊 = { value: '{not-json' };
+    const 壊 = 司令の列.同期の配列を足す(店, '壊', { title: 'x' });
+    確かめる('司令: 壊れた中身は上書きしない', !壊.ok && 店.壊.value === '{not-json');
+    確かめる('司令: 公開は、よいと言われても押さない', 司令の列.公開してよいか() === false);
+    確かめる('司令: 消すことはしない', 司令の列.消してよいか() === false);
 }
 
 /* ---------- まとめ ---------- */

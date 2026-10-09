@@ -632,6 +632,7 @@ app.post('/api/anywhere/disable', async (req, res) => {
  * 点検は読むだけ。書くのは、朝の報告（追記のみ）と、古いときのバックアップだけ。
  */
 const 夜の当番 = require('./夜の当番');
+const 司令の列 = require('./司令の列');
 const 夜の当番の道具 = {
     置き場: DATA_DIR,
     // SYNC_PATH は、このあとで定義される。読むのを、使うときまで遅らせる（先に読むと起動で落ちる）。
@@ -2588,6 +2589,13 @@ proxyToAiEngine('GET', '/team/roster');
 proxyToAiEngine('POST', '/team/preview');
 proxyToAiEngine('POST', '/team/agent/add');
 proxyToAiEngine('POST', '/team/agent/remove');
+proxyToAiEngine('GET', '/hq/list');
+proxyToAiEngine('POST', '/hq/submit');
+proxyToAiEngine('POST', '/hq/advance');
+proxyToAiEngine('POST', '/hq/result');
+proxyToAiEngine('POST', '/hq/approve');
+proxyToAiEngine('POST', '/hq/cancel');
+proxyToAiEngine('POST', '/hq/rules');
 proxyToAiEngine('POST', '/warm');
 proxyToAiEngine('POST', '/deal-check');
 proxyToAiEngine('POST', '/generate/learn-style');
@@ -2615,6 +2623,55 @@ proxyToAiEngine('POST', '/semantics/rebuild');
 proxyToAiEngine('POST', '/design/learn-media');
 proxyToAiEngine('POST', '/design/suggest');
 proxyToAiEngine('POST', '/techpack-deck/build');
+
+/**
+ * 司令の列（席を外しても、係の作業をサーバーが進める）
+ *
+ * Pythonの司令塔が分けて振り、読む手はそこで済ませる。
+ * やることを足す・控えを取るなどは、同期の控えがNode側にあるのでここで書く。
+ * 消さない・外へ送らない・公開しない。
+ */
+const 司令の道具 = {
+    読む: 同期の中身を読む,
+    書く: 同期の中身を書く,
+    バックアップ,
+    ひらめき箱,
+    夜を実行する: () => 夜の当番.実行する(夜の当番の道具, '司令の列'),
+    夜の報告: () => 夜の当番.報告を読む(DATA_DIR, 1)[0] || null,
+    文章を作る: async (型, 材料) => {
+        const r = await aiEngineFetch('/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template: 型, fields: 材料 }),
+        });
+        const d = await r.json();
+        return (d && d.outputs && d.outputs[0]) || '';
+    },
+    忘れる: async (語) => {
+        const r = await aiEngineFetch('/forget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ term: 語 }),
+        });
+        const d = await r.json();
+        const 消えた = (d && (d.removed || d.semanticRemoved)) || [];
+        return {
+            文: (Array.isArray(消えた) ? 消えた.length : 消えた)
+                ? `「${語}」を忘れました（永久の記憶へ残してから）`
+                : `「${語}」は覚えていませんでした`,
+        };
+    },
+    AI: async (道, 本文) => {
+        const opts = { method: 本文 == null ? 'GET' : 'POST' };
+        if (本文 != null) {
+            opts.headers = { 'Content-Type': 'application/json' };
+            opts.body = JSON.stringify(本文);
+        }
+        const r = await aiEngineFetch(道, opts);
+        return r.json();
+    },
+};
+司令の列.窓口を置く(app, 司令の道具, 本人だけ);
 
 /**
  * チャットで添付した動画を、デザイン学習にかけられるよう一時保存する。
@@ -3950,6 +4007,7 @@ function 起動後の処理(待ち受け先) {
     console.log(`ARELM: http://localhost:${PORT}（待ち受け: ${待ち受け先}）`);
     バックアップ.毎日の控えを始める();
     夜の当番.見張りを始める(夜の当番の道具);
+    司令の列.見張りを始める(司令の道具);
 
     // 他の端末から使う設定のとき、電源につないでいる間は、Macが眠って届かなくならないようにする。
     //
